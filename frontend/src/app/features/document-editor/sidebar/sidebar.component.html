@@ -1,0 +1,60 @@
+<div class="sidebar">
+    <div class="tabs">
+        <div class="tab active">Suggestions</div>
+        <!-- TODO: Add more tabs: Settings, History -->
+    </div>
+
+    <div class="tab-content" *ngIf="activeTab === 'suggestions'">
+        <div class="ai-actions" *ngIf="selectedSentence">
+            <h3>AI Suggestions</h3>
+
+            <div class="action-card">
+                <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
+                    <span class="icon">🧙‍♂️</span>
+                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
+                </button>
+                <p class="description">Analyze current sentence and suggest emojis</p>
+            </div>
+
+            <div class="action-card">
+                <button class="ai-btn primary" (click)="generateTextFromEmojis()"
+                    [disabled]="isGenerating || selectedSentence.emojis.length === 0">
+                    <span class="icon">✨</span>
+                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
+                </button>
+                <p class="description">Create text matching your emojis</p>
+            </div>
+
+            <!-- Show suggestion if generated -->
+            <div class="suggestion-result" *ngIf="lastSuggestion">
+                <h4>Suggested Text:</h4>
+                <p class="suggestion-text">{{ lastSuggestion }}</p>
+                <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+            </div>
+
+            <!-- Hard-coded suggestion cards for MVP -->
+            <div class="suggestion-cards">
+                <h4>Quick Ideas</h4>
+
+                <div class="card">
+                    <h5>🎭 Add Drama</h5>
+                    <p>Make the scene more intense with conflict or tension</p>
+                </div>
+
+                <div class="card">
+                    <h5>😄 Add Humor</h5>
+                    <p>Lighten the mood with a witty or funny moment</p>
+                </div>
+
+                <div class="card">
+                    <h5>🔍 Add Mystery</h5>
+                    <p>Introduce an element of intrigue or suspense</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="no-selection" *ngIf="!selectedSentence">
+            <p>Select a sentence to see AI suggestions</p>
+        </div>
+    </div>
+</div>

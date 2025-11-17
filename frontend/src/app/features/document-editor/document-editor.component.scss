@@ -1,0 +1,52 @@
+$pastel-bg: #f8f9ff;
+$card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+.document-editor {
+    min-height: calc(100vh - 80px);
+    background: $pastel-bg;
+    padding: 2rem;
+
+    .main-content {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 2rem;
+        align-items: start;
+    }
+
+    .left-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .text-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: $card-shadow;
+        padding: 2rem;
+        min-height: 400px;
+    }
+
+    .plot-section {
+        background: linear-gradient(135deg, #a8b3ff 0%, #d4a5ff 100%);
+        border-radius: 12px;
+        box-shadow: $card-shadow;
+        padding: 1.5rem;
+    }
+
+    .right-panel {
+        position: sticky;
+        top: 2rem;
+    }
+}
+
+.no-document {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #666;
+    font-size: 1.2rem;
+}

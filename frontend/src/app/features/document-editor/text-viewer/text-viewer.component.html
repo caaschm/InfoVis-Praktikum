@@ -1,0 +1,20 @@
+<div class="text-viewer">
+    <h2 class="section-title">Document</h2>
+
+    <div class="sentences-container">
+        <div *ngFor="let sentence of sentences" class="sentence" [class.selected]="isSelected(sentence.id)"
+            (click)="onSentenceClick(sentence)">
+            <span class="sentence-text" contenteditable="true"
+                (blur)="onSentenceEdit(sentence, $any($event.target).innerText)"
+                [attr.data-placeholder]="'Type your sentence...'">{{ sentence.text }}</span>
+
+            <span class="emoji-indicator" *ngIf="sentence.emojis.length > 0">
+                {{ sentence.emojis.join(' ') }}
+            </span>
+        </div>
+    </div>
+
+    <div class="hint" *ngIf="sentences.length === 0">
+        <p>No sentences yet. Paste or type your story above.</p>
+    </div>
+</div>

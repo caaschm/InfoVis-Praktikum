@@ -1,0 +1,162 @@
+.sidebar {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+
+    .tabs {
+        display: flex;
+        border-bottom: 2px solid #e5e7eb;
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s ease;
+
+            &.active {
+                color: #3b82f6;
+                border-bottom: 3px solid #3b82f6;
+            }
+
+            &:hover:not(.active) {
+                background: #f9fafb;
+            }
+        }
+    }
+
+    .tab-content {
+        padding: 1.5rem;
+
+        .ai-actions {
+            h3 {
+                margin: 0 0 1.5rem 0;
+                color: #1f2937;
+                font-size: 1.2rem;
+            }
+
+            .action-card {
+                margin-bottom: 1.5rem;
+
+                .ai-btn {
+                    width: 100%;
+                    padding: 1rem;
+                    border: none;
+                    border-radius: 8px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    transition: all 0.3s ease;
+
+                    &:hover:not(:disabled) {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                    }
+
+                    &:disabled {
+                        opacity: 0.6;
+                        cursor: not-allowed;
+                    }
+
+                    .icon {
+                        font-size: 1.3rem;
+                    }
+                }
+
+                .description {
+                    margin: 0.5rem 0 0 0;
+                    font-size: 0.85rem;
+                    color: #6b7280;
+                    text-align: center;
+                }
+            }
+
+            .suggestion-result {
+                background: #eff6ff;
+                border: 2px solid #3b82f6;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+
+                h4 {
+                    margin: 0 0 0.75rem 0;
+                    color: #1e40af;
+                    font-size: 1rem;
+                }
+
+                .suggestion-text {
+                    margin: 0 0 1rem 0;
+                    color: #1f2937;
+                    line-height: 1.5;
+                }
+
+                .apply-btn {
+                    width: 100%;
+                    padding: 0.75rem;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: background 0.2s ease;
+
+                    &:hover {
+                        background: #2563eb;
+                    }
+                }
+            }
+
+            .suggestion-cards {
+                h4 {
+                    margin: 1.5rem 0 1rem 0;
+                    color: #1f2937;
+                    font-size: 1rem;
+                }
+
+                .card {
+                    background: #f9fafb;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 0.75rem;
+                    transition: all 0.2s ease;
+
+                    &:hover {
+                        border-color: #3b82f6;
+                        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+                    }
+
+                    h5 {
+                        margin: 0 0 0.5rem 0;
+                        color: #1f2937;
+                        font-size: 0.95rem;
+                    }
+
+                    p {
+                        margin: 0;
+                        font-size: 0.85rem;
+                        color: #6b7280;
+                        line-height: 1.4;
+                    }
+                }
+            }
+        }
+
+        .no-selection {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #9ca3af;
+            font-style: italic;
+        }
+    }
+}

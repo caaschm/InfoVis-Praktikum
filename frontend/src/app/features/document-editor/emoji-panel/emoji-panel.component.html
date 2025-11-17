@@ -1,0 +1,32 @@
+<div class="emoji-panel">
+    <h3 class="panel-title">Current Plot</h3>
+
+    <div class="current-emojis" *ngIf="selectedSentence">
+        <div class="emoji-slots">
+            <div *ngFor="let emoji of currentEmojis; let i = index" class="emoji-slot filled" (click)="removeEmoji(i)"
+                title="Click to remove">
+                <span class="emoji">{{ emoji }}</span>
+            </div>
+            <div *ngFor="let _ of [].constructor(maxEmojis - currentEmojis.length)" class="emoji-slot empty">
+                <span class="placeholder">+</span>
+            </div>
+        </div>
+
+        <p class="helper-text">{{ currentEmojis.length }} / {{ maxEmojis }} emojis</p>
+    </div>
+
+    <div class="no-selection" *ngIf="!selectedSentence">
+        <p>Select a sentence to edit its emojis</p>
+    </div>
+
+    <!-- Quick emoji picker -->
+    <div class="emoji-picker" *ngIf="selectedSentence && canAddMore()">
+        <p class="picker-title">Quick Add:</p>
+        <div class="emoji-grid">
+            <button *ngFor="let emoji of commonEmojis" class="emoji-btn" (click)="addEmoji(emoji)"
+                [disabled]="!canAddMore()">
+                {{ emoji }}
+            </button>
+        </div>
+    </div>
+</div>

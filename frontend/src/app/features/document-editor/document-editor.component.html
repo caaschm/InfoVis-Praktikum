@@ -1,0 +1,25 @@
+<div class="document-editor" *ngIf="currentDocument">
+    <div class="main-content">
+        <!-- Left side: Text editor and emoji plot -->
+        <div class="left-panel">
+            <!-- Text viewer -->
+            <div class="text-section">
+                <app-text-viewer></app-text-viewer>
+            </div>
+
+            <!-- Current plot (emoji strip) -->
+            <div class="plot-section">
+                <app-emoji-panel></app-emoji-panel>
+            </div>
+        </div>
+
+        <!-- Right side: Sidebar -->
+        <div class="right-panel">
+            <app-sidebar></app-sidebar>
+        </div>
+    </div>
+</div>
+
+<div class="no-document" *ngIf="!currentDocument">
+    <p>Loading document...</p>
+</div>
