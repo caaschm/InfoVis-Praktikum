@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
@@ -13,13 +13,21 @@ import { Sentence } from '../../../core/models/document.model';
   styleUrl: './sidebar.component.scss'
 })
 export class SidebarComponent implements OnInit, OnDestroy {
+  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
+  
   selectedSentence: Sentence | null = null;
   isGenerating = false;
   lastSuggestion: string | null = null;
   private destroy$ = new Subject<void>();
 
-  // TODO: Future tabs can be added here
-  activeTab = 'suggestions';
+  // Emoji management
+  maxEmojis = 5;
+  commonEmojis = [
+    '😀', '😊', '😢', '😱', '😡', '😍', '🤔', '😴',
+    '🎉', '🎨', '🎭', '🎪', '🎬', '📖', '✨', '🌟',
+    '🌙', '☀️', '⛈️', '🌈', '🔥', '💧', '💔', '💖',
+    '👑', '👻', '🦄', '🐉', '🧙‍♂️', '🧛‍♀️', '🧜‍♂️', '🏰'
+  ];
 
   constructor(
     private documentService: DocumentService,
@@ -38,6 +46,26 @@ export class SidebarComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  // Emoji management methods
+  addEmoji(emoji: string): void {
+    if (!this.selectedSentence) return;
+    if (this.selectedSentence.emojis.length >= this.maxEmojis) return;
+
+    const newEmojis = [...this.selectedSentence.emojis, emoji];
+    this.documentService.updateSentenceEmojis(this.selectedSentence.id, newEmojis);
+  }
+
+  removeEmoji(index: number): void {
+    if (!this.selectedSentence) return;
+
+    const newEmojis = this.selectedSentence.emojis.filter((_, i) => i !== index);
+    this.documentService.updateSentenceEmojis(this.selectedSentence.id, newEmojis);
+  }
+
+  canAddMore(): boolean {
+    return this.selectedSentence ? this.selectedSentence.emojis.length < this.maxEmojis : false;
   }
 
   generateEmojis(): void {

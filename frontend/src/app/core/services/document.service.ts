@@ -95,6 +95,21 @@ export class DocumentService {
     }
 
     /**
+     * Update document content and re-parse sentences
+     */
+    updateDocumentContent(documentId: string, content: string): void {
+        this.apiService.patch<DocumentDetail>(`/api/documents/${documentId}`, { content })
+            .subscribe({
+                next: (updatedDoc) => {
+                    this.currentDocumentSubject.next(updatedDoc);
+                    // Clear sentence selection since sentences have been re-parsed
+                    this.selectedSentenceSubject.next(null);
+                },
+                error: (err) => console.error('Error updating document content:', err)
+            });
+    }
+
+    /**
      * Update sentence text (debounced)
      */
     updateSentenceText(sentenceId: string, text: string): void {

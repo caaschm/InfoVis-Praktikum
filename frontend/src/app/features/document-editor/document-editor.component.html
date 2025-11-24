@@ -1,21 +1,45 @@
 <div class="document-editor" *ngIf="currentDocument">
-    <div class="main-content">
-        <!-- Left side: Text editor and emoji plot -->
-        <div class="left-panel">
-            <!-- Text viewer -->
-            <div class="text-section">
-                <app-text-viewer></app-text-viewer>
-            </div>
-
-            <!-- Current plot (emoji strip) -->
-            <div class="plot-section">
-                <app-emoji-panel></app-emoji-panel>
-            </div>
+    <div class="main-content" [class.sidebar-hidden]="!sidebarVisible">
+        <!-- Text editor / Workspace -->
+        <div class="workspace-panel">
+            <app-text-viewer></app-text-viewer>
         </div>
 
-        <!-- Right side: Sidebar -->
-        <div class="right-panel">
-            <app-sidebar></app-sidebar>
+        <!-- Right side: Multipurpose panel -->
+        <div class="right-panel" *ngIf="sidebarVisible">
+            <app-sidebar [activeTab]="activeTab"></app-sidebar>
+        </div>
+
+        <!-- Vertical tab buttons strip (far right) -->
+        <div class="tab-strip">
+            <button class="tab-btn" 
+                    [class.active]="sidebarVisible && activeTab === 'emojis'"
+                    (click)="toggleTab('emojis')"
+                    (dblclick)="hideSidebar()"
+                    title="Emojis (Double-click to hide)">
+                <span class="icon">😀</span>
+            </button>
+            <button class="tab-btn" 
+                    [class.active]="sidebarVisible && activeTab === 'graph'"
+                    (click)="toggleTab('graph')"
+                    (dblclick)="hideSidebar()"
+                    title="Graph (Double-click to hide)">
+                <span class="icon">📊</span>
+            </button>
+            <button class="tab-btn" 
+                    [class.active]="sidebarVisible && activeTab === 'characters'"
+                    (click)="toggleTab('characters')"
+                    (dblclick)="hideSidebar()"
+                    title="Characters (Double-click to hide)">
+                <span class="icon">👥</span>
+            </button>
+            <button class="tab-btn" 
+                    [class.active]="sidebarVisible && activeTab === 'analysis'"
+                    (click)="toggleTab('analysis')"
+                    (dblclick)="hideSidebar()"
+                    title="Analysis (Double-click to hide)">
+                <span class="icon">🎭</span>
+            </button>
         </div>
     </div>
 </div>

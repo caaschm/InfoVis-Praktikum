@@ -1,11 +1,43 @@
 <div class="sidebar">
-    <div class="tabs">
-        <div class="tab active">Suggestions</div>
-        <!-- TODO: Add more tabs: Settings, History -->
-    </div>
+    <!-- Emojis Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'emojis'">
+        <div *ngIf="selectedSentence">
+            <h3>Emoji Editor</h3>
+            
+            <!-- Current emoji slots -->
+            <div class="current-emojis">
+                <div class="emoji-slots">
+                    <div *ngFor="let emoji of selectedSentence.emojis; let i = index" 
+                         class="emoji-slot filled" 
+                         (click)="removeEmoji(i)"
+                         title="Click to remove">
+                        <span class="emoji">{{ emoji }}</span>
+                    </div>
+                    <div *ngFor="let _ of [].constructor(maxEmojis - selectedSentence.emojis.length)" 
+                         class="emoji-slot empty">
+                        <span class="placeholder">+</span>
+                    </div>
+                </div>
+                <p class="helper-text">{{ selectedSentence.emojis.length }} / {{ maxEmojis }} emojis</p>
+            </div>
 
-    <div class="tab-content" *ngIf="activeTab === 'suggestions'">
-        <div class="ai-actions" *ngIf="selectedSentence">
+            <!-- Quick emoji picker -->
+            <div class="emoji-picker" *ngIf="canAddMore()">
+                <p class="picker-title">Quick Add:</p>
+                <div class="emoji-grid">
+                    <button *ngFor="let emoji of commonEmojis" 
+                            class="emoji-btn" 
+                            (click)="addEmoji(emoji)"
+                            [disabled]="!canAddMore()">
+                        {{ emoji }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- AI Actions -->
+            <div class="ai-actions">
             <h3>AI Suggestions</h3>
 
             <div class="action-card">
@@ -31,30 +63,274 @@
                 <p class="suggestion-text">{{ lastSuggestion }}</p>
                 <button class="apply-btn" (click)="applySuggestion()">Apply</button>
             </div>
-
-            <!-- Hard-coded suggestion cards for MVP -->
-            <div class="suggestion-cards">
-                <h4>Quick Ideas</h4>
-
-                <div class="card">
-                    <h5>🎭 Add Drama</h5>
-                    <p>Make the scene more intense with conflict or tension</p>
-                </div>
-
-                <div class="card">
-                    <h5>😄 Add Humor</h5>
-                    <p>Lighten the mood with a witty or funny moment</p>
-                </div>
-
-                <div class="card">
-                    <h5>🔍 Add Mystery</h5>
-                    <p>Introduce an element of intrigue or suspense</p>
-                </div>
             </div>
         </div>
 
         <div class="no-selection" *ngIf="!selectedSentence">
             <p>Select a sentence to see AI suggestions</p>
+        </div>
+    </div>
+
+    <!-- Graph Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'graph'">
+        <h3>Story Graph</h3>
+        
+        <div class="graph-section">
+            <h4>Character Building Flow</h4>
+            <p class="graph-description">Click on flows to see the text passages that shape each character</p>
+            
+            <div class="sankey-graph">
+                <!-- Left side: Sentences/Text passages -->
+                <div class="flow-column sources">
+                    <div class="flow-node sentence" data-sentence="1">
+                        <span class="node-label">📝 Sentence 1</span>
+                        <p class="sentence-preview">"The brave hero set out..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="2">
+                        <span class="node-label">📝 Sentence 2</span>
+                        <p class="sentence-preview">"The dark sorcerer plotted..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="3">
+                        <span class="node-label">📝 Sentence 3</span>
+                        <p class="sentence-preview">"She found a magical sword..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="4">
+                        <span class="node-label">📝 Sentence 4</span>
+                        <p class="sentence-preview">"The unicorn danced joyfully..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="5">
+                        <span class="node-label">📝 Sentence 5</span>
+                        <p class="sentence-preview">"The journey continued..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="6">
+                        <span class="node-label">📝 Sentence 6</span>
+                        <p class="sentence-preview">"Her fury knew no bounds..."</p>
+                    </div>
+                    <div class="flow-node sentence" data-sentence="7">
+                        <span class="node-label">📝 Sentence 7</span>
+                        <p class="sentence-preview">"Loyal companion stayed close..."</p>
+                    </div>
+                </div>
+
+                <!-- Flows/Rivers -->
+                <svg class="flow-connections" viewBox="0 0 200 400" preserveAspectRatio="none">
+                    <!-- Hero flows from sentences -->
+                    <path class="flow-path" data-from="1" data-to="hero" data-influence="Actions" 
+                          d="M 0 30 C 100 30, 100 130, 200 135" opacity="0.7" />
+                    <path class="flow-path" data-from="3" data-to="hero" data-influence="Growth" 
+                          d="M 0 100 C 100 100, 100 135, 200 140" opacity="0.8" />
+                    <path class="flow-path" data-from="5" data-to="hero" data-influence="Themes" 
+                          d="M 0 170 C 100 170, 100 145, 200 145" opacity="0.5" />
+                    
+                    <!-- Villain flows from sentences -->
+                    <path class="flow-path" data-from="2" data-to="villain" data-influence="Conflicts" 
+                          d="M 0 65 C 100 65, 100 250, 200 250" opacity="0.9" />
+                    <path class="flow-path" data-from="6" data-to="villain" data-influence="Actions" 
+                          d="M 0 205 C 100 205, 100 255, 200 255" opacity="0.7" />
+                    
+                    <!-- Companion flows from sentences -->
+                    <path class="flow-path" data-from="4" data-to="companion" data-influence="Relationships" 
+                          d="M 0 135 C 100 135, 100 360, 200 360" opacity="0.8" />
+                    <path class="flow-path" data-from="7" data-to="companion" data-influence="Loyalty" 
+                          d="M 0 240 C 100 240, 100 365, 200 365" opacity="0.7" />
+                </svg>
+
+                <!-- Right side: Characters -->
+                <div class="flow-column targets">
+                    <div class="flow-node character hero">
+                        <span class="node-icon">🧙‍♂️</span>
+                        <span class="node-label">Hero</span>
+                        <div class="node-details">
+                            <div class="detail-item">⚔️ Actions (S1, S3)</div>
+                            <div class="detail-item">🌱 Growth (S3)</div>
+                            <div class="detail-item">🎭 Themes (S5)</div>
+                        </div>
+                    </div>
+                    <div class="flow-node character villain">
+                        <span class="node-icon">🧛‍♀️</span>
+                        <span class="node-label">Villain</span>
+                        <div class="node-details">
+                            <div class="detail-item">💥 Conflicts (S2)</div>
+                            <div class="detail-item">⚔️ Actions (S6)</div>
+                        </div>
+                    </div>
+                    <div class="flow-node character companion">
+                        <span class="node-icon">🦄</span>
+                        <span class="node-label">Companion</span>
+                        <div class="node-details">
+                            <div class="detail-item">💕 Relations (S4)</div>
+                            <div class="detail-item">💙 Loyalty (S7)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="graph-legend">
+                <h5>💡 Interaction</h5>
+                <p class="legend-description">Hover over flows to see which text passages influence each character trait. Click on sentence nodes to jump to that text in the editor.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Characters Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'characters'">
+        <h3>Character Sentiment</h3>
+        
+        <div class="character-list">
+            <div class="character-card">
+                <div class="character-header">
+                    <div class="character-avatar">🧙‍♂️</div>
+                    <div class="character-info">
+                        <h4>Hero</h4>
+                        <p class="mentions">Mentioned 8 times</p>
+                    </div>
+                </div>
+                <div class="sentiment-timeline">
+                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                        <path d="M 10 20 L 25 18 L 45 20 L 60 28 L 85 15" />
+                    </svg>
+                    <div class="timeline-point positive" style="left: 10%;" title="Sentence 1: 'The brave hero set out on a quest'"></div>
+                    <div class="timeline-point positive" style="left: 25%;" title="Sentence 3: 'She found a magical sword'"></div>
+                    <div class="timeline-point neutral" style="left: 45%;" title="Sentence 5: 'The journey continued through forests'"></div>
+                    <div class="timeline-point negative" style="left: 60%;" title="Sentence 7: 'Dark clouds gathered as danger approached'"></div>
+                    <div class="timeline-point positive" style="left: 85%;" title="Sentence 10: 'Victory! The kingdom was saved'"></div>
+                </div>
+                <div class="sentiment-summary">
+                    <div class="sentiment-bar">
+                        <div class="bar-segment positive" style="width: 50%;"></div>
+                        <div class="bar-segment neutral" style="width: 20%;"></div>
+                        <div class="bar-segment negative" style="width: 30%;"></div>
+                    </div>
+                    <div class="sentiment-labels">
+                        <span class="label positive">😊 50%</span>
+                        <span class="label neutral">😐 20%</span>
+                        <span class="label negative">😢 30%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="character-card">
+                <div class="character-header">
+                    <div class="character-avatar">🧛‍♀️</div>
+                    <div class="character-info">
+                        <h4>Villain</h4>
+                        <p class="mentions">Mentioned 5 times</p>
+                    </div>
+                </div>
+                <div class="sentiment-timeline">
+                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                        <path d="M 20 25 L 50 28 L 70 22 L 90 30" />
+                    </svg>
+                    <div class="timeline-point negative" style="left: 20%;" title="Sentence 2: 'The dark sorcerer plotted revenge'"></div>
+                    <div class="timeline-point negative" style="left: 50%;" title="Sentence 6: 'Her fury knew no bounds'"></div>
+                    <div class="timeline-point neutral" style="left: 70%;" title="Sentence 8: 'Confusion swept over the villain'"></div>
+                    <div class="timeline-point negative" style="left: 90%;" title="Sentence 11: 'Defeated and broken, she fled'"></div>
+                </div>
+                <div class="sentiment-summary">
+                    <div class="sentiment-bar">
+                        <div class="bar-segment positive" style="width: 10%;"></div>
+                        <div class="bar-segment neutral" style="width: 15%;"></div>
+                        <div class="bar-segment negative" style="width: 75%;"></div>
+                    </div>
+                    <div class="sentiment-labels">
+                        <span class="label positive">😊 10%</span>
+                        <span class="label neutral">😐 15%</span>
+                        <span class="label negative">😢 75%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="character-card">
+                <div class="character-header">
+                    <div class="character-avatar">🦄</div>
+                    <div class="character-info">
+                        <h4>Companion</h4>
+                        <p class="mentions">Mentioned 4 times</p>
+                    </div>
+                </div>
+                <div class="sentiment-timeline">
+                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+                        <path d="M 30 17 L 55 16 L 75 21" />
+                    </svg>
+                    <div class="timeline-point positive" style="left: 30%;" title="Sentence 4: 'The magical unicorn danced joyfully'"></div>
+                    <div class="timeline-point positive" style="left: 55%;" title="Sentence 7: 'Loyal and true, she stood by her friend'"></div>
+                    <div class="timeline-point neutral" style="left: 75%;" title="Sentence 9: 'Cautiously, she approached the cave'"></div>
+                </div>
+                <div class="sentiment-summary">
+                    <div class="sentiment-bar">
+                        <div class="bar-segment positive" style="width: 65%;"></div>
+                        <div class="bar-segment neutral" style="width: 25%;"></div>
+                        <div class="bar-segment negative" style="width: 10%;"></div>
+                    </div>
+                    <div class="sentiment-labels">
+                        <span class="label positive">😊 65%</span>
+                        <span class="label neutral">😐 25%</span>
+                        <span class="label negative">😢 10%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'analysis'">
+        <h3>Story Analysis</h3>
+        <div class="analysis-section">
+            <div class="metric-card drama">
+                <div class="metric-icon">🎭</div>
+                <div class="metric-info">
+                    <h4>Drama</h4>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: 65%;"></div>
+                    </div>
+                    <p>65% - High tension moments</p>
+                </div>
+            </div>
+
+            <div class="metric-card humor">
+                <div class="metric-icon">😄</div>
+                <div class="metric-info">
+                    <h4>Humor</h4>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: 40%;"></div>
+                    </div>
+                    <p>40% - Moderate comedy</p>
+                </div>
+            </div>
+
+            <div class="metric-card conflict">
+                <div class="metric-icon">⚔️</div>
+                <div class="metric-info">
+                    <h4>Conflict</h4>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: 80%;"></div>
+                    </div>
+                    <p>80% - Strong conflicts present</p>
+                </div>
+            </div>
+
+            <div class="metric-card mystery">
+                <div class="metric-icon">🔍</div>
+                <div class="metric-info">
+                    <h4>Mystery</h4>
+                    <div class="metric-bar">
+                        <div class="metric-fill" style="width: 30%;"></div>
+                    </div>
+                    <p>30% - Some intrigue</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-tips">
+            <h4>Suggestions</h4>
+            <div class="tip-card">
+                <span class="tip-icon">💡</span>
+                <p>Consider adding more humor to balance the high drama</p>
+            </div>
+            <div class="tip-card">
+                <span class="tip-icon">💡</span>
+                <p>Mystery elements could enhance reader engagement</p>
+            </div>
         </div>
     </div>
 </div>

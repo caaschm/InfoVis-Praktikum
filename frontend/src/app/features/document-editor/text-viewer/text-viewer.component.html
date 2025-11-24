@@ -1,15 +1,22 @@
 <div class="text-viewer">
-    <h2 class="section-title">Document</h2>
+    <h2 class="section-title">Workspace</h2>
 
-    <div class="sentences-container">
-        <div *ngFor="let sentence of sentences" class="sentence" [class.selected]="isSelected(sentence.id)"
-            (click)="onSentenceClick(sentence)">
-            <span class="sentence-text" contenteditable="true"
-                (blur)="onSentenceEdit(sentence, $any($event.target).innerText)"
-                [attr.data-placeholder]="'Type your sentence...'">{{ sentence.text }}</span>
-
-            <span class="emoji-indicator" *ngIf="sentence.emojis.length > 0">
-                {{ sentence.emojis.join(' ') }}
+    <div class="text-editor-container" *ngIf="sentences.length > 0">
+        <div class="line-numbers">
+            <span *ngFor="let sentence of sentences; let i = index" class="line-number">{{ i + 1 }}</span>
+        </div>
+        <div class="text-content">
+            <span *ngFor="let sentence of sentences; let isLast = last" 
+                  class="sentence-inline" 
+                  [class.selected]="isSelected(sentence.id)"
+                  (click)="onSentenceClick(sentence)">
+                <span class="sentence-text" 
+                      contenteditable="true"
+                      (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                      (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                      [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span 
+                      class="emoji-tooltip" 
+                      *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>{{ isLast ? '' : ' ' }}
             </span>
         </div>
     </div>

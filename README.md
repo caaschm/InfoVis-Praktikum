@@ -6,7 +6,21 @@ A collaborative creative writing tool that helps authors visualize story emotion
 
 ## 🚀 Quick Start
 
-### Terminal 1 - Backend:
+### 1. Get Your Free API Key
+1. Visit [OpenRouter](https://openrouter.ai/keys)
+2. Sign up for a free account
+3. Generate an API key
+4. Copy the key
+
+### 2. Configure Backend
+```bash
+cd backend
+cp .env.example .env
+# Edit .env and add your API key:
+# OPENROUTER_API_KEY=your_key_here
+```
+
+### 3. Terminal 1 - Backend:
 ```bash
 cd backend
 python3 -m venv venv
@@ -15,14 +29,14 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Terminal 2 - Frontend:
+### 4. Terminal 2 - Frontend:
 ```bash
 cd frontend
 npm install
 ng serve
 ```
 
-### Then open:
+### 5. Then open:
 - **Frontend UI:** http://localhost:4200
 - **Backend API Docs:** http://localhost:8000/docs
 

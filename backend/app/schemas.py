@@ -12,6 +12,11 @@ class DocumentCreate(BaseModel):
     content: str = Field(..., min_length=1)
 
 
+class DocumentContentUpdate(BaseModel):
+    """Schema for updating document content."""
+    content: str = Field(..., min_length=1)
+
+
 class DocumentMetadata(BaseModel):
     """Minimal document info for list view."""
     model_config = ConfigDict(from_attributes=True)
