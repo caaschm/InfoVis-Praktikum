@@ -1,20 +1,30 @@
 <div class="sidebar">
     <!-- Emojis Tab -->
     <div class="tab-content" *ngIf="activeTab === 'emojis'">
+        <!-- Generate for all sentences button -->
+        <div class="bulk-actions">
+            <h3>✨ Auto-Generate Emojis</h3>
+            <button class="ai-btn primary bulk" (click)="generateEmojisForAll()" [disabled]="isGenerating">
+                <span class="icon">🤖</span>
+                <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis for All Sentences' }}</span>
+            </button>
+            <p class="description">AI will analyze each sentence and add emojis automatically</p>
+        </div>
+
+        <div class="divider"></div>
+
         <div *ngIf="selectedSentence">
             <h3>Emoji Editor</h3>
-            
+
             <!-- Current emoji slots -->
             <div class="current-emojis">
                 <div class="emoji-slots">
-                    <div *ngFor="let emoji of selectedSentence.emojis; let i = index" 
-                         class="emoji-slot filled" 
-                         (click)="removeEmoji(i)"
-                         title="Click to remove">
+                    <div *ngFor="let emoji of selectedSentence.emojis; let i = index" class="emoji-slot filled"
+                        (click)="removeEmoji(i)" title="Click to remove">
                         <span class="emoji">{{ emoji }}</span>
                     </div>
-                    <div *ngFor="let _ of [].constructor(maxEmojis - selectedSentence.emojis.length)" 
-                         class="emoji-slot empty">
+                    <div *ngFor="let _ of [].constructor(maxEmojis - selectedSentence.emojis.length)"
+                        class="emoji-slot empty">
                         <span class="placeholder">+</span>
                     </div>
                 </div>
@@ -25,10 +35,8 @@
             <div class="emoji-picker" *ngIf="canAddMore()">
                 <p class="picker-title">Quick Add:</p>
                 <div class="emoji-grid">
-                    <button *ngFor="let emoji of commonEmojis" 
-                            class="emoji-btn" 
-                            (click)="addEmoji(emoji)"
-                            [disabled]="!canAddMore()">
+                    <button *ngFor="let emoji of commonEmojis" class="emoji-btn" (click)="addEmoji(emoji)"
+                        [disabled]="!canAddMore()">
                         {{ emoji }}
                     </button>
                 </div>
@@ -38,31 +46,31 @@
 
             <!-- AI Actions -->
             <div class="ai-actions">
-            <h3>AI Suggestions</h3>
+                <h3>AI Suggestions</h3>
 
-            <div class="action-card">
-                <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
-                    <span class="icon">🧙‍♂️</span>
-                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
-                </button>
-                <p class="description">Analyze current sentence and suggest emojis</p>
-            </div>
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
+                        <span class="icon">🧙‍♂️</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
+                    </button>
+                    <p class="description">Analyze current sentence and suggest emojis</p>
+                </div>
 
-            <div class="action-card">
-                <button class="ai-btn primary" (click)="generateTextFromEmojis()"
-                    [disabled]="isGenerating || selectedSentence.emojis.length === 0">
-                    <span class="icon">✨</span>
-                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
-                </button>
-                <p class="description">Create text matching your emojis</p>
-            </div>
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateTextFromEmojis()"
+                        [disabled]="isGenerating || selectedSentence.emojis.length === 0">
+                        <span class="icon">✨</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
+                    </button>
+                    <p class="description">Create text matching your emojis</p>
+                </div>
 
-            <!-- Show suggestion if generated -->
-            <div class="suggestion-result" *ngIf="lastSuggestion">
-                <h4>Suggested Text:</h4>
-                <p class="suggestion-text">{{ lastSuggestion }}</p>
-                <button class="apply-btn" (click)="applySuggestion()">Apply</button>
-            </div>
+                <!-- Show suggestion if generated -->
+                <div class="suggestion-result" *ngIf="lastSuggestion">
+                    <h4>Suggested Text:</h4>
+                    <p class="suggestion-text">{{ lastSuggestion }}</p>
+                    <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+                </div>
             </div>
         </div>
 
@@ -74,11 +82,11 @@
     <!-- Graph Tab -->
     <div class="tab-content" *ngIf="activeTab === 'graph'">
         <h3>Story Graph</h3>
-        
+
         <div class="graph-section">
             <h4>Character Building Flow</h4>
             <p class="graph-description">Click on flows to see the text passages that shape each character</p>
-            
+
             <div class="sankey-graph">
                 <!-- Left side: Sentences/Text passages -->
                 <div class="flow-column sources">
@@ -115,24 +123,24 @@
                 <!-- Flows/Rivers -->
                 <svg class="flow-connections" viewBox="0 0 200 400" preserveAspectRatio="none">
                     <!-- Hero flows from sentences -->
-                    <path class="flow-path" data-from="1" data-to="hero" data-influence="Actions" 
-                          d="M 0 30 C 100 30, 100 130, 200 135" opacity="0.7" />
-                    <path class="flow-path" data-from="3" data-to="hero" data-influence="Growth" 
-                          d="M 0 100 C 100 100, 100 135, 200 140" opacity="0.8" />
-                    <path class="flow-path" data-from="5" data-to="hero" data-influence="Themes" 
-                          d="M 0 170 C 100 170, 100 145, 200 145" opacity="0.5" />
-                    
+                    <path class="flow-path" data-from="1" data-to="hero" data-influence="Actions"
+                        d="M 0 30 C 100 30, 100 130, 200 135" opacity="0.7" />
+                    <path class="flow-path" data-from="3" data-to="hero" data-influence="Growth"
+                        d="M 0 100 C 100 100, 100 135, 200 140" opacity="0.8" />
+                    <path class="flow-path" data-from="5" data-to="hero" data-influence="Themes"
+                        d="M 0 170 C 100 170, 100 145, 200 145" opacity="0.5" />
+
                     <!-- Villain flows from sentences -->
-                    <path class="flow-path" data-from="2" data-to="villain" data-influence="Conflicts" 
-                          d="M 0 65 C 100 65, 100 250, 200 250" opacity="0.9" />
-                    <path class="flow-path" data-from="6" data-to="villain" data-influence="Actions" 
-                          d="M 0 205 C 100 205, 100 255, 200 255" opacity="0.7" />
-                    
+                    <path class="flow-path" data-from="2" data-to="villain" data-influence="Conflicts"
+                        d="M 0 65 C 100 65, 100 250, 200 250" opacity="0.9" />
+                    <path class="flow-path" data-from="6" data-to="villain" data-influence="Actions"
+                        d="M 0 205 C 100 205, 100 255, 200 255" opacity="0.7" />
+
                     <!-- Companion flows from sentences -->
-                    <path class="flow-path" data-from="4" data-to="companion" data-influence="Relationships" 
-                          d="M 0 135 C 100 135, 100 360, 200 360" opacity="0.8" />
-                    <path class="flow-path" data-from="7" data-to="companion" data-influence="Loyalty" 
-                          d="M 0 240 C 100 240, 100 365, 200 365" opacity="0.7" />
+                    <path class="flow-path" data-from="4" data-to="companion" data-influence="Relationships"
+                        d="M 0 135 C 100 135, 100 360, 200 360" opacity="0.8" />
+                    <path class="flow-path" data-from="7" data-to="companion" data-influence="Loyalty"
+                        d="M 0 240 C 100 240, 100 365, 200 365" opacity="0.7" />
                 </svg>
 
                 <!-- Right side: Characters -->
@@ -167,7 +175,8 @@
 
             <div class="graph-legend">
                 <h5>💡 Interaction</h5>
-                <p class="legend-description">Hover over flows to see which text passages influence each character trait. Click on sentence nodes to jump to that text in the editor.</p>
+                <p class="legend-description">Hover over flows to see which text passages influence each character
+                    trait. Click on sentence nodes to jump to that text in the editor.</p>
             </div>
         </div>
     </div>
@@ -175,7 +184,7 @@
     <!-- Characters Tab -->
     <div class="tab-content" *ngIf="activeTab === 'characters'">
         <h3>Character Sentiment</h3>
-        
+
         <div class="character-list">
             <div class="character-card">
                 <div class="character-header">
@@ -189,11 +198,16 @@
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none">
                         <path d="M 10 20 L 25 18 L 45 20 L 60 28 L 85 15" />
                     </svg>
-                    <div class="timeline-point positive" style="left: 10%;" title="Sentence 1: 'The brave hero set out on a quest'"></div>
-                    <div class="timeline-point positive" style="left: 25%;" title="Sentence 3: 'She found a magical sword'"></div>
-                    <div class="timeline-point neutral" style="left: 45%;" title="Sentence 5: 'The journey continued through forests'"></div>
-                    <div class="timeline-point negative" style="left: 60%;" title="Sentence 7: 'Dark clouds gathered as danger approached'"></div>
-                    <div class="timeline-point positive" style="left: 85%;" title="Sentence 10: 'Victory! The kingdom was saved'"></div>
+                    <div class="timeline-point positive" style="left: 10%;"
+                        title="Sentence 1: 'The brave hero set out on a quest'"></div>
+                    <div class="timeline-point positive" style="left: 25%;"
+                        title="Sentence 3: 'She found a magical sword'"></div>
+                    <div class="timeline-point neutral" style="left: 45%;"
+                        title="Sentence 5: 'The journey continued through forests'"></div>
+                    <div class="timeline-point negative" style="left: 60%;"
+                        title="Sentence 7: 'Dark clouds gathered as danger approached'"></div>
+                    <div class="timeline-point positive" style="left: 85%;"
+                        title="Sentence 10: 'Victory! The kingdom was saved'"></div>
                 </div>
                 <div class="sentiment-summary">
                     <div class="sentiment-bar">
@@ -221,10 +235,14 @@
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none">
                         <path d="M 20 25 L 50 28 L 70 22 L 90 30" />
                     </svg>
-                    <div class="timeline-point negative" style="left: 20%;" title="Sentence 2: 'The dark sorcerer plotted revenge'"></div>
-                    <div class="timeline-point negative" style="left: 50%;" title="Sentence 6: 'Her fury knew no bounds'"></div>
-                    <div class="timeline-point neutral" style="left: 70%;" title="Sentence 8: 'Confusion swept over the villain'"></div>
-                    <div class="timeline-point negative" style="left: 90%;" title="Sentence 11: 'Defeated and broken, she fled'"></div>
+                    <div class="timeline-point negative" style="left: 20%;"
+                        title="Sentence 2: 'The dark sorcerer plotted revenge'"></div>
+                    <div class="timeline-point negative" style="left: 50%;"
+                        title="Sentence 6: 'Her fury knew no bounds'"></div>
+                    <div class="timeline-point neutral" style="left: 70%;"
+                        title="Sentence 8: 'Confusion swept over the villain'"></div>
+                    <div class="timeline-point negative" style="left: 90%;"
+                        title="Sentence 11: 'Defeated and broken, she fled'"></div>
                 </div>
                 <div class="sentiment-summary">
                     <div class="sentiment-bar">
@@ -252,9 +270,12 @@
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none">
                         <path d="M 30 17 L 55 16 L 75 21" />
                     </svg>
-                    <div class="timeline-point positive" style="left: 30%;" title="Sentence 4: 'The magical unicorn danced joyfully'"></div>
-                    <div class="timeline-point positive" style="left: 55%;" title="Sentence 7: 'Loyal and true, she stood by her friend'"></div>
-                    <div class="timeline-point neutral" style="left: 75%;" title="Sentence 9: 'Cautiously, she approached the cave'"></div>
+                    <div class="timeline-point positive" style="left: 30%;"
+                        title="Sentence 4: 'The magical unicorn danced joyfully'"></div>
+                    <div class="timeline-point positive" style="left: 55%;"
+                        title="Sentence 7: 'Loyal and true, she stood by her friend'"></div>
+                    <div class="timeline-point neutral" style="left: 75%;"
+                        title="Sentence 9: 'Cautiously, she approached the cave'"></div>
                 </div>
                 <div class="sentiment-summary">
                     <div class="sentiment-bar">

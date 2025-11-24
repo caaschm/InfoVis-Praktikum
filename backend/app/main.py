@@ -2,6 +2,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from app.database import init_db
 from app.routers import documents, sentences, ai

@@ -81,21 +81,27 @@ class SentenceResponse(BaseModel):
 
 class EmojiSuggestionRequest(BaseModel):
     """Request to generate emoji suggestions from text."""
-    document_id: str
-    sentence_id: str
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    sentence_id: str = Field(alias='sentenceId')
     text: str
 
 
 class EmojiSuggestionResponse(BaseModel):
     """Response with emoji suggestions."""
-    sentence_id: str
+    model_config = ConfigDict(populate_by_name=True)
+    
+    sentence_id: str = Field(alias='sentenceId')
     emojis: list[str] = Field(..., max_length=5)
 
 
 class TextFromEmojisRequest(BaseModel):
     """Request to generate text from emojis."""
-    document_id: str
-    sentence_id: Optional[str] = None  # None for new sentence
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    sentence_id: Optional[str] = Field(default=None, alias='sentenceId')
     emojis: list[str] = Field(..., min_length=1, max_length=5)
 
     @field_validator('emojis')
@@ -109,8 +115,10 @@ class TextFromEmojisRequest(BaseModel):
 
 class TextFromEmojisResponse(BaseModel):
     """Response with generated text."""
-    sentence_id: Optional[str]
-    suggested_text: str
+    model_config = ConfigDict(populate_by_name=True)
+    
+    sentence_id: Optional[str] = Field(default=None, alias='sentenceId')
+    suggested_text: str = Field(alias='suggestedText')
 
 
 # ========== Health Check ==========

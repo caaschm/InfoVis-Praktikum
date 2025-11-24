@@ -14,7 +14,7 @@ import { Sentence } from '../../../core/models/document.model';
 })
 export class SidebarComponent implements OnInit, OnDestroy {
   @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
-  
+
   selectedSentence: Sentence | null = null;
   isGenerating = false;
   lastSuggestion: string | null = null;
@@ -93,6 +93,43 @@ export class SidebarComponent implements OnInit, OnDestroy {
         console.error('Error generating emojis:', err);
         this.isGenerating = false;
       }
+    });
+  }
+
+  generateEmojisForAll(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+
+    this.isGenerating = true;
+    let processedCount = 0;
+    const totalSentences = doc.sentences.length;
+
+    // Process each sentence one by one
+    doc.sentences.forEach((sentence, index) => {
+      this.aiService.generateEmojisFromText({
+        documentId: doc.id,
+        sentenceId: sentence.id,
+        text: sentence.text
+      }).subscribe({
+        next: (response) => {
+          // Update sentence with suggested emojis
+          this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
+          processedCount++;
+
+          // Done when all processed
+          if (processedCount === totalSentences) {
+            this.isGenerating = false;
+          }
+        },
+        error: (err) => {
+          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
+          processedCount++;
+
+          if (processedCount === totalSentences) {
+            this.isGenerating = false;
+          }
+        }
+      });
     });
   }
 

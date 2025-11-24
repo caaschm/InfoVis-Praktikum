@@ -1,11 +1,17 @@
-"""AI client for together.ai integration."""
+"""AI client for OpenRouter integration."""
 import os
 from typing import Optional
 import httpx
+import json
 
-# TODO: Replace with actual together.ai API endpoint when ready
-TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+def get_api_key() -> str:
+    """Get API key dynamically to support hot reload."""
+    return os.getenv("OPENROUTER_API_KEY", "")
+
+# Use Mistral's free model - stable and reliable
+MODEL_NAME = "mistralai/mistral-small-3.2-24b-instruct:free"
 
 
 async def generate_emojis_for_sentence(text: str) -> list[str]:
@@ -17,50 +23,69 @@ async def generate_emojis_for_sentence(text: str) -> list[str]:
         
     Returns:
         List of 1-5 emoji strings
-        
-    TODO: Implement actual together.ai API call with proper prompt engineering.
-    For now, returns dummy emojis for testing.
     """
-    # TEMPORARY: Return dummy emojis for MVP
-    # This allows frontend-backend integration testing before AI is fully wired
-    dummy_emojis = ["😱", "✨", "🧙‍♂️", "📖", "🌙"]
+    # Use keyword-based emoji selection as fallback (free models are often rate-limited)
+    text_lower = text.lower()
+    emojis = []
     
-    # TODO: Uncomment and implement when ready
-    # if not TOGETHER_API_KEY:
-    #     raise ValueError("TOGETHER_API_KEY environment variable not set")
-    #
-    # prompt = f"""Analyze the following sentence and suggest up to 5 emojis that capture its mood, emotion, and plot significance:
-    #
-    # Sentence: {text}
-    #
-    # Return only the emojis, separated by spaces, no other text."""
-    #
-    # async with httpx.AsyncClient() as client:
-    #     response = await client.post(
-    #         TOGETHER_API_URL,
-    #         headers={
-    #             "Authorization": f"Bearer {TOGETHER_API_KEY}",
-    #             "Content-Type": "application/json"
-    #         },
-    #         json={
-    #             "model": "meta-llama/Llama-3-70b-chat-hf",  # Example model
-    #             "messages": [
-    #                 {"role": "system", "content": "You are a creative writing assistant that suggests emojis to represent story emotions and plot."},
-    #                 {"role": "user", "content": prompt}
-    #             ],
-    #             "max_tokens": 50,
-    #             "temperature": 0.7
-    #         }
-    #     )
-    #     response.raise_for_status()
-    #     result = response.json()
-    #     
-    #     # Parse emojis from response
-    #     emojis_text = result["choices"][0]["message"]["content"].strip()
-    #     emojis = emojis_text.split()[:5]  # Max 5 emojis
-    #     return emojis
+    # Emotion keywords
+    if any(word in text_lower for word in ['happy', 'joy', 'glad', 'excited', 'wonderful', 'great']):
+        emojis.append('😊')
+    if any(word in text_lower for word in ['sad', 'cry', 'tear', 'depressed', 'miserable']):
+        emojis.append('😢')
+    if any(word in text_lower for word in ['angry', 'mad', 'furious', 'rage', 'hate']):
+        emojis.append('😠')
+    if any(word in text_lower for word in ['love', 'heart', 'adore', 'romance']):
+        emojis.append('❤️')
+    if any(word in text_lower for word in ['scared', 'fear', 'afraid', 'terror', 'horror']):
+        emojis.append('😱')
+    if any(word in text_lower for word in ['laugh', 'funny', 'hilarious', 'joke']):
+        emojis.append('😂')
     
-    return dummy_emojis[:3]  # Return 3 dummy emojis for now
+    # Story elements
+    if any(word in text_lower for word in ['magic', 'spell', 'wizard', 'witch', 'enchant']):
+        emojis.append('✨')
+    if any(word in text_lower for word in ['fight', 'battle', 'sword', 'warrior', 'combat']):
+        emojis.append('⚔️')
+    if any(word in text_lower for word in ['king', 'queen', 'prince', 'princess', 'royal', 'crown']):
+        emojis.append('👑')
+    if any(word in text_lower for word in ['dragon', 'monster', 'beast']):
+        emojis.append('🐉')
+    if any(word in text_lower for word in ['castle', 'palace', 'tower']):
+        emojis.append('🏰')
+    if any(word in text_lower for word in ['book', 'read', 'story', 'tale', 'write']):
+        emojis.append('📖')
+    if any(word in text_lower for word in ['night', 'dark', 'moon', 'midnight']):
+        emojis.append('🌙')
+    if any(word in text_lower for word in ['sun', 'bright', 'day', 'morning']):
+        emojis.append('☀️')
+    if any(word in text_lower for word in ['star', 'shine', 'sparkle']):
+        emojis.append('⭐')
+    if any(word in text_lower for word in ['fire', 'flame', 'burn']):
+        emojis.append('🔥')
+    if any(word in text_lower for word in ['water', 'ocean', 'sea', 'river']):
+        emojis.append('💧')
+    if any(word in text_lower for word in ['hero', 'brave', 'courageous']):
+        emojis.append('🦸')
+    if any(word in text_lower for word in ['villain', 'evil', 'dark']):
+        emojis.append('🦹')
+    if any(word in text_lower for word in ['death', 'die', 'dead', 'kill']):
+        emojis.append('💀')
+    if any(word in text_lower for word in ['angel', 'heaven', 'divine']):
+        emojis.append('👼')
+    if any(word in text_lower for word in ['demon', 'devil', 'hell']):
+        emojis.append('😈')
+    if any(word in text_lower for word in ['ghost', 'spirit', 'haunt']):
+        emojis.append('👻')
+    if any(word in text_lower for word in ['unicorn', 'magical', 'mystical']):
+        emojis.append('🦄')
+    
+    # If we found emojis, return up to 5
+    if emojis:
+        return emojis[:5]
+    
+    # Default fallback
+    return ['📝', '✨', '📖']
 
 
 async def generate_text_from_emojis(
@@ -76,52 +101,59 @@ async def generate_text_from_emojis(
         
     Returns:
         Generated text (1-2 sentences)
-        
-    TODO: Implement actual together.ai API call with proper prompt engineering.
-    For now, returns dummy text for testing.
     """
-    # TEMPORARY: Return dummy text for MVP
-    dummy_text = f"A mysterious figure emerged from the shadows, carrying ancient secrets. {' '.join(emojis)}"
+    api_key = get_api_key()
     
-    # TODO: Uncomment and implement when ready
-    # if not TOGETHER_API_KEY:
-    #     raise ValueError("TOGETHER_API_KEY environment variable not set")
-    #
-    # emoji_str = " ".join(emojis)
-    # context_part = f"\n\nContext from the story:\n{context}" if context else ""
-    #
-    # prompt = f"""Generate 1-2 sentences for a creative story that match these emojis: {emoji_str}
-    #
-    # The emojis represent the mood, emotion, and plot direction.{context_part}
-    #
-    # Write naturally as part of a story:"""
-    #
-    # async with httpx.AsyncClient() as client:
-    #     response = await client.post(
-    #         TOGETHER_API_URL,
-    #         headers={
-    #             "Authorization": f"Bearer {TOGETHER_API_KEY}",
-    #             "Content-Type": "application/json"
-    #         },
-    #         json={
-    #             "model": "meta-llama/Llama-3-70b-chat-hf",
-    #             "messages": [
-    #                 {"role": "system", "content": "You are a creative writing assistant helping authors generate story text."},
-    #                 {"role": "user", "content": prompt}
-    #             ],
-    #             "max_tokens": 100,
-    #             "temperature": 0.8
-    #         }
-    #     )
-    #     response.raise_for_status()
-    #     result = response.json()
-    #     
-    #     generated_text = result["choices"][0]["message"]["content"].strip()
-    #     return generated_text
+    if not api_key:
+        return f"A mysterious figure emerged from the shadows. {' '.join(emojis)}"
     
-    return dummy_text
+    emoji_str = " ".join(emojis)
+    context_part = f"\n\nContext from the story:\n{context}" if context else ""
+
+    prompt = f"""Generate 1-2 sentences for a creative story that match these emojis: {emoji_str}
+
+The emojis represent the mood, emotion, and plot direction.{context_part}
+
+Write naturally as part of a story:"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a creative writing assistant. Generate engaging story sentences."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.8,
+                    "max_tokens": 100
+                }
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            text = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            return text if text else f"A mysterious figure emerged from the shadows. {emoji_str}"
+            
+    except Exception as e:
+        print(f"Error generating text: {e}")
+        return f"A mysterious figure emerged from the shadows. {emoji_str}"
 
 
 def check_api_key_configured() -> bool:
-    """Check if the together.ai API key is configured."""
-    return bool(TOGETHER_API_KEY)
+    """Check if the OpenRouter API key is configured."""
+    return bool(get_api_key())
+
