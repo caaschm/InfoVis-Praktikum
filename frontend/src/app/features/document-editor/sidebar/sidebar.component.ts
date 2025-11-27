@@ -13,7 +13,7 @@ import { Sentence } from '../../../core/models/document.model';
   styleUrl: './sidebar.component.scss'
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
+  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'storyarc' = 'emojis';
 
   selectedSentence: Sentence | null = null;
   isGenerating = false;
@@ -28,6 +28,34 @@ export class SidebarComponent implements OnInit, OnDestroy {
     '🌙', '☀️', '⛈️', '🌈', '🔥', '💧', '💔', '💖',
     '👑', '👻', '🦄', '🐉', '🧙‍♂️', '🧛‍♀️', '🧜‍♂️', '🏰'
   ];
+
+  storyStages = [
+  {
+    name: 'Exposition',
+    description: 'Introduction of characters and setting',
+    sentenceIndices: [1]
+  },
+  {
+    name: 'Rising Action',
+    description: 'Events building tension and conflict',
+    sentenceIndices: [2, 3, 4, 5]
+  },
+  {
+    name: 'Climax',
+    description: 'The peak moment of the story',
+    sentenceIndices: [6]
+  },
+  {
+    name: 'Falling Action',
+    description: 'Events after the climax',
+    sentenceIndices: [7, 8]
+  },
+  {
+    name: 'Denouement',
+    description: 'Final resolution and conclusion',
+    sentenceIndices: [9, 10]
+  }
+];
 
   constructor(
     private documentService: DocumentService,
