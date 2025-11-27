@@ -24,7 +24,14 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.whl
 MANIFEST
+
+# Python environment
+.venv/
+venv/
+env/
+ENV/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -224,3 +231,6 @@ frontend/tmp/
 *.swo
 *~
 .DS_Store
+
+tmp/
+.cache/

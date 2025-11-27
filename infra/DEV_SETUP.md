@@ -5,9 +5,12 @@
 ### Quick Start
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+brew install python@3.11
+python3.11 -m venv nlp-env
+source nlp-env/bin/activate  # Windows: nlp-env\Scripts\activate
+python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
+python post_install.py
 uvicorn app.main:app --reload --port 8000
 ```
 
