@@ -142,7 +142,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.isGenerating = true;
       let processedCount = 0;
       const totalSentences = doc.sentences.length;
-      
+
       this.processEmojisForAllSentences(doc, processedCount, totalSentences);
     }, 150);
   }
