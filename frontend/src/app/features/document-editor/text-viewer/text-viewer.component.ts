@@ -59,17 +59,17 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     // 🔄 AUTO-SAVE: Check if user typed sentence-ending punctuation followed by space AND more content
     // Only triggers when user is actually starting a new sentence, not just ending current one
     const hasNewSentence = /[.!?]\s+\S/.test(newText);
-    
+
     if (hasNewSentence) {
       // 🔄 IMMEDIATE save when new sentence detected - triggers sentence splitting
       const currentDoc = this.documentService.getCurrentDocument();
       if (currentDoc) {
         // Rebuild full document text with the updated sentence
-        const updatedSentences = this.sentences.map(s => 
+        const updatedSentences = this.sentences.map(s =>
           s.id === sentence.id ? newText.trim() : s.text
         );
         const fullText = updatedSentences.join(' ').trim();
-        
+
         // Only update if text actually changed
         const currentFullText = this.sentences.map(s => s.text).join(' ').trim();
         if (fullText !== currentFullText) {
@@ -97,12 +97,12 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     if (trimmedNewText !== trimmedOldText) {
       // Check if text contains sentence-ending punctuation that could create new sentences
       const hasMultipleSentences = trimmedNewText.split(/[.!?]\s+(?=\S)/).length > 1;
-      
+
       if (hasMultipleSentences) {
         // Re-parse the entire document to split sentences
         const currentDoc = this.documentService.getCurrentDocument();
         if (currentDoc) {
-          const updatedSentences = this.sentences.map(s => 
+          const updatedSentences = this.sentences.map(s =>
             s.id === sentence.id ? trimmedNewText : s.text
           );
           const fullText = updatedSentences.join(' ').trim();
