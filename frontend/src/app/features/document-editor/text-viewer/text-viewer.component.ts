@@ -56,27 +56,31 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       clearTimeout(this.sentenceUpdateTimer);
     }
 
-    // Check if user typed sentence-ending punctuation followed by space
-    const hasNewSentence = /[.!?]\s+\w/.test(newText);
+    // 🔄 AUTO-SAVE: Check if user typed sentence-ending punctuation followed by space AND more content
+    // Only triggers when user is actually starting a new sentence, not just ending current one
+    const hasNewSentence = /[.!?]\s+\S/.test(newText);
     
     if (hasNewSentence) {
-      // User is typing a new sentence after punctuation - trigger re-parse
-      this.sentenceUpdateTimer = setTimeout(() => {
-        const currentDoc = this.documentService.getCurrentDocument();
-        if (currentDoc) {
-          // Rebuild full document text with the updated sentence
-          const updatedSentences = this.sentences.map(s => 
-            s.id === sentence.id ? newText.trim() : s.text
-          );
-          const fullText = updatedSentences.join(' ').trim();
-          
-          // Only update if text actually changed
-          const currentFullText = this.sentences.map(s => s.text).join(' ').trim();
-          if (fullText !== currentFullText) {
-            this.documentService.updateDocumentContent(currentDoc.id, fullText);
-          }
+      // 🔄 IMMEDIATE save when new sentence detected - triggers sentence splitting
+      const currentDoc = this.documentService.getCurrentDocument();
+      if (currentDoc) {
+        // Rebuild full document text with the updated sentence
+        const updatedSentences = this.sentences.map(s => 
+          s.id === sentence.id ? newText.trim() : s.text
+        );
+        const fullText = updatedSentences.join(' ').trim();
+        
+        // Only update if text actually changed
+        const currentFullText = this.sentences.map(s => s.text).join(' ').trim();
+        if (fullText !== currentFullText) {
+          this.documentService.updateDocumentContent(currentDoc.id, fullText);
         }
-      }, 800); // Increased to 800ms for better UX
+      }
+    } else {
+      // For non-punctuation changes, debounce the update
+      this.sentenceUpdateTimer = setTimeout(() => {
+        this.documentService.updateSentenceText(sentence.id, newText.trim());
+      }, 500);
     }
   }
 
@@ -92,10 +96,9 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     if (trimmedNewText !== trimmedOldText) {
       // Check if text contains sentence-ending punctuation that could create new sentences
-      const hasPunctuation = /[.!?]/.test(trimmedNewText);
-      const hasMultipleSentences = trimmedNewText.split(/[.!?]\s+/).length > 1;
+      const hasMultipleSentences = trimmedNewText.split(/[.!?]\s+(?=\S)/).length > 1;
       
-      if (hasPunctuation && hasMultipleSentences) {
+      if (hasMultipleSentences) {
         // Re-parse the entire document to split sentences
         const currentDoc = this.documentService.getCurrentDocument();
         if (currentDoc) {

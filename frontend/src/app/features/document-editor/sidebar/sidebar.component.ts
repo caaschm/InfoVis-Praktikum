@@ -125,15 +125,32 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   generateEmojisForAll(): void {
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+    // 🔄 FORCE SAVE: Blur all contenteditable elements to trigger save of any pending changes
+    // This ensures the last edited sentence text is captured before generating emojis
+    const editableElements = document.querySelectorAll('[contenteditable="true"]');
+    editableElements.forEach(el => {
+      if (el instanceof HTMLElement) {
+        el.blur();
+      }
+    });
 
-    this.isGenerating = true;
-    let processedCount = 0;
-    const totalSentences = doc.sentences.length;
+    // Small delay to let blur handlers complete and save propagate
+    setTimeout(() => {
+      const doc = this.documentService.getCurrentDocument();
+      if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+
+      this.isGenerating = true;
+      let processedCount = 0;
+      const totalSentences = doc.sentences.length;
+      
+      this.processEmojisForAllSentences(doc, processedCount, totalSentences);
+    }, 150);
+  }
+
+  private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
 
     // Process each sentence one by one
-    doc.sentences.forEach((sentence, index) => {
+    doc.sentences.forEach((sentence: Sentence, index: number) => {
       this.aiService.generateEmojisFromText({
         documentId: doc.id,
         sentenceId: sentence.id,
