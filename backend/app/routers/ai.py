@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
-from app.services.ai_client import generate_emojis_for_sentence, generate_text_from_emojis
+from app.services.ai_client import (
+    generate_emojis_for_sentence, 
+    generate_text_from_emojis,
+    get_character_emoji_mappings,
+    clear_character_emoji_mappings
+)
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -93,3 +98,27 @@ async def suggest_text_from_emojis(
         sentence_id=request.sentence_id,
         suggested_text=suggested_text
     )
+
+
+@router.get("/character-emoji-mappings")
+async def get_character_mappings():
+    """
+    🎭 Get current character-emoji consistency mappings.
+    
+    Returns a dictionary showing which emojis are assigned to which characters.
+    This ensures the same character always gets the same emoji across sentences.
+    """
+    mappings = get_character_emoji_mappings()
+    return {"mappings": mappings, "count": len(mappings)}
+
+
+@router.post("/clear-character-mappings")
+async def clear_character_mappings():
+    """
+    🎭 Clear character-emoji consistency cache.
+    
+    Call this when switching to a new document or starting fresh.
+    This allows characters in different stories to get different emojis.
+    """
+    clear_character_emoji_mappings()
+    return {"status": "cleared", "message": "Character-emoji mappings cleared"}
