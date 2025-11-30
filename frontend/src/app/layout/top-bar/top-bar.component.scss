@@ -20,6 +20,13 @@
         letter-spacing: 0.5px;
     }
 
+    .actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .upload-btn,
     .settings-btn {
         background: rgba(255, 255, 255, 0.2);
         border: 2px solid rgba(255, 255, 255, 0.3);
@@ -33,6 +40,14 @@
         &:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
+        }
+    }
+
+    .upload-btn {
+        background: rgba(255, 255, 255, 0.15);
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.25);
         }
     }
 }

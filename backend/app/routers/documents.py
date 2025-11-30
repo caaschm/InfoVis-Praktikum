@@ -1,7 +1,8 @@
 """Document management endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+import io
 
 from app.database import get_db
 from app import models, schemas
@@ -43,6 +44,95 @@ def create_document(
     db.refresh(db_document)
     
     # Build response with sentences and emojis
+    return _build_document_detail(db_document, db)
+
+
+@router.post("/upload-pdf", response_model=schemas.DocumentDetail, status_code=status.HTTP_201_CREATED)
+async def upload_pdf_document(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    📄 Upload a PDF or TXT file and create a document.
+    Extracts text from PDF using pypdf2 (if available) or treats as text file.
+    """
+    # Determine title from filename if not provided
+    if not title:
+        title = file.filename.rsplit('.', 1)[0] if file.filename else "Untitled"
+    
+    # Read file content
+    content_bytes = await file.read()
+    
+    # Try to extract text based on file type
+    if file.filename and file.filename.lower().endswith('.pdf'):
+        try:
+            # Try to import PyPDF2
+            from PyPDF2 import PdfReader
+            
+            # Parse PDF
+            pdf_file = io.BytesIO(content_bytes)
+            pdf_reader = PdfReader(pdf_file)
+            
+            # Extract text from all pages
+            text_parts = []
+            for page in pdf_reader.pages:
+                text_parts.append(page.extract_text())
+            
+            content = '\n'.join(text_parts)
+            
+            if not content.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="PDF appears to be empty or contains only images"
+                )
+                
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="PDF processing not available. Install pypdf2: pip install pypdf2"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to parse PDF: {str(e)}"
+            )
+    else:
+        # Treat as text file
+        try:
+            content = content_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                content = content_bytes.decode('latin-1')
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Failed to decode file as text. Please ensure it's a valid text file."
+                )
+    
+    # Create document using the extracted content
+    db_document = models.Document(
+        title=title,
+        content=content
+    )
+    db.add(db_document)
+    db.flush()
+    
+    # Split content into sentences
+    sentences = split_into_sentences(content)
+    
+    # Create sentence records
+    for index, sentence_text in enumerate(sentences):
+        db_sentence = models.Sentence(
+            document_id=db_document.id,
+            index=index,
+            text=sentence_text
+        )
+        db.add(db_sentence)
+    
+    db.commit()
+    db.refresh(db_document)
+    
     return _build_document_detail(db_document, db)
 
 
@@ -113,9 +203,10 @@ def update_document_content(
         
         # Restore emojis if this sentence text existed before
         if sentence_text.strip() in emoji_map:
-            for emoji in emoji_map[sentence_text.strip()]:
+            for emoji_pos, emoji in enumerate(emoji_map[sentence_text.strip()]):
                 db_emoji = models.EmojiTag(
                     sentence_id=db_sentence.id,
+                    position=emoji_pos,
                     emoji=emoji
                 )
                 db.add(db_emoji)

@@ -1,8 +1,15 @@
 <header class="top-bar">
     <div class="container">
         <h1 class="app-title">{{ appTitle }}</h1>
-        <button class="settings-btn" (click)="onSettingsClick()" aria-label="Settings">
-            ⚙️ Settings
-        </button>
+        <div class="actions">
+            <input type="file" #fileInput (change)="onFileSelected($event)" accept=".txt,.pdf" style="display: none;"
+                aria-label="Upload file">
+            <button class="upload-btn" (click)="fileInput.click()" aria-label="Upload file">
+                📁 Upload
+            </button>
+            <button class="settings-btn" (click)="onSettingsClick()" aria-label="Settings">
+                ⚙️ Settings
+            </button>
+        </div>
     </div>
 </header>
