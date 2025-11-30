@@ -56,6 +56,16 @@ export class DocumentService {
     }
 
     /**
+     * Upload and create document from PDF file
+     */
+    uploadPdfDocument(formData: FormData): Observable<DocumentDetail> {
+        return this.apiService.post<DocumentDetail>('/api/documents/upload-pdf', formData)
+            .pipe(
+                tap(doc => this.currentDocumentSubject.next(doc))
+            );
+    }
+
+    /**
      * Load a document by ID
      */
     loadDocument(id: string): Observable<DocumentDetail> {
