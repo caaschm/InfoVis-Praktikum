@@ -10,11 +10,85 @@ def get_api_key() -> str:
     """Get API key dynamically to support hot reload."""
     return os.getenv("OPENROUTER_API_KEY", "")
 
-# Use Mistral's free model - stable and reliable
-MODEL_NAME = "mistralai/mistral-small-3.2-24b-instruct:free"
+# Use Mistral's Devstral model - optimized for code and creative tasks
+MODEL_NAME = "mistralai/devstral-small-2505"
 
 
 async def generate_emojis_for_sentence(text: str) -> list[str]:
+    """
+    Generate up to 5 emojis that capture the mood/plot of the given text.
+    
+    Args:
+        text: The sentence text to analyze
+        
+    Returns:
+        List of 1-5 emoji strings
+    """
+    api_key = get_api_key()
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using keyword-based fallback")
+        return _keyword_based_emoji_selection(text)
+    
+    print(f"🔑 Using API key: {api_key[:15]}...{api_key[-4:]}")
+    
+    prompt = f"""Analyze this sentence and suggest 3-5 emojis that best capture its mood, emotion, and meaning.
+
+Sentence: "{text}"
+
+Respond with ONLY emojis separated by spaces. No text, no explanations.
+Example response: 😊 🌟 💪"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 50
+                }
+            )
+            
+            print(f"📡 OpenRouter response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"❌ Error response: {response.text}")
+                return _keyword_based_emoji_selection(text)
+            
+            result = response.json()
+            
+            # Extract emojis from response
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            print(f"✅ AI response: {content}")
+            
+            # Extract emojis (characters with unicode > 127)
+            emojis = [char for char in content if char.strip() and ord(char) > 127]
+            
+            if emojis:
+                return emojis[:5]
+            else:
+                print("⚠️  No emojis found in response, using keyword fallback")
+                return _keyword_based_emoji_selection(text)
+            
+    except Exception as e:
+        print(f"❌ Error calling OpenRouter: {type(e).__name__}: {e}")
+        return _keyword_based_emoji_selection(text)
+
+
+def _keyword_based_emoji_selection(text: str) -> list[str]:
     """
     Generate up to 5 emojis that capture the mood/plot of the given text.
     
