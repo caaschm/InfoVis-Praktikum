@@ -15,6 +15,7 @@ import { Sentence } from '../../../core/models/document.model';
 export class TextViewerComponent implements OnInit, OnDestroy {
   sentences: Sentence[] = [];
   selectedSentenceId: string | null = null;
+  viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
   private destroy$ = new Subject<void>();
   private sentenceUpdateTimer: any = null;
 
@@ -117,5 +118,9 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
   isSelected(sentenceId: string): boolean {
     return this.selectedSentenceId === sentenceId;
+  }
+
+  toggleViewMode(): void {
+    this.viewMode = this.viewMode === 'text' ? 'emoji' : 'text';
   }
 }

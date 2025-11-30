@@ -1,22 +1,43 @@
 <div class="text-viewer">
-    <h2 class="section-title">Workspace</h2>
+    <div class="header-row">
+        <h2 class="section-title">Workspace</h2>
+        <div class="view-toggle">
+            <label class="toggle-label">
+                <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
+                <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
+                <span class="toggle-slider"></span>
+                <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
+            </label>
+        </div>
+    </div>
 
-    <div class="text-editor-container" *ngIf="sentences.length > 0">
+    <!-- Text View -->
+    <div class="text-editor-container" *ngIf="sentences.length > 0 && viewMode === 'text'">
         <div class="line-numbers">
             <span *ngFor="let sentence of sentences; let i = index" class="line-number">{{ i + 1 }}</span>
         </div>
         <div class="text-content">
-            <span *ngFor="let sentence of sentences; let isLast = last" 
-                  class="sentence-inline" 
-                  [class.selected]="isSelected(sentence.id)"
-                  (click)="onSentenceClick(sentence)">
-                <span class="sentence-text" 
-                      contenteditable="true"
-                      (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                      (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                      [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span 
-                      class="emoji-tooltip" 
-                      *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>{{ isLast ? '' : ' ' }}
+            <span *ngFor="let sentence of sentences; let isLast = last" class="sentence-inline"
+                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)">
+                <span class="sentence-text" contenteditable="true"
+                    (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                    (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                    [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span class="emoji-tooltip"
+                    *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>{{ isLast ? '' : ' ' }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Emoji-Only View -->
+    <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'">
+        <div class="emoji-content">
+            <span *ngFor="let sentence of sentences; let i = index" class="emoji-sentence"
+                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)"
+                [attr.title]="sentence.text">
+                <span class="emoji-group" *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>
+                <span class="emoji-group empty" *ngIf="sentence.emojis.length === 0">📝</span>
+                <span class="emoji-dot">•</span>
+                <div class="sentence-tooltip">{{ sentence.text }}</div>
             </span>
         </div>
     </div>
