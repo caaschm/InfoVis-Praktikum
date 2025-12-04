@@ -354,4 +354,82 @@
             </div>
         </div>
     </div>
+
+  <!-- Spider Chart Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'spider-chart'">
+    <h3>Spider Chart</h3>
+    <div class="spider-wrapper">
+      <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
+        <!-- Grid circles -->
+        <circle cx="100" cy="100" r="80" class="spider-grid" />
+        <circle cx="100" cy="100" r="55" class="spider-grid" />
+        <circle cx="100" cy="100" r="30" class="spider-grid" />
+
+        <!-- Axes -->
+        <line x1="100" y1="20"  x2="100" y2="180" class="spider-axis" />
+        <line x1="20"  y1="100" x2="180" y2="100" class="spider-axis" />
+
+        <!-- Dynamic polygon -->
+        <polygon class="spider-area" [attr.points]="spiderPoints"></polygon>
+
+        <!-- Labels -->
+        <text x="100" y="15"  text-anchor="middle" class="spider-label">Drama</text>
+        <text x="190" y="105" text-anchor="end"    class="spider-label">Humor</text>
+        <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
+        <text x="10"  y="105" text-anchor="start"  class="spider-label">Mystery</text>
+
+        <!-- Drag handles -->
+        <circle class="spider-handle"
+                [attr.cx]="dramaPoint.x"
+                [attr.cy]="dramaPoint.y"
+                r="4"
+                (mousedown)="startDrag('drama', $event)"></circle>
+        <circle class="spider-handle"
+                [attr.cx]="humorPoint.x"
+                [attr.cy]="humorPoint.y"
+                r="4"
+                (mousedown)="startDrag('humor', $event)"></circle>
+        <circle class="spider-handle"
+                [attr.cx]="conflictPoint.x"
+                [attr.cy]="conflictPoint.y"
+                r="4"
+                (mousedown)="startDrag('conflict', $event)"></circle>
+        <circle class="spider-handle"
+                [attr.cx]="mysteryPoint.x"
+                [attr.cy]="mysteryPoint.y"
+                r="4"
+                (mousedown)="startDrag('mystery', $event)"></circle>
+
+        <!-- Value labels beim Draggen -->
+        <text *ngIf="draggingHandle === 'drama'"
+              [attr.x]="dramaPoint.x"
+              [attr.y]="dramaPoint.y - 8"
+              text-anchor="middle"
+              class="spider-value">
+          {{ drama }}%
+        </text>
+        <text *ngIf="draggingHandle === 'humor'"
+              [attr.x]="humorPoint.x"
+              [attr.y]="humorPoint.y - 8"
+              text-anchor="middle"
+              class="spider-value">
+          {{ humor }}%
+        </text>
+        <text *ngIf="draggingHandle === 'conflict'"
+              [attr.x]="conflictPoint.x"
+              [attr.y]="conflictPoint.y - 8"
+              text-anchor="middle"
+              class="spider-value">
+          {{ conflict }}%
+        </text>
+        <text *ngIf="draggingHandle === 'mystery'"
+              [attr.x]="mysteryPoint.x"
+              [attr.y]="mysteryPoint.y - 8"
+              text-anchor="middle"
+              class="spider-value">
+          {{ mystery }}%
+        </text>
+      </svg>
+    </div>
+  </div>
 </div>

@@ -1,4 +1,12 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  Input,
+  HostListener,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
@@ -10,14 +18,15 @@ import { Sentence } from '../../../core/models/document.model';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './sidebar.component.html',
-  styleUrl: './sidebar.component.scss'
+  styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
+  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart' = 'emojis';
 
   selectedSentence: Sentence | null = null;
   isGenerating = false;
   lastSuggestion: string | null = null;
+
   private destroy$ = new Subject<void>();
 
   // Emoji management
@@ -29,13 +38,27 @@ export class SidebarComponent implements OnInit, OnDestroy {
     '👑', '👻', '🦄', '🐉', '🧙‍♂️', '🧛‍♀️', '🧜‍♂️', '🏰'
   ];
 
+  // === Spider Chart State ===
+  drama = 65;
+  humor = 40;
+  conflict = 80;
+  mystery = 30;
+
+  private readonly centerX = 100;
+  private readonly centerY = 100;
+  private readonly maxRadius = 80; // outer circle in SVG
+
+  @ViewChild('spiderSvg') spiderSvg?: ElementRef<SVGSVGElement>;
+  draggingHandle: 'drama' | 'humor' | 'conflict' | 'mystery' | null = null;
+
   constructor(
     private documentService: DocumentService,
     private aiService: AiService
-  ) { }
+  ) {}
+
+  // ================= LIFECYCLE =================
 
   ngOnInit(): void {
-    // Subscribe to selected sentence
     this.documentService.selectedSentence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(sentence => {
@@ -48,7 +71,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // Emoji management methods
+  // ================= EMOJI LOGIK =================
+
   addEmoji(emoji: string): void {
     if (!this.selectedSentence) return;
     if (this.selectedSentence.emojis.length >= this.maxEmojis) return;
@@ -65,7 +89,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   canAddMore(): boolean {
-    return this.selectedSentence ? this.selectedSentence.emojis.length < this.maxEmojis : false;
+    return this.selectedSentence
+      ? this.selectedSentence.emojis.length < this.maxEmojis
+      : false;
   }
 
   generateEmojis(): void {
@@ -82,7 +108,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
       text: this.selectedSentence.text
     }).subscribe({
       next: (response) => {
-        // Update sentence with suggested emojis
         this.documentService.updateSentenceEmojis(
           this.selectedSentence!.id,
           response.emojis
@@ -97,8 +122,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   generateEmojisForAll(): void {
-    // 🔄 FORCE SAVE: Blur all contenteditable elements to trigger save of any pending changes
-    // This ensures the last edited sentence text is captured before generating emojis
     const editableElements = document.querySelectorAll('[contenteditable="true"]');
     editableElements.forEach(el => {
       if (el instanceof HTMLElement) {
@@ -106,7 +129,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Small delay to let blur handlers complete and save propagate
     setTimeout(() => {
       const doc = this.documentService.getCurrentDocument();
       if (!doc || !doc.sentences || doc.sentences.length === 0) return;
@@ -120,8 +142,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
-
-    // Process each sentence one by one
     doc.sentences.forEach((sentence: Sentence, index: number) => {
       this.aiService.generateEmojisFromText({
         documentId: doc.id,
@@ -129,11 +149,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         text: sentence.text
       }).subscribe({
         next: (response) => {
-          // Update sentence with suggested emojis
           this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
           processedCount++;
 
-          // Done when all processed
           if (processedCount === totalSentences) {
             this.isGenerating = false;
           }
@@ -182,5 +200,70 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.lastSuggestion
     );
     this.lastSuggestion = null;
+  }
+
+  // ================ SPIDER CHART LOGIK =================
+
+  private valueToPointXY(value: number, angleDeg: number): { x: number; y: number } {
+    const r = (value / 100) * this.maxRadius;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const x = this.centerX + r * Math.cos(angleRad);
+    const y = this.centerY + r * Math.sin(angleRad);
+    return { x, y };
+  }
+
+  get dramaPoint()   { return this.valueToPointXY(this.drama,   -90); }
+  get humorPoint()   { return this.valueToPointXY(this.humor,     0); }
+  get conflictPoint(){ return this.valueToPointXY(this.conflict,  90); }
+  get mysteryPoint() { return this.valueToPointXY(this.mystery,  180); }
+
+  get spiderPoints(): string {
+    const pts = [this.dramaPoint, this.humorPoint, this.conflictPoint, this.mysteryPoint];
+    return pts.map(p => `${p.x},${p.y}`).join(', ');
+  }
+
+  startDrag(handle: 'drama' | 'humor' | 'conflict' | 'mystery', event: MouseEvent): void {
+    event.stopPropagation();
+    this.draggingHandle = handle;
+  }
+
+  @HostListener('window:mouseup')
+  stopDrag(): void {
+    this.draggingHandle = null;
+  }
+
+  @HostListener('window:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent): void {
+    if (!this.draggingHandle || !this.spiderSvg) return;
+
+    const svg = this.spiderSvg.nativeElement;
+    const rect = svg.getBoundingClientRect();
+
+    // Mausposition -> SVG-Koordinaten (0–200)
+    const x = ((event.clientX - rect.left) / rect.width) * 200;
+    const y = ((event.clientY - rect.top) / rect.height) * 200;
+
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    let value = (dist / this.maxRadius) * 100;
+    value = Math.max(0, Math.min(100, value));
+    const rounded = Math.round(value);
+
+    switch (this.draggingHandle) {
+      case 'drama':
+        this.drama = rounded;
+        break;
+      case 'humor':
+        this.humor = rounded;
+        break;
+      case 'conflict':
+        this.conflict = rounded;
+        break;
+      case 'mystery':
+        this.mystery = rounded;
+        break;
+    }
   }
 }
