@@ -16,10 +16,10 @@ import { SidebarComponent } from './sidebar/sidebar.component';
 export class DocumentEditorComponent implements OnInit, OnDestroy {
   currentDocument: DocumentDetail | null = null;
   private destroy$ = new Subject<void>();
-  
+
   // Sidebar management
   sidebarVisible = true;
-  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
+  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart' = 'emojis';
 
   constructor(public documentService: DocumentService) { }
 
@@ -51,7 +51,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis'): void {
+  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart'): void {
     if (this.activeTab === tab && this.sidebarVisible) {
       // Clicking same tab hides sidebar
       this.sidebarVisible = false;
