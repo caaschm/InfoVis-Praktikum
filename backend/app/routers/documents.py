@@ -162,7 +162,7 @@ def update_document_content(
 ):
     """
     Update document content and re-parse sentences.
-    Preserves emojis by matching sentences by text content.
+    Preserves emojis and chapter assignments by matching sentences by text content.
     """
     document = db.query(models.Document).filter(models.Document.id == document_id).first()
     
@@ -172,18 +172,21 @@ def update_document_content(
     # Update content
     document.content = content_update.content
     
-    # Get existing sentences with their emojis
+    # Get existing sentences with their emojis and chapter assignments
     existing_sentences = db.query(models.Sentence).filter(
         models.Sentence.document_id == document_id
     ).all()
     
-    # Create a map of sentence text to emojis
+    # Create maps of sentence text to emojis and chapter_id
     emoji_map = {}
+    chapter_map = {}
     for sent in existing_sentences:
         emojis = db.query(models.EmojiTag).filter(
             models.EmojiTag.sentence_id == sent.id
         ).all()
-        emoji_map[sent.text.strip()] = [e.emoji for e in emojis]
+        text_key = sent.text.strip()
+        emoji_map[text_key] = [e.emoji for e in emojis]
+        chapter_map[text_key] = sent.chapter_id  # Preserve chapter assignment
     
     # Delete existing sentences and emojis (cascade will handle emojis)
     db.query(models.Sentence).filter(models.Sentence.document_id == document_id).delete()
@@ -191,19 +194,21 @@ def update_document_content(
     # Split new content into sentences
     sentences = split_into_sentences(content_update.content)
     
-    # Create new sentence records, preserving emojis where text matches
+    # Create new sentence records, preserving emojis and chapter assignments where text matches
     for index, sentence_text in enumerate(sentences):
+        text_key = sentence_text.strip()
         db_sentence = models.Sentence(
             document_id=document.id,
             index=index,
-            text=sentence_text
+            text=sentence_text,
+            chapter_id=chapter_map.get(text_key)  # Preserve chapter assignment
         )
         db.add(db_sentence)
         db.flush()  # Get the new sentence ID
         
         # Restore emojis if this sentence text existed before
-        if sentence_text.strip() in emoji_map:
-            for emoji_pos, emoji in enumerate(emoji_map[sentence_text.strip()]):
+        if text_key in emoji_map:
+            for emoji_pos, emoji in enumerate(emoji_map[text_key]):
                 db_emoji = models.EmojiTag(
                     sentence_id=db_sentence.id,
                     position=emoji_pos,

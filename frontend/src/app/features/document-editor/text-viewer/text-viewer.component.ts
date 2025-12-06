@@ -53,6 +53,28 @@ export class TextViewerComponent implements OnInit, OnDestroy {
           this.sentences = doc.sentences;
           this.chapters = doc.chapters || [];
           this.loadChapters(doc.id);
+          
+          // Auto-assign ALL unassigned sentences to the first chapter if it exists
+          if (this.chapters.length > 0 && this.sentences.length > 0) {
+            const unassignedSentences = this.sentences.filter(s => !s.chapterId);
+            if (unassignedSentences.length > 0) {
+              const firstChapter = this.chapters.sort((a, b) => a.index - b.index)[0];
+              // Assign all unassigned sentences to the first chapter
+              unassignedSentences.forEach(sentence => {
+                this.documentService.updateSentenceChapter(sentence.id, firstChapter.id);
+              });
+              
+              // Refresh after assignment
+              setTimeout(() => {
+                this.documentService.getDocument(doc.id).subscribe(updatedDoc => {
+                  if (updatedDoc) {
+                    this.sentences = updatedDoc.sentences;
+                    this.chapters = updatedDoc.chapters || [];
+                  }
+                });
+              }, 300);
+            }
+          }
         }
       });
 
@@ -148,17 +170,31 @@ export class TextViewerComponent implements OnInit, OnDestroy {
         next: (chapter) => {
           this.chapters.push(chapter);
           this.chapters.sort((a, b) => a.index - b.index);
-          this.closeAddChapterDialog();
-          this.selectedChapterId = chapter.id;
           
-          setTimeout(() => {
-            const chapterElement = document.getElementById(`chapter-${chapter.id}`);
-            if (chapterElement) {
-              chapterElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // If this is the FIRST chapter, assign all existing unassigned sentences to it
+          if (this.chapters.length === 1) {
+            const unassignedSentences = this.getAllSentencesWithoutChapter();
+            if (unassignedSentences.length > 0) {
+              unassignedSentences.forEach(sentence => {
+                this.documentService.updateSentenceChapter(sentence.id, chapter.id);
+              });
             }
-          }, 100);
+          }
           
-          this.documentService.getDocument(currentDoc.id).subscribe();
+          this.closeAddChapterDialog();
+          // Show all chapters so user can see the new chapter
+          this.selectedChapterId = null;
+          
+          // Refresh document after a short delay to allow backend to process
+          setTimeout(() => {
+            this.documentService.getDocument(currentDoc.id).subscribe(doc => {
+              if (doc) {
+                this.sentences = doc.sentences;
+                this.chapters = doc.chapters || [];
+                this.chapters.sort((a, b) => a.index - b.index);
+              }
+            });
+          }, 300);
         },
         error: (err) => {
           console.error('Full error object:', err);
@@ -308,8 +344,8 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       const chapter = this.chapters.find(c => c.id === this.selectedChapterId);
       return chapter ? [chapter] : [];
     }
-    // Otherwise, show all chapters
-    return this.chapters;
+    // Otherwise, show all chapters sorted by index
+    return [...this.chapters].sort((a, b) => a.index - b.index);
   }
 
   onChapterTitleKeyDown(event: KeyboardEvent, chapter: Chapter): void {
@@ -321,13 +357,14 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       // Save the title
       this.updateChapterTitle(chapter, newTitle);
       
-      // Remove focus from the title and allow normal text editing
+      // Remove focus from the title
       target.blur();
       
-      // Optionally, focus on the first sentence in this chapter or create a new one
+      // Focus on the editable area for this chapter
       setTimeout(() => {
-        const chapterContent = target.parentElement?.querySelector('.chapter-content');
+        const chapterContent = target.parentElement?.querySelector('.chapter-content') as HTMLElement;
         if (chapterContent) {
+          // First, try to focus on existing sentence
           const firstSentence = chapterContent.querySelector('.sentence-text') as HTMLElement;
           if (firstSentence) {
             firstSentence.focus();
@@ -338,9 +375,186 @@ export class TextViewerComponent implements OnInit, OnDestroy {
             const selection = window.getSelection();
             selection?.removeAllRanges();
             selection?.addRange(range);
+          } else {
+            // No sentences exist, focus on the empty chapter hint
+            const emptyHint = chapterContent.querySelector('.empty-chapter-hint') as HTMLElement;
+            if (emptyHint) {
+              emptyHint.focus();
+              // Clear placeholder text
+              if (emptyHint.innerText.trim() === 'Start typing here...') {
+                emptyHint.innerText = '';
+              }
+            } else {
+              // Create a temporary editable area if placeholder doesn't exist
+              this.focusChapterContent(chapterContent, chapter);
+            }
           }
         }
       }, 100);
     }
+  }
+
+  private focusChapterContent(chapterContent: HTMLElement, chapter: Chapter): void {
+    // Create a temporary editable div if needed
+    const tempEditor = document.createElement('div');
+    tempEditor.className = 'empty-chapter-hint';
+    tempEditor.contentEditable = 'true';
+    tempEditor.setAttribute('data-placeholder', 'Start typing here...');
+    tempEditor.textContent = '';
+    tempEditor.addEventListener('focus', (e) => this.onEmptyChapterFocus(e as FocusEvent, chapter));
+    tempEditor.addEventListener('blur', (e) => this.onEmptyChapterBlur(e as FocusEvent, chapter));
+    tempEditor.addEventListener('keydown', (e) => this.onEmptyChapterKeyDown(e as KeyboardEvent, chapter));
+    
+    chapterContent.appendChild(tempEditor);
+    tempEditor.focus();
+  }
+
+  onEmptyChapterFocus(event: FocusEvent, chapter: Chapter): void {
+    const target = event.target as HTMLElement;
+    // Clear placeholder text when focused
+    if (target.innerText.trim() === 'Start typing here...') {
+      target.innerText = '';
+    }
+    // Ensure the element is editable and focusable
+    target.setAttribute('contenteditable', 'true');
+    target.focus();
+  }
+
+  onEmptyChapterKeyDown(event: KeyboardEvent, chapter: Chapter): void {
+    const target = event.target as HTMLElement;
+    
+    // Handle Enter key - create sentence and move to next line
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const text = target.innerText.trim();
+      
+      if (text && text !== 'Start typing here...') {
+        this.createSentenceFromText(text, chapter);
+        target.innerText = '';
+      }
+    }
+  }
+
+  onEmptyChapterBlur(event: FocusEvent, chapter: Chapter): void {
+    const target = event.target as HTMLElement;
+    const text = target.innerText.trim();
+    
+    // If user typed something, create a sentence
+    if (text && text !== 'Start typing here...') {
+      this.createSentenceFromText(text, chapter);
+    }
+    
+    // Restore placeholder if empty
+    if (!text || text === 'Start typing here...') {
+      target.innerText = 'Start typing here...';
+    }
+  }
+
+  private createSentenceFromText(text: string, chapter: Chapter): void {
+    const currentDoc = this.documentService.getCurrentDocument();
+    if (currentDoc) {
+      // Get sentences for THIS chapter only
+      const chapterSentences = this.getSentencesForChapter(chapter.id);
+      
+      // If chapter already has sentences, append to the last one
+      if (chapterSentences.length > 0) {
+        const lastSentence = chapterSentences[chapterSentences.length - 1];
+        const updatedText = `${lastSentence.text} ${text}`;
+        this.documentService.updateSentenceText(lastSentence.id, updatedText);
+        return;
+      }
+      
+      // No sentences yet - create new sentence for THIS chapter only
+      // Build content maintaining strict chapter boundaries
+      const chapters = [...this.chapters].sort((a, b) => a.index - b.index);
+      
+      // Store original sentence counts per chapter
+      const originalCounts: { [chapterId: string]: number } = {};
+      chapters.forEach(ch => {
+        originalCounts[ch.id] = this.getSentencesForChapter(ch.id).length;
+      });
+      
+      // Build content parts - each chapter's content separately
+      const contentParts: string[] = [];
+      
+      chapters.forEach(ch => {
+        if (ch.id === chapter.id) {
+          // This chapter gets ONLY the new text
+          contentParts.push(text);
+        } else {
+          // Other chapters keep their existing content
+          const chSentences = this.getSentencesForChapter(ch.id);
+          if (chSentences.length > 0) {
+            contentParts.push(chSentences.map(s => s.text).join(' '));
+          }
+        }
+      });
+      
+      // Add unassigned sentences (should be none if first chapter assignment worked)
+      const unassigned = this.getAllSentencesWithoutChapter();
+      if (unassigned.length > 0) {
+        contentParts.push(unassigned.map(s => s.text).join(' '));
+      }
+      
+      const fullContent = contentParts.join(' ');
+      
+      // Calculate which sentence index the new text will be at
+      let sentenceIndexOffset = 0;
+      const chapterIndex = chapters.findIndex(ch => ch.id === chapter.id);
+      for (let i = 0; i < chapterIndex; i++) {
+        sentenceIndexOffset += originalCounts[chapters[i].id];
+      }
+      
+      // Update document content
+      this.documentService.updateDocumentContent(currentDoc.id, fullContent);
+      
+      // After update, assign the new sentence to this chapter based on position
+      setTimeout(() => {
+        this.documentService.getDocument(currentDoc.id).subscribe(doc => {
+          if (doc) {
+            this.sentences = doc.sentences;
+            
+            // Find the sentence at the expected position (should be the new one)
+            const newSentence = doc.sentences[sentenceIndexOffset];
+            if (newSentence && newSentence.text.trim() === text.trim() && newSentence.chapterId !== chapter.id) {
+              this.documentService.updateSentenceChapter(newSentence.id, chapter.id);
+            }
+            
+            // Also reassign any other sentences that lost their chapter assignment
+            this.reassignExistingSentencesToChapters(doc.sentences, chapters, originalCounts);
+            
+            // Refresh
+            setTimeout(() => {
+              this.documentService.getDocument(currentDoc.id).subscribe(updatedDoc => {
+                if (updatedDoc) {
+                  this.sentences = updatedDoc.sentences;
+                  this.chapters = updatedDoc.chapters || [];
+                }
+              });
+            }, 300);
+          }
+        });
+      }, 500);
+    }
+  }
+
+  private reassignExistingSentencesToChapters(
+    allSentences: Sentence[],
+    chapters: Chapter[],
+    originalCounts: { [chapterId: string]: number }
+  ): void {
+    // Store original assignments by text
+    const originalAssignments = new Map<string, string | undefined>();
+    this.sentences.forEach(s => {
+      originalAssignments.set(s.text.trim(), s.chapterId);
+    });
+    
+    // Reassign sentences based on their original chapter
+    allSentences.forEach(sentence => {
+      const originalChapterId = originalAssignments.get(sentence.text.trim());
+      if (originalChapterId && sentence.chapterId !== originalChapterId) {
+        this.documentService.updateSentenceChapter(sentence.id, originalChapterId);
+      }
+    });
   }
 }

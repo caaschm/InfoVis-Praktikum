@@ -67,11 +67,8 @@
 
     <!-- Text View with Chapters -->
     <div class="text-editor-container" *ngIf="viewMode === 'text'">
-        <div class="line-numbers">
-            <span *ngFor="let sentence of getVisibleSentences(); let i = index" class="line-number">{{ i + 1 }}</span>
-        </div>
         <div class="text-content" #chapterContainer>
-            <!-- Chapters -->
+            <!-- Chapters - Each with its own text viewer -->
             <div *ngFor="let chapter of getVisibleChapters(); let chapterIndex = index" 
                  [id]="'chapter-' + chapter.id" 
                  class="chapter-section">
@@ -81,45 +78,64 @@
                     (keydown)="onChapterTitleKeyDown($event, chapter)">
                     {{ getChapterDisplayTitle(chapter, chapterIndex) }}
                 </h3>
-                <div class="chapter-content">
-                    <span *ngFor="let sentence of getSentencesForChapter(chapter.id); let isLast = last" 
-                          class="sentence-inline"
-                          [class.selected]="isSelected(sentence.id)" 
-                          (click)="onSentenceClick(sentence)">
-                        <span class="sentence-text" contenteditable="true"
-                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                            [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
-                        <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
-                            {{ sentence.emojis.join(' ') }}
-                        </span>{{ isLast ? '' : ' ' }}
-                    </span>
-                    <!-- Only show placeholder if this is the ONLY chapter and there are NO sentences in the entire document -->
-                    <div *ngIf="getSentencesForChapter(chapter.id).length === 0 && chapters.length === 1 && sentences.length === 0" 
-                         class="empty-chapter-hint"
-                         contenteditable="true"
-                         (focus)="onEmptyChapterFocus($event, chapter)"
-                         (blur)="onEmptyChapterBlur($event, chapter)">
-                        <p>Start typing here...</p>
+                
+                <!-- Separate text viewer for this chapter -->
+                <div class="chapter-text-viewer">
+                    <div class="line-numbers">
+                        <span *ngFor="let sentence of getSentencesForChapter(chapter.id); let i = index" 
+                              class="line-number">{{ i + 1 }}</span>
+                        <!-- Add a line number for the placeholder if no sentences -->
+                        <span *ngIf="getSentencesForChapter(chapter.id).length === 0" 
+                              class="line-number">1</span>
+                    </div>
+                    <div class="chapter-content">
+                        <span *ngFor="let sentence of getSentencesForChapter(chapter.id); let isLast = last" 
+                              class="sentence-inline"
+                              [class.selected]="isSelected(sentence.id)" 
+                              (click)="onSentenceClick(sentence)">
+                            <span class="sentence-text" contenteditable="true"
+                                (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                                (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                                [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+                            <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
+                                {{ sentence.emojis.join(' ') }}
+                            </span>{{ isLast ? '' : ' ' }}
+                        </span>
+                        <!-- Show placeholder if this chapter has no sentences -->
+                        <div *ngIf="getSentencesForChapter(chapter.id).length === 0" 
+                             class="empty-chapter-hint"
+                             contenteditable="true"
+                             [attr.data-placeholder]="'Start typing here...'"
+                             (focus)="onEmptyChapterFocus($event, chapter)"
+                             (blur)="onEmptyChapterBlur($event, chapter)"
+                             (keydown)="onEmptyChapterKeyDown($event, chapter)">
+                            Start typing here...
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Sentences without chapter (only show if "All Chapters" is selected) -->
             <div *ngIf="!selectedChapterId && getAllSentencesWithoutChapter().length > 0" class="chapter-section">
-                <div class="chapter-content">
-                    <span *ngFor="let sentence of getAllSentencesWithoutChapter(); let isLast = last" 
-                          class="sentence-inline"
-                          [class.selected]="isSelected(sentence.id)" 
-                          (click)="onSentenceClick(sentence)">
-                        <span class="sentence-text" contenteditable="true"
-                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                            [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
-                        <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
-                            {{ sentence.emojis.join(' ') }}
-                        </span>{{ isLast ? '' : ' ' }}
-                    </span>
+                <div class="chapter-text-viewer">
+                    <div class="line-numbers">
+                        <span *ngFor="let sentence of getAllSentencesWithoutChapter(); let i = index" 
+                              class="line-number">{{ i + 1 }}</span>
+                    </div>
+                    <div class="chapter-content">
+                        <span *ngFor="let sentence of getAllSentencesWithoutChapter(); let isLast = last" 
+                              class="sentence-inline"
+                              [class.selected]="isSelected(sentence.id)" 
+                              (click)="onSentenceClick(sentence)">
+                            <span class="sentence-text" contenteditable="true"
+                                (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                                (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                                [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+                            <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
+                                {{ sentence.emojis.join(' ') }}
+                            </span>{{ isLast ? '' : ' ' }}
+                        </span>
+                    </div>
                 </div>
             </div>
             
