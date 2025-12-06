@@ -76,6 +76,13 @@ export class DocumentService {
     }
 
     /**
+     * Get document by ID (alias for loadDocument)
+     */
+    getDocument(id: string): Observable<DocumentDetail> {
+        return this.loadDocument(id);
+    }
+
+    /**
      * Get list of all documents
      */
     listDocuments(): Observable<DocumentMetadata[]> {
@@ -135,6 +142,20 @@ export class DocumentService {
         const limitedEmojis = emojis.slice(0, 5); // Enforce max 5
         this.sentenceUpdateSubject.next({ id: sentenceId, update: { emojis: limitedEmojis } });
         this.updateLocalSentence(sentenceId, { emojis: limitedEmojis });
+    }
+
+    /**
+     * Update sentence chapter assignment
+     */
+    updateSentenceChapter(sentenceId: string, chapterId: string | null): void {
+        // Convert camelCase to snake_case for backend
+        const update: any = { chapter_id: chapterId || null };
+        
+        this.sentenceUpdateSubject.next({ 
+            id: sentenceId, 
+            update: update
+        });
+        this.updateLocalSentence(sentenceId, { chapterId: chapterId || undefined });
     }
 
     /**

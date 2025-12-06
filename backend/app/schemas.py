@@ -27,19 +27,43 @@ class DocumentMetadata(BaseModel):
     updated_at: datetime
 
 
+class ChapterBase(BaseModel):
+    """Base chapter schema."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    document_id: str
+    title: str
+    index: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChapterCreate(BaseModel):
+    """Schema for creating a new chapter."""
+    title: str = Field(..., min_length=1, max_length=255)
+    document_id: str
+
+
+class ChapterUpdate(BaseModel):
+    """Schema for updating a chapter."""
+    title: Optional[str] = None
+
+
 class SentenceBase(BaseModel):
     """Base sentence schema."""
     model_config = ConfigDict(from_attributes=True)
     
     id: str
     document_id: str
+    chapter_id: Optional[str] = None
     index: int
     text: str
     emojis: list[str] = Field(default_factory=list, max_length=5)
 
 
 class DocumentDetail(BaseModel):
-    """Full document with sentences and emojis."""
+    """Full document with chapters, sentences and emojis."""
     model_config = ConfigDict(from_attributes=True)
     
     id: str
@@ -47,6 +71,7 @@ class DocumentDetail(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+    chapters: list[ChapterBase] = []
     sentences: list[SentenceBase] = []
 
 
@@ -55,7 +80,8 @@ class DocumentDetail(BaseModel):
 class SentenceUpdate(BaseModel):
     """Schema for updating a sentence."""
     text: Optional[str] = None
-    emojis: Optional[list[str]] = Field(None, max_length=5)
+    emojis: Optional[list[str]] = None
+    chapter_id: Optional[str] = None  # Add this line
 
     @field_validator('emojis')
     @classmethod

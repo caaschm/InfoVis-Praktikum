@@ -13,12 +13,19 @@ export interface Document {
 export interface Sentence {
     id: string;
     documentId: string;
+    chapterId?: string;
     index: number;
     text: string;
     emojis: string[];
 }
+export interface SentenceUpdate {
+    text?: string;
+    emojis?: string[];
+    chapterId?: string;  // Add this line
+}
 
 export interface DocumentDetail extends Document {
+    chapters: Chapter[];
     sentences: Sentence[];
 }
 
@@ -54,4 +61,13 @@ export interface TextFromEmojisResponse {
 export interface SentenceUpdate {
     text?: string;
     emojis?: string[];
+}
+
+export interface Chapter {
+    id: string;
+    documentId: string;
+    title: string;
+    index: number;
+    createdAt: string;
+    updatedAt: string;
 }

@@ -238,7 +238,24 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
 
 # Helper function
 def _build_document_detail(document: models.Document, db: Session) -> schemas.DocumentDetail:
-    """Build DocumentDetail response with sentences and emojis."""
+    """Build DocumentDetail response with chapters, sentences and emojis."""
+    # Get chapters
+    chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document.id
+    ).order_by(models.Chapter.index).all()
+    
+    chapter_responses = []
+    for chapter in chapters:
+        chapter_responses.append(schemas.ChapterBase(
+            id=chapter.id,
+            document_id=chapter.document_id,
+            title=chapter.title,
+            index=chapter.index,
+            created_at=chapter.created_at,
+            updated_at=chapter.updated_at
+        ))
+    
+    # Get sentences
     sentences = db.query(models.Sentence).filter(
         models.Sentence.document_id == document.id
     ).order_by(models.Sentence.index).all()
@@ -255,6 +272,7 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         sentence_responses.append(schemas.SentenceBase(
             id=sentence.id,
             document_id=sentence.document_id,
+            chapter_id=sentence.chapter_id,  # Add chapter_id
             index=sentence.index,
             text=sentence.text,
             emojis=emojis
@@ -266,5 +284,6 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         content=document.content,
         created_at=document.created_at,
         updated_at=document.updated_at,
+        chapters=chapter_responses,  # Add chapters
         sentences=sentence_responses
     )

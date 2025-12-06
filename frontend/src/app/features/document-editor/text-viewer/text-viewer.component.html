@@ -1,45 +1,138 @@
 <div class="text-viewer">
     <div class="header-row">
         <h2 class="section-title">Workspace</h2>
-        <div class="view-toggle">
-            <label class="toggle-label">
-                <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
-                <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
-                <span class="toggle-slider"></span>
-                <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
-            </label>
+        <div class="header-controls">
+            <!-- Chapter Navigation Dropdown -->
+            <div class="chapter-dropdown" *ngIf="chapters.length > 0">
+                <select [(ngModel)]="selectedChapterId" (change)="onChapterSelect(selectedChapterId!)" 
+                        class="chapter-select">
+                    <option [value]="null">All Chapters</option>
+                    <option *ngFor="let chapter of chapters" [value]="chapter.id">
+                        {{ chapter.title }}
+                    </option>
+                </select>
+            </div>
+            
+            <!-- Add Chapter Button -->
+            <button class="btn-add-chapter" (click)="openAddChapterDialog()" title="Add Chapter">
+                ➕ Add Chapter
+            </button>
+            
+            <!-- Table of Contents Toggle -->
+            <button class="btn-toc" (click)="toggleTableOfContents()" title="Table of Contents">
+                📑 TOC
+            </button>
+            
+            <!-- View Toggle -->
+            <div class="view-toggle">
+                <label class="toggle-label">
+                    <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
+                    <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
+                </label>
+            </div>
         </div>
     </div>
 
-    <!-- Text View -->
-    <div class="text-editor-container" *ngIf="sentences.length > 0 && viewMode === 'text'">
+    <!-- Table of Contents Panel -->
+    <div class="toc-panel" *ngIf="showTableOfContents">
+        <h3>Table of Contents</h3>
+        <ul class="toc-list">
+            <li *ngFor="let chapter of chapters" class="toc-item">
+                <a (click)="onChapterSelect(chapter.id)" class="toc-link">
+                    {{ chapter.title }}
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Add Chapter Dialog -->
+    <div class="dialog-overlay" *ngIf="showAddChapterDialog" (click)="closeAddChapterDialog()">
+        <div class="dialog-content" (click)="$event.stopPropagation()">
+            <h3>Add New Chapter</h3>
+            <input type="text" 
+                   [(ngModel)]="newChapterTitle" 
+                   placeholder="01" 
+                   class="chapter-title-input"
+                   #chapterInput
+                   (keyup.enter)="addChapter()"
+                   (keyup.escape)="closeAddChapterDialog()">
+            <div class="dialog-actions">
+                <button (click)="addChapter()" class="btn-primary">Add</button>
+                <button (click)="closeAddChapterDialog()" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text View with Chapters -->
+    <div class="text-editor-container" *ngIf="viewMode === 'text'">
         <div class="line-numbers">
-            <span *ngFor="let sentence of sentences; let i = index" class="line-number">{{ i + 1 }}</span>
+            <span *ngFor="let sentence of getVisibleSentences(); let i = index" class="line-number">{{ i + 1 }}</span>
         </div>
-        <div class="text-content">
-            <span *ngFor="let sentence of sentences; let isLast = last" class="sentence-inline"
-                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)">
-                <span class="sentence-text" contenteditable="true"
-                    (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                    (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                    [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span class="emoji-tooltip"
-                    *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>{{ isLast ? '' : ' ' }}
-            </span>
+        <div class="text-content" #chapterContainer>
+            <!-- Chapters -->
+            <div *ngFor="let chapter of getVisibleChapters(); let chapterIndex = index" 
+                 [id]="'chapter-' + chapter.id" 
+                 class="chapter-section">
+                <h3 class="chapter-title" 
+                    contenteditable="true" 
+                    (blur)="updateChapterTitle(chapter, $any($event.target).innerText)"
+                    (keydown)="onChapterTitleKeyDown($event, chapter)">
+                    {{ getChapterDisplayTitle(chapter, chapterIndex) }}
+                </h3>
+                <div class="chapter-content">
+                    <span *ngFor="let sentence of getSentencesForChapter(chapter.id); let isLast = last" 
+                          class="sentence-inline"
+                          [class.selected]="isSelected(sentence.id)" 
+                          (click)="onSentenceClick(sentence)">
+                        <span class="sentence-text" contenteditable="true"
+                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                            [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+                        <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
+                            {{ sentence.emojis.join(' ') }}
+                        </span>{{ isLast ? '' : ' ' }}
+                    </span>
+                    <!-- Only show placeholder if this is the ONLY chapter and there are NO sentences in the entire document -->
+                    <div *ngIf="getSentencesForChapter(chapter.id).length === 0 && chapters.length === 1 && sentences.length === 0" 
+                         class="empty-chapter-hint"
+                         contenteditable="true"
+                         (focus)="onEmptyChapterFocus($event, chapter)"
+                         (blur)="onEmptyChapterBlur($event, chapter)">
+                        <p>Start typing here...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sentences without chapter (only show if "All Chapters" is selected) -->
+            <div *ngIf="!selectedChapterId && getAllSentencesWithoutChapter().length > 0" class="chapter-section">
+                <div class="chapter-content">
+                    <span *ngFor="let sentence of getAllSentencesWithoutChapter(); let isLast = last" 
+                          class="sentence-inline"
+                          [class.selected]="isSelected(sentence.id)" 
+                          (click)="onSentenceClick(sentence)">
+                        <span class="sentence-text" contenteditable="true"
+                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                            [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+                        <span class="emoji-tooltip" *ngIf="sentence.emojis.length > 0">
+                            {{ sentence.emojis.join(' ') }}
+                        </span>{{ isLast ? '' : ' ' }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Show hint only if no chapters and no sentences -->
+            <div *ngIf="chapters.length === 0 && sentences.length === 0" class="hint">
+                <p>No sentences yet. Paste or type your story above.</p>
+            </div>
         </div>
     </div>
 
-    <!-- Emoji-Only View -->
+    <!-- Emoji-Only View (similar structure) -->
     <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'">
-        <div class="emoji-content">
-            <span *ngFor="let sentence of sentences; let i = index" class="emoji-sentence"
-                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)"
-                [attr.title]="sentence.text">
-                <span class="emoji-group" *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>
-                <span class="emoji-group empty" *ngIf="sentence.emojis.length === 0">📝</span>
-                <span class="emoji-dot">•</span>
-                <div class="sentence-tooltip">{{ sentence.text }}</div>
-            </span>
-        </div>
+        <!-- Similar structure with chapters -->
     </div>
 
     <div class="hint" *ngIf="sentences.length === 0">

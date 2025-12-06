@@ -39,7 +39,7 @@ def update_sentence(
     db: Session = Depends(get_db)
 ):
     """
-    Update a sentence's text and/or emojis.
+    Update a sentence's text, emojis, and/or chapter assignment.
     Max 5 emojis enforced via schema validation.
     """
     sentence = db.query(models.Sentence).filter(models.Sentence.id == sentence_id).first()
@@ -50,6 +50,17 @@ def update_sentence(
     # Update text if provided
     if update.text is not None:
         sentence.text = update.text
+    
+    # Update chapter_id if provided
+    if update.chapter_id is not None:
+        # Verify chapter exists if provided (allow None to unassign)
+        if update.chapter_id:
+            chapter = db.query(models.Chapter).filter(
+                models.Chapter.id == update.chapter_id
+            ).first()
+            if not chapter:
+                raise HTTPException(status_code=404, detail="Chapter not found")
+        sentence.chapter_id = update.chapter_id
     
     # Update emojis if provided
     if update.emojis is not None:
@@ -88,6 +99,7 @@ def update_sentence(
     return schemas.SentenceResponse(
         id=sentence.id,
         document_id=sentence.document_id,
+        chapter_id=sentence.chapter_id,  # Include chapter_id in response
         index=sentence.index,
         text=sentence.text,
         emojis=emojis

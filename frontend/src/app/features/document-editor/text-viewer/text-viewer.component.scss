@@ -296,3 +296,256 @@
         }
     }
 }
+
+.header-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.chapter-dropdown-wrapper {
+    position: relative;
+    
+    .btn-chapter-select {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        
+        &:hover {
+            background: #f5f5f5;
+        }
+        
+        .dropdown-arrow {
+            font-size: 0.7rem;
+            color: #666;
+        }
+    }
+    
+    .chapter-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 0.25rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        min-width: 200px;
+        
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            
+            &:hover {
+                background: #f5f5f5;
+            }
+            
+            &:first-child {
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            
+            &:last-child {
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
+            }
+        }
+    }
+}
+
+.btn-add-chapter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    
+    .icon {
+        font-size: 1rem;
+    }
+    
+    &:hover {
+        background: #f5f5f5;
+    }
+}
+
+.btn-toc {
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    
+    &:hover {
+        background: #f5f5f5;
+    }
+}
+
+.chapter-dropdown {
+    select.chapter-select {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+    }
+}
+
+.btn-add-chapter, .btn-toc {
+    padding: 0.5rem 1rem;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    
+    &:hover {
+        background: #0056b3;
+    }
+}
+
+.toc-panel {
+    background: #f8f9fa;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    
+    h3 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .toc-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        
+        .toc-item {
+            padding: 0.25rem 0;
+            
+            .toc-link {
+                color: #007bff;
+                text-decoration: none;
+                cursor: pointer;
+                
+                &:hover {
+                    text-decoration: underline;
+                }
+            }
+        }
+    }
+}
+
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    
+    .dialog-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        min-width: 400px;
+        
+        h3 {
+            margin-top: 0;
+        }
+        
+        .chapter-title-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .dialog-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            
+            .btn-primary, .btn-secondary {
+                padding: 0.5rem 1rem;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            
+            .btn-primary {
+                background: #007bff;
+                color: white;
+            }
+            
+            .btn-secondary {
+                background: #6c757d;
+                color: white;
+            }
+        }
+    }
+}
+
+.chapter-section {
+    margin-bottom: 2rem;
+    
+    .chapter-title {
+        font-size: 2rem;
+        font-weight: 300;
+        color: #999;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: none;
+        cursor: text;
+        
+        &:focus {
+            outline: none;
+            color: #666;
+        }
+    }
+    
+    .chapter-content {
+        // Existing sentence styles apply here
+    }
+}
+
+.empty-chapter-hint {
+    padding: 1rem;
+    color: #999;
+    font-style: italic;
+    cursor: text;
+    min-height: 2rem;
+    outline: none;
+    
+    &:focus {
+        color: #333;
+        font-style: normal;
+        outline: 2px solid #007bff;
+        outline-offset: 2px;
+    }
+    
+    p {
+        margin: 0;
+    }
+}
