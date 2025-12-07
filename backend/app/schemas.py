@@ -1,5 +1,5 @@
 """Pydantic schemas for request/response validation."""
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 
@@ -119,6 +119,41 @@ class TextFromEmojisResponse(BaseModel):
     
     sentence_id: Optional[str] = Field(default=None, alias='sentenceId')
     suggested_text: str = Field(alias='suggestedText')
+
+
+class SpiderChartAnalysisRequest(BaseModel):
+    """Request to analyze text for spider chart values."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    text: str  # Can be full document content or selected text
+
+
+class SpiderChartAnalysisResponse(BaseModel):
+    """Response with spider chart emotion/setting values."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    drama: int = Field(..., ge=0, le=100)
+    humor: int = Field(..., ge=0, le=100)
+    conflict: int = Field(..., ge=0, le=100)
+    mystery: int = Field(..., ge=0, le=100)
+
+class SpiderChartIntentRequest(BaseModel):
+    """Request to get suggestions for adjusting a spider chart dimension."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    text: str
+    dimension: str  # 'drama' | 'humor' | 'conflict' | 'mystery'
+    baseline_value: int = Field(alias='baselineValue', ge=0, le=100)
+    current_value: int = Field(alias='currentValue', ge=0, le=100)
+
+class SpiderChartIntentResponse(BaseModel):
+    """Response with suggestions for adjusting text to match slider intent."""
+    summary: str
+    ideas: list[str]
+    preview: str
+
 
 
 # ========== Health Check ==========

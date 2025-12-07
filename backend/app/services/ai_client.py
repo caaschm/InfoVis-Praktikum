@@ -337,3 +337,211 @@ def check_api_key_configured() -> bool:
     """Check if the OpenRouter API key is configured."""
     return bool(get_api_key())
 
+
+async def analyze_spider_chart_values(text: str) -> dict[str, int]:
+    """
+    Analyze text using AI to scan through and rate sentiment/mood dimensions.
+    The AI directly analyzes the text and rates it on drama, humor, conflict, and mystery.
+    
+    Args:
+        text: The text to analyze (can be full document or selected portion)
+        
+    Returns:
+        Dictionary with keys: drama, humor, conflict, mystery (values 0-100)
+    """
+    api_key = get_api_key()
+    print("🔑 OPENROUTER_API_KEY present?", bool(api_key))
+    print("🔑 OPENROUTER_API_KEY (gekürzt):", api_key[:8], "...", api_key[-4:])
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using simple fallback")
+        return _simple_fallback_analysis(text)
+    
+    prompt = f"""Scan through this text and analyze its emotional tone and mood. Rate it on four dimensions (0-100 scale):
+
+- Drama: Emotional intensity, tension, high stakes, deep feelings, tragic moments
+- Humor: Lightheartedness, comedy, wit, amusing situations, playful moments
+- Conflict: Disagreements, battles, opposition, struggles, anger, hostility, confrontations
+- Mystery: Unanswered questions, secrets, intrigue, puzzles, hidden elements, uncertainty
+
+Text to analyze:
+"{text}"
+
+Carefully read the entire text and choose appropriate values for each dimension
+based on how strongly it appears in the story.
+
+Respond with ONLY a JSON object with integer values between 0 and 100, for example:
+{{"drama": 72, "humor": 15, "conflict": 60, "mystery": 40}}
+
+Do NOT copy the example numbers. Compute new values that best fit the given text.
+No explanations, no markdown, just the JSON object."""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.3,  # Lower temperature for more consistent analysis
+                    "max_tokens": 150
+                }
+            )
+            
+            if response.status_code != 200:
+                print(f"❌ Error response: {response.text}")
+                return _simple_fallback_analysis(text)
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            print("🧠 RAW AI RESPONSE:", content)
+
+            # Try to extract JSON from response
+            # Remove markdown code blocks if present
+            content = re.sub(r'```json\s*', '', content)
+            content = re.sub(r'```\s*', '', content)
+            content = content.strip()
+            
+            try:
+                analysis = json.loads(content)
+                # Validate and clamp values
+                return {
+                    "drama": max(0, min(100, int(analysis.get("drama", 50)))),
+                    "humor": max(0, min(100, int(analysis.get("humor", 50)))),
+                    "conflict": max(0, min(100, int(analysis.get("conflict", 50)))),
+                    "mystery": max(0, min(100, int(analysis.get("mystery", 50))))
+                }
+            except json.JSONDecodeError:
+                print(f"⚠️  Could not parse JSON from response: {content}")
+                return _simple_fallback_analysis(text)
+            
+    except Exception as e:
+        print(f"❌ Error calling OpenRouter: {type(e).__name__}: {e}")
+        return _simple_fallback_analysis(text)
+
+
+def _simple_fallback_analysis(text: str) -> dict[str, int]:
+    """
+    Simple fallback when AI is unavailable - returns neutral values.
+    
+    Args:
+        text: The text to analyze
+        
+    Returns:
+        Dictionary with neutral drama, humor, conflict, mystery values (0-100)
+    """
+    # Return neutral values as fallback
+    return {
+        "drama": 50,
+        "humor": 50,
+        "conflict": 50,
+        "mystery": 50
+    }
+
+async def generate_spider_intent(text: str, dimension: str, baseline: int, current: int):
+    api_key = get_api_key()
+
+    if not api_key:
+        return {
+            "summary": "No AI available.",
+            "ideas": ["Try adjusting details in the scene.", "Consider emotional pacing.", "Edit character motivations."],
+            "preview": ""
+        }
+
+    direction = "increase" if current > baseline else "decrease"
+    difference = abs(current - baseline)
+    target_value = current  # The value the user moved the slider to
+
+    dim_labels = {
+        "drama": "Drama (emotional intensity, high stakes, depth of feeling)",
+        "humor": "Humor (lightheartedness, comedy, playful tone)",
+        "conflict": "Conflict (opposition, tension, disagreement, obstacles)",
+        "mystery": "Mystery (secrets, questions, hidden motives, intrigue)"
+    }
+
+    label = dim_labels.get(dimension, dimension.capitalize())
+
+    # If the user moved the slider towards 100%, suggest how to reach 100%
+    if current > baseline:
+        goal_text = f"reach {target_value}% (and ideally 100%)"
+        goal_instruction = f"to increase {dimension} to {target_value}% or even 100%"
+    else:
+        goal_text = f"reduce to {target_value}%"
+        goal_instruction = f"to decrease {dimension} to {target_value}%"
+
+    prompt = f"""
+You are helping a fiction writer adjust their story's tone.
+
+The writer moved the slider for **{label}** from {baseline}% to {target_value}%.
+They want to {goal_instruction} in their story.
+
+Give concise, actionable suggestions:
+
+1. **SUMMARY** (keep brief, 1 sentence): What reaching {goal_text} for {label} means.
+
+2. **IDEAS** (exactly 3, each max 10 words): Short, specific actions like "Add witty dialogue" or "Include dramatic revelation". Be direct and actionable.
+
+3. **PREVIEW** (one short sentence, max 15 words): Example sentence showing the desired tone.
+
+Current story text:
+\"\"\"{text}\"\"\"
+
+
+Respond ONLY in JSON:
+{{
+  "summary": "...",
+  "ideas": ["...", "...", "..."],
+  "preview": "..."
+}}
+"""
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            res = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.6,
+                    "max_tokens": 300,
+                },
+            )
+
+        if res.status_code != 200:
+            print(f"❌ Error response: {res.text}")
+            raise Exception(f"API returned status {res.status_code}")
+
+        raw = res.json()["choices"][0]["message"]["content"].strip()
+
+        # Remove markdown fences if present
+        cleaned = re.sub(r"```json|```", "", raw).strip()
+
+        return json.loads(cleaned)
+
+    except Exception as e:
+        print(f"❌ Error generating spider intent: {type(e).__name__}: {e}")
+        print("INTENT ERROR RAW:", raw if "raw" in locals() else "NO RAW")
+        return {
+            "summary": "The AI could not generate a specific suggestion.",
+            "ideas": ["Try adjusting emotional tone.", "Modify character choices.", "Change pacing or tension."],
+            "preview": ""
+        }

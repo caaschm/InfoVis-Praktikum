@@ -8,7 +8,9 @@ from app.services.ai_client import (
     generate_emojis_for_sentence, 
     generate_text_from_emojis,
     get_character_emoji_mappings,
-    clear_character_emoji_mappings
+    clear_character_emoji_mappings,
+    analyze_spider_chart_values,
+    generate_spider_intent,
 )
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -122,3 +124,63 @@ async def clear_character_mappings():
     """
     clear_character_emoji_mappings()
     return {"status": "cleared", "message": "Character-emoji mappings cleared"}
+
+
+@router.post("/analyze-spider-chart", response_model=schemas.SpiderChartAnalysisResponse)
+async def analyze_spider_chart(
+    request: schemas.SpiderChartAnalysisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze text and return spider chart values (drama, humor, conflict, mystery).
+    Can analyze full document or selected text portion.
+    """
+    # Verify document exists
+    document = db.query(models.Document).filter(
+        models.Document.id == request.document_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Analyze text using AI service
+    try:
+        values = await analyze_spider_chart_values(request.text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze text: {str(e)}"
+        )
+    
+    return schemas.SpiderChartAnalysisResponse(
+        drama=values["drama"],
+        humor=values["humor"],
+        conflict=values["conflict"],
+        mystery=values["mystery"]
+    )
+
+
+@router.post("/spider-intent", response_model=schemas.SpiderChartIntentResponse)
+async def spider_intent(
+        request: schemas.SpiderChartIntentRequest,
+        db: Session = Depends(get_db)
+):
+    # Optional: check document exists
+    document = db.query(models.Document).filter(
+        models.Document.id == request.document_id
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        result = await generate_spider_intent(
+            text=request.text,
+            dimension=request.dimension,
+            baseline=request.baseline_value,
+            current=request.current_value,
+        )
+        return result
+    except Exception as e:
+        print("❌ Error generating spider intent:", e)
+        raise HTTPException(status_code=500, detail="AI intent generation failed.")
