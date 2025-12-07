@@ -57,32 +57,22 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       clearTimeout(this.sentenceUpdateTimer);
     }
 
-    // 🔄 AUTO-SAVE: Check if user typed sentence-ending punctuation followed by space AND more content
-    // Only triggers when user is actually starting a new sentence, not just ending current one
-    const hasNewSentence = /[.!?]\s+\S/.test(newText);
-
-    if (hasNewSentence) {
-      // 🔄 IMMEDIATE save when new sentence detected - triggers sentence splitting
-      const currentDoc = this.documentService.getCurrentDocument();
-      if (currentDoc) {
-        // Rebuild full document text with the updated sentence
-        const updatedSentences = this.sentences.map(s =>
-          s.id === sentence.id ? newText.trim() : s.text
-        );
-        const fullText = updatedSentences.join(' ').trim();
-
-        // Only update if text actually changed
-        const currentFullText = this.sentences.map(s => s.text).join(' ').trim();
-        if (fullText !== currentFullText) {
-          this.documentService.updateDocumentContent(currentDoc.id, fullText);
-        }
+    // IMPORTANT: Don't trigger any backend updates while user is actively typing
+    // This prevents document refresh that interrupts typing and causes cursor to jump
+    // 
+    // Strategy:
+    // 1. Update happens locally via contenteditable (user sees changes immediately)
+    // 2. Debounced save only after user stops typing for 1.5 seconds
+    // 3. Full document re-parse (for sentence splitting) only happens on blur
+    
+    this.sentenceUpdateTimer = setTimeout(() => {
+      const trimmedText = newText.trim();
+      if (trimmedText !== sentence.text.trim()) {
+        // Only update sentence text (not full document re-parse) while user is typing
+        // Full document re-parse with sentence splitting happens on blur
+        this.documentService.updateSentenceText(sentence.id, trimmedText);
       }
-    } else {
-      // For non-punctuation changes, debounce the update
-      this.sentenceUpdateTimer = setTimeout(() => {
-        this.documentService.updateSentenceText(sentence.id, newText.trim());
-      }, 500);
-    }
+    }, 1500); // Longer delay to avoid interrupting typing
   }
 
   onSentenceBlur(sentence: Sentence, newText: string): void {
@@ -100,13 +90,17 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       const hasMultipleSentences = trimmedNewText.split(/[.!?]\s+(?=\S)/).length > 1;
 
       if (hasMultipleSentences) {
-        // Re-parse the entire document to split sentences
+        // Only re-parse document when user finishes editing (on blur)
+        // This prevents interruption while typing
         const currentDoc = this.documentService.getCurrentDocument();
         if (currentDoc) {
           const updatedSentences = this.sentences.map(s =>
             s.id === sentence.id ? trimmedNewText : s.text
           );
           const fullText = updatedSentences.join(' ').trim();
+          
+          // Update document content to trigger sentence splitting
+          // This happens only after user stops editing, so it won't interrupt typing
           this.documentService.updateDocumentContent(currentDoc.id, fullText);
         }
       } else {

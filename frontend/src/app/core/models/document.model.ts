@@ -55,3 +55,29 @@ export interface SentenceUpdate {
     text?: string;
     emojis?: string[];
 }
+
+export interface SpiderChartAnalysisRequest {
+    documentId: string;
+    text: string;
+}
+
+export interface SpiderChartAnalysisResponse {
+    drama: number;
+    humor: number;
+    conflict: number;
+    mystery: number;
+}
+
+export interface SpiderChartIntentRequest {
+  documentId: string;
+  text: string;
+  dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
+  currentValue: number;
+  baselineValue: number;
+}
+
+export interface SpiderChartIntentResponse {
+  summary: string;
+  ideas: string[];
+  preview: string;
+}
