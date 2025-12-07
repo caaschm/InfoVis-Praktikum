@@ -392,7 +392,7 @@
     </div>
 
   <!-- Spider Chart Tab -->
-  <div class="tab-content" *ngIf="activeTab === 'spider-chart'">
+  <div class="tab-content spider-tab" *ngIf="activeTab === 'spider-chart'">
     <h3>Spider Chart</h3>
     <div class="spider-wrapper">
       <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
@@ -466,6 +466,78 @@
           {{ mystery }}%
         </text>
       </svg>
+
+      <!-- Sliders unter dem Chart -->
+      <div class="spider-sliders">
+        <div class="slider-row">
+          <label>Drama: {{ drama }}</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="drama"
+            (input)="onSliderChange('drama')"
+          />
+        </div>
+
+        <div class="slider-row">
+          <label>Humor: {{ humor }}</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="humor"
+            (input)="onSliderChange('humor')"
+          />
+        </div>
+
+        <div class="slider-row">
+          <label>Conflict: {{ conflict }}</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="conflict"
+            (input)="onSliderChange('conflict')"
+          />
+        </div>
+
+        <div class="slider-row">
+          <label>Mystery: {{ mystery }}</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="mystery"
+            (input)="onSliderChange('mystery')"
+          />
+        </div>
+      </div>
+
+      <!-- Suggestions Box -->
+      <div *ngIf="intentLoading" class="suggestions-box loading">
+        <div class="loading-spinner"></div>
+        <span>Analyzing…</span>
+      </div>
+
+      <div *ngIf="intentSummary && !intentLoading" class="suggestions-box">
+        <div class="suggestions-header">
+          <span class="suggestions-icon">💡</span>
+          <h4>Suggestions</h4>
+        </div>
+        
+        <div class="suggestions-list">
+          <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
+            <span class="suggestion-badge">{{ i + 1 }}</span>
+            <span class="suggestion-text">{{ idea }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="intentPreview" class="suggestions-example">
+          <div class="example-label">EXAMPLE:</div>
+          <div class="example-text">{{ intentPreview }}</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

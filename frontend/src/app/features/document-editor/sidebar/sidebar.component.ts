@@ -8,28 +8,64 @@ import {
   ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { Sentence } from '../../../core/models/document.model';
 
+type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  @Input() activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'storyarc' | 'spider-chart' = 'emojis';
+  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart' | 'storyarc' = 'emojis';
+
+  // ===== INTENT PANEL STATE =====
+  intentSummary: string | null = null;
+  intentIdeas: string[] = [];
+  intentPreview: string | null = null;
+  intentLoading = false;
+  private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number }>();
+
+  // ===== BASELINE VALUES NACH AI-ANALYSE =====
+  aiBaseline: Record<Dimension, number> = {
+    drama: 65,
+    humor: 40,
+    conflict: 80,
+    mystery: 30,
+  };
+
+  @Input()
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'storyarc' | 'spider-chart') {
+    this._activeTab = value;
+    if (value === 'spider-chart' && !this.isAnalyzing) {
+      const doc = this.documentService.getCurrentDocument();
+      if (doc && doc.id !== this.lastAnalyzedDocumentId) {
+        setTimeout(() => this.analyzeDocument(), 100);
+      }
+    }
+  }
+
+  get activeTab() {
+    return this._activeTab;
+  }
 
   selectedSentence: Sentence | null = null;
+
+  // ===== Emoji / Text-Generation =====
   isGenerating = false;
+  isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
 
   private destroy$ = new Subject<void>();
 
-  // Emoji management
   maxEmojis = 5;
   commonEmojis = [
     '😀', '😊', '😢', '😱', '😡', '😍', '🤔', '😴',
@@ -66,7 +102,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 ];
 
-  // === Spider Chart State ===
+  // ===== SPIDER CHART VALUES =====
   drama = 65;
   humor = 40;
   conflict = 80;
@@ -74,23 +110,58 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private readonly centerX = 100;
   private readonly centerY = 100;
-  private readonly maxRadius = 80; // outer circle in SVG
+  private readonly maxRadius = 80;
 
   @ViewChild('spiderSvg') spiderSvg?: ElementRef<SVGSVGElement>;
-  draggingHandle: 'drama' | 'humor' | 'conflict' | 'mystery' | null = null;
+  draggingHandle: Dimension | null = null;
+
+  isAnalyzing = false;
+  lastAnalysisError: string | null = null;
+  private lastAnalyzedDocumentId: string | null = null;
+  private lastAnalyzedTextHash: string | null = null;
 
   constructor(
     private documentService: DocumentService,
     private aiService: AiService
   ) {}
 
-  // ================= LIFECYCLE =================
-
+  // ========== INIT ==========
   ngOnInit(): void {
     this.documentService.selectedSentence$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(sentence => {
-        this.selectedSentence = sentence;
+      .subscribe(sentence => this.selectedSentence = sentence);
+
+    this.documentService.currentDocument$
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(2000),
+        distinctUntilChanged((prev, curr) => {
+          if (!prev || !curr) return prev === curr;
+          return prev.sentences.map(s => s.text).join(' ') ===
+            curr.sentences.map(s => s.text).join(' ');
+        })
+      )
+      .subscribe(doc => {
+        if (doc && this.activeTab === 'spider-chart' && !this.isAnalyzing) {
+          const currentText = doc.sentences.map(s => s.text).join(' ').trim();
+          if (currentText) {
+            const textHash = `${currentText.length}_${currentText.substring(0, 50)}`;
+            if (textHash !== this.lastAnalyzedTextHash) {
+              this.lastAnalyzedTextHash = textHash;
+              this.analyzeDocument();
+            }
+          }
+        }
+      });
+
+    // Slider-Änderungen debouncen
+    this.sliderChangeSubject
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(500)
+      )
+      .subscribe(({ dimension, current, baseline }) => {
+        this.fetchIntentSuggestions(dimension, current, baseline);
       });
   }
 
@@ -152,16 +223,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
   generateEmojisForAll(): void {
     const editableElements = document.querySelectorAll('[contenteditable="true"]');
     editableElements.forEach(el => {
-      if (el instanceof HTMLElement) {
-        el.blur();
-      }
+      if (el instanceof HTMLElement) el.blur();
     });
 
     setTimeout(() => {
       const doc = this.documentService.getCurrentDocument();
       if (!doc || !doc.sentences || doc.sentences.length === 0) return;
 
-      this.isGenerating = true;
+      this.isGeneratingEmojisForAll = true;
       let processedCount = 0;
       const totalSentences = doc.sentences.length;
 
@@ -179,17 +248,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
           processedCount++;
-
           if (processedCount === totalSentences) {
-            this.isGenerating = false;
+            this.isGeneratingEmojisForAll = false;
           }
         },
         error: (err) => {
           console.error(`Error generating emojis for sentence ${index + 1}:`, err);
           processedCount++;
-
           if (processedCount === totalSentences) {
-            this.isGenerating = false;
+            this.isGeneratingEmojisForAll = false;
           }
         }
       });
@@ -230,44 +297,77 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.lastSuggestion = null;
   }
 
-  // ================ SPIDER CHART LOGIK =================
-
-  private valueToPointXY(value: number, angleDeg: number): { x: number; y: number } {
+  // ========== SPIDER SHAPE ==========
+  private valueToPointXY(value: number, angleDeg: number) {
     const r = (value / 100) * this.maxRadius;
     const angleRad = (angleDeg * Math.PI) / 180;
-    const x = this.centerX + r * Math.cos(angleRad);
-    const y = this.centerY + r * Math.sin(angleRad);
-    return { x, y };
+    return {
+      x: this.centerX + r * Math.cos(angleRad),
+      y: this.centerY + r * Math.sin(angleRad)
+    };
   }
 
-  get dramaPoint()   { return this.valueToPointXY(this.drama,   -90); }
-  get humorPoint()   { return this.valueToPointXY(this.humor,     0); }
-  get conflictPoint(){ return this.valueToPointXY(this.conflict,  90); }
-  get mysteryPoint() { return this.valueToPointXY(this.mystery,  180); }
+  get dramaPoint()   { return this.valueToPointXY(this.drama, -90); }
+  get humorPoint()   { return this.valueToPointXY(this.humor, 0); }
+  get conflictPoint(){ return this.valueToPointXY(this.conflict, 90); }
+  get mysteryPoint() { return this.valueToPointXY(this.mystery, 180); }
 
   get spiderPoints(): string {
-    const pts = [this.dramaPoint, this.humorPoint, this.conflictPoint, this.mysteryPoint];
-    return pts.map(p => `${p.x},${p.y}`).join(', ');
+    return [
+      this.dramaPoint,
+      this.humorPoint,
+      this.conflictPoint,
+      this.mysteryPoint
+    ].map(p => `${p.x},${p.y}`).join(', ');
   }
 
-  startDrag(handle: 'drama' | 'humor' | 'conflict' | 'mystery', event: MouseEvent): void {
-    event.stopPropagation();
+  // ========== AI ANALYSIS ==========
+  analyzeDocument(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
+    const fullText = doc.sentences.map(s => s.text).join(' ').trim();
+    if (!fullText) return;
+
+    this.isAnalyzing = true;
+    this.aiService.analyzeSpiderChart({
+      documentId: doc.id,
+      text: fullText
+    }).subscribe({
+      next: (response) => {
+        this.drama = response.drama;
+        this.humor = response.humor;
+        this.conflict = response.conflict;
+        this.mystery = response.mystery;
+
+        this.aiBaseline = { ...response } as Record<Dimension, number>;
+        this.isAnalyzing = false;
+
+        const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
+        this.lastAnalyzedTextHash = textHash;
+        this.lastAnalyzedDocumentId = doc.id;
+      },
+      error: () => {
+        this.lastAnalysisError = 'Failed to analyze text';
+        this.isAnalyzing = false;
+      }
+    });
+  }
+
+  // ========== DRAG HANDLE ==========
+  startDrag(handle: Dimension, e: MouseEvent) {
+    e.stopPropagation();
     this.draggingHandle = handle;
   }
 
   @HostListener('window:mouseup')
-  stopDrag(): void {
-    this.draggingHandle = null;
-  }
+  stopDrag() { this.draggingHandle = null; }
 
   @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent): void {
+  onMouseMove(event: MouseEvent) {
     if (!this.draggingHandle || !this.spiderSvg) return;
 
-    const svg = this.spiderSvg.nativeElement;
-    const rect = svg.getBoundingClientRect();
-
-    // Mausposition -> SVG-Koordinaten (0–200)
+    const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 200;
     const y = ((event.clientY - rect.top) / rect.height) * 200;
 
@@ -275,23 +375,68 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const dy = y - this.centerY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    let value = (dist / this.maxRadius) * 100;
-    value = Math.max(0, Math.min(100, value));
-    const rounded = Math.round(value);
+    const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
 
-    switch (this.draggingHandle) {
-      case 'drama':
-        this.drama = rounded;
-        break;
-      case 'humor':
-        this.humor = rounded;
-        break;
-      case 'conflict':
-        this.conflict = rounded;
-        break;
-      case 'mystery':
-        this.mystery = rounded;
-        break;
+    // Wert setzen
+    (this as any)[this.draggingHandle] = value;
+
+    // Intent-Panel triggern
+    this.onSliderChange(this.draggingHandle);
+  }
+
+  // ========== INTENT PANEL LOGIK ==========
+  onSliderChange(dimension: Dimension): void {
+    const current = (this as any)[dimension] as number;
+    const baseline = this.aiBaseline[dimension];
+    const delta = Math.abs(current - baseline);
+
+    if (delta < 5) {
+      this.intentSummary = null;
+      this.intentIdeas = [];
+      this.intentPreview = null;
+      this.intentLoading = false;
+      return;
     }
+
+    this.sliderChangeSubject.next({ dimension, current, baseline });
+  }
+
+  private fetchIntentSuggestions(
+    dimension: Dimension,
+    current: number,
+    baseline: number
+  ): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
+    const text = doc.sentences.map(s => s.text).join(' ').trim();
+    if (!text) return;
+
+    this.intentLoading = true;
+    this.intentSummary = 'Analyzing intent...';
+    this.intentIdeas = [];
+    this.intentPreview = null;
+
+    this.aiService.getSpiderIntent({
+      documentId: doc.id,
+      text,
+      dimension,
+      currentValue: current,
+      baselineValue: baseline
+    }).subscribe({
+      next: (res) => {
+        this.intentSummary = res.summary;
+        this.intentIdeas = res.ideas;
+        this.intentPreview = res.preview;
+        this.intentLoading = false;
+      },
+      error: (err) => {
+        console.error('Error fetching intent suggestions:', err);
+        this.intentSummary = 'Unable to generate suggestions at this time.';
+        this.intentIdeas = ['Please try again in a moment.'];
+        this.intentPreview = null;
+        this.intentLoading = false;
+      }
+    });
   }
 }

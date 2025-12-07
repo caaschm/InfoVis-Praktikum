@@ -6,16 +6,33 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import {
-    EmojiSuggestionRequest,
-    EmojiSuggestionResponse,
-    TextFromEmojisRequest,
-    TextFromEmojisResponse
+  EmojiSuggestionRequest,
+  EmojiSuggestionResponse,
+  TextFromEmojisRequest,
+  TextFromEmojisResponse,
+  SpiderChartAnalysisRequest,
+  SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse
 } from '../models/document.model';
+
+export interface SpiderIntentRequest {
+  documentId: number | string;
+  text: string;
+  dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
+  baselineValue: number;
+  currentValue: number;
+}
+
+export interface SpiderIntentResponse {
+  summary: string;
+  ideas: string[];
+  preview: string;
+}
 
 @Injectable({
     providedIn: 'root'
 })
 export class AiService {
+  private http: any;
     constructor(private apiService: ApiService) { }
 
     /**
@@ -39,4 +56,25 @@ export class AiService {
             request
         );
     }
+
+    /**
+     * Analyze text for spider chart values (drama, humor, conflict, mystery)
+     */
+    analyzeSpiderChart(request: SpiderChartAnalysisRequest): Observable<SpiderChartAnalysisResponse> {
+        return this.apiService.post<SpiderChartAnalysisResponse>(
+            '/api/ai/analyze-spider-chart',
+            request
+        );
+    }
+
+  getSpiderIntent(payload: SpiderIntentRequest): Observable<SpiderIntentResponse> {
+    return this.apiService.post<SpiderIntentResponse>('/api/ai/spider-intent', {
+      documentId: payload.documentId,
+      text: payload.text,
+      dimension: payload.dimension,
+      baselineValue: payload.baselineValue,
+      currentValue: payload.currentValue,
+    });
+  }
+
 }
