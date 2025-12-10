@@ -2,6 +2,7 @@
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
+import json
 
 
 # ========== Document Schemas ==========
@@ -48,6 +49,9 @@ class DocumentDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     sentences: list[SentenceBase] = []
+    word_mappings: list['WordEmojiMappingResponse'] = []
+    custom_emoji_sets: list['CustomEmojiSetResponse'] = []
+    characters: list['CharacterDefinitionResponse'] = []
 
 
 # ========== Sentence Schemas ==========
@@ -162,3 +166,109 @@ class HealthResponse(BaseModel):
     """Health check response."""
     status: str
     timestamp: datetime
+
+
+# ========== Word Emoji Mapping Schemas ==========
+
+class WordEmojiMappingCreate(BaseModel):
+    """Schema for creating a word-emoji mapping."""
+    word_pattern: str = Field(..., min_length=1, max_length=100)
+    emoji: str = Field(..., min_length=1, max_length=10)
+    is_active: bool = True
+
+
+class WordEmojiMappingUpdate(BaseModel):
+    """Schema for updating a word-emoji mapping."""
+    word_pattern: Optional[str] = Field(None, min_length=1, max_length=100)
+    emoji: Optional[str] = Field(None, min_length=1, max_length=10)
+    is_active: Optional[bool] = None
+
+
+class WordEmojiMappingResponse(BaseModel):
+    """Response schema for word-emoji mapping."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    document_id: str
+    word_pattern: str
+    emoji: str
+    is_active: bool
+    created_at: datetime
+
+
+# ========== Custom Emoji Set Schemas ==========
+
+class CustomEmojiSetCreate(BaseModel):
+    """Schema for creating a custom emoji set."""
+    name: str = Field(..., min_length=1, max_length=100)
+    emojis: list[str] = Field(..., min_length=1)
+    is_default: bool = False
+
+    @field_validator('emojis')
+    @classmethod
+    def validate_emojis(cls, v):
+        """Ensure at least one emoji."""
+        if len(v) < 1:
+            raise ValueError('Must provide at least one emoji')
+        return v
+
+
+class CustomEmojiSetUpdate(BaseModel):
+    """Schema for updating a custom emoji set."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    emojis: Optional[list[str]] = Field(None, min_length=1)
+    is_default: Optional[bool] = None
+
+    @field_validator('emojis')
+    @classmethod
+    def validate_emojis(cls, v):
+        """Ensure at least one emoji."""
+        if v is not None and len(v) < 1:
+            raise ValueError('Must provide at least one emoji')
+        return v
+
+
+class CustomEmojiSetResponse(BaseModel):
+    """Response schema for custom emoji set."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    document_id: str
+    name: str
+    emojis: list[str]
+    is_default: bool
+    created_at: datetime
+
+
+# ========== Character Definition Schemas ==========
+
+class CharacterDefinitionCreate(BaseModel):
+    """Schema for creating a character definition."""
+    name: str = Field(..., min_length=1, max_length=100)
+    emoji: str = Field(..., min_length=1, max_length=10)
+    aliases: Optional[list[str]] = Field(default_factory=list)
+    description: Optional[str] = None
+    color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$')
+
+
+class CharacterDefinitionUpdate(BaseModel):
+    """Schema for updating a character definition."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    emoji: Optional[str] = Field(None, min_length=1, max_length=10)
+    aliases: Optional[list[str]] = None
+    description: Optional[str] = None
+    color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$')
+
+
+class CharacterDefinitionResponse(BaseModel):
+    """Response schema for character definition."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    document_id: str
+    name: str
+    emoji: str
+    aliases: list[str]
+    description: Optional[str]
+    color: Optional[str]
+    created_at: datetime

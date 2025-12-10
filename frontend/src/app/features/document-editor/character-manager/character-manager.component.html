@@ -1,0 +1,83 @@
+<div class="character-manager">
+    <div class="manager-header">
+        <h3>Characters & Subjects</h3>
+        <p class="description">Define recurring characters or subjects with emojis and colors</p>
+        <button class="btn-add" (click)="toggleAddForm()" [class.active]="showAddForm">
+            {{ showAddForm ? '✕ Cancel' : '+ Add Character' }}
+        </button>
+    </div>
+
+    <!-- Add character form -->
+    <div class="add-form" *ngIf="showAddForm">
+        <div class="form-group">
+            <label>Character Name *</label>
+            <input type="text" [(ngModel)]="newName" placeholder="e.g., Hero, Dragon, Wizard" class="text-input" />
+        </div>
+
+        <div class="form-group">
+            <label>Emoji *</label>
+            <div class="emoji-input-wrapper">
+                <span class="emoji-preview-large" *ngIf="newEmoji">{{ newEmoji }}</span>
+                <span class="placeholder-text" *ngIf="!newEmoji">Select an emoji</span>
+            </div>
+            <div class="emoji-picker-compact">
+                <button *ngFor="let emoji of characterEmojis" class="emoji-btn" [class.selected]="newEmoji === emoji"
+                    (click)="selectEmoji(emoji)">
+                    {{ emoji }}
+                </button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Aliases (comma-separated)</label>
+            <input type="text" [(ngModel)]="newAliases" placeholder="e.g., protagonist, main character"
+                class="text-input" />
+            <p class="hint">Alternative names this character might be called</p>
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            <textarea [(ngModel)]="newDescription" placeholder="Optional character notes" class="textarea-input"
+                rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Highlight Color</label>
+            <div class="color-picker">
+                <button *ngFor="let color of predefinedColors" class="color-btn" [style.background-color]="color"
+                    [class.selected]="newColor === color" (click)="selectColor(color)"></button>
+            </div>
+        </div>
+
+        <button class="btn-create" (click)="addCharacter()" [disabled]="!newName.trim() || !newEmoji">
+            Create Character
+        </button>
+    </div>
+
+    <!-- Characters list -->
+    <div class="characters-list" *ngIf="characters.length > 0">
+        <div *ngFor="let character of characters" class="character-card" [style.border-left-color]="character.color">
+            <div class="character-header">
+                <span class="character-emoji">{{ character.emoji }}</span>
+                <div class="character-info">
+                    <h4>{{ character.name }}</h4>
+                    <p class="aliases" *ngIf="character.aliases.length > 0">
+                        aka: {{ character.aliases.join(', ') }}
+                    </p>
+                </div>
+                <button class="btn-delete" (click)="deleteCharacter(character)" title="Delete character">
+                    🗑️
+                </button>
+            </div>
+            <p class="description" *ngIf="character.description">
+                {{ character.description }}
+            </p>
+            <div class="color-indicator" [style.background-color]="character.color"></div>
+        </div>
+    </div>
+
+    <div class="empty-state" *ngIf="characters.length === 0 && !showAddForm">
+        <p>No characters defined yet.</p>
+        <p class="hint">Create characters to track important entities in your story.</p>
+    </div>
+</div>

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import init_db
-from app.routers import documents, sentences, ai
+from app.routers import documents, sentences, ai, emoji_mappings
 from app.schemas import HealthResponse
 
 # Create FastAPI app
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(documents.router)
 app.include_router(sentences.router)
 app.include_router(ai.router)
+app.include_router(emoji_mappings.router)
 
 
 @app.on_event("startup")

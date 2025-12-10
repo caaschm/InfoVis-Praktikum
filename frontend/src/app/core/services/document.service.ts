@@ -6,6 +6,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
+import { EmojiMappingService } from './emoji-mapping.service';
 import {
     Document,
     DocumentDetail,
@@ -29,7 +30,10 @@ export class DocumentService {
     // Sentence updates for debounced saving
     private sentenceUpdateSubject = new Subject<{ id: string; update: SentenceUpdate }>();
 
-    constructor(private apiService: ApiService) {
+    constructor(
+        private apiService: ApiService,
+        private emojiMappingService: EmojiMappingService
+    ) {
         // Set up debounced sentence updates
         this.sentenceUpdateSubject
             .pipe(
@@ -51,7 +55,13 @@ export class DocumentService {
     createDocument(title: string, content: string): Observable<DocumentDetail> {
         return this.apiService.post<DocumentDetail>('/api/documents/', { title, content })
             .pipe(
-                tap(doc => this.currentDocumentSubject.next(doc))
+                tap(doc => {
+                    this.currentDocumentSubject.next(doc);
+                    // Load enhanced emoji data
+                    this.emojiMappingService.loadWordMappings(doc.id).subscribe();
+                    this.emojiMappingService.loadCustomSets(doc.id).subscribe();
+                    this.emojiMappingService.loadCharacters(doc.id).subscribe();
+                })
             );
     }
 
@@ -71,7 +81,13 @@ export class DocumentService {
     loadDocument(id: string): Observable<DocumentDetail> {
         return this.apiService.get<DocumentDetail>(`/api/documents/${id}`)
             .pipe(
-                tap(doc => this.currentDocumentSubject.next(doc))
+                tap(doc => {
+                    this.currentDocumentSubject.next(doc);
+                    // Load enhanced emoji data
+                    this.emojiMappingService.loadWordMappings(id).subscribe();
+                    this.emojiMappingService.loadCustomSets(id).subscribe();
+                    this.emojiMappingService.loadCharacters(id).subscribe();
+                })
             );
     }
 

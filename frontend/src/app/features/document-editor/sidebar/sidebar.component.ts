@@ -15,13 +15,21 @@ import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { AiTrackingService } from '../../../core/services/ai-tracking.service';
 import { Sentence } from '../../../core/models/document.model';
+import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
+import { CharacterManagerComponent } from '../character-manager/character-manager.component';
+import { EmojiSetManagerComponent } from '../emoji-set-manager/emoji-set-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule, FormsModule,
+    WordMappingManagerComponent,
+    CharacterManagerComponent,
+    EmojiSetManagerComponent
+  ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
 })
@@ -68,6 +76,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
+  // Enhanced emoji feature panels
+  showWordMappingPanel = false;
+  showCharacterPanel = false;
+  showEmojiSetPanel = false;
+
+  // Enhanced emoji feature panels
+  showWordMappingPanel = false;
+  showCharacterPanel = false;
+  showEmojiSetPanel = false;
+
   maxEmojis = 5;
   commonEmojis = [
     '😀', '😊', '😢', '😱', '😡', '😍', '🤔', '😴',
@@ -98,7 +116,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private documentService: DocumentService,
     private aiService: AiService,
     private aiTrackingService: AiTrackingService
-  ) {}
+  ) { }
 
   // ========== INIT ==========
   ngOnInit(): void {
@@ -214,6 +232,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
+    // Process each sentence one by one
     doc.sentences.forEach((sentence: Sentence, index: number) => {
       this.aiService.generateEmojisFromText({
         documentId: doc.id,
@@ -278,6 +297,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.lastSuggestion = null;
   }
 
+  // Enhanced emoji feature panel toggles
+  showWordMappings(): void {
+    this.showWordMappingPanel = !this.showWordMappingPanel;
+    if (this.showWordMappingPanel) {
+      this.showCharacterPanel = false;
+      this.showEmojiSetPanel = false;
+    }
+  }
+
+  showCharacters(): void {
+    this.showCharacterPanel = !this.showCharacterPanel;
+    if (this.showCharacterPanel) {
+      this.showWordMappingPanel = false;
+      this.showEmojiSetPanel = false;
+    }
+  }
+
+  showEmojiSets(): void {
+    this.showEmojiSetPanel = !this.showEmojiSetPanel;
+    if (this.showEmojiSetPanel) {
+      this.showWordMappingPanel = false;
+      this.showCharacterPanel = false;
+    }
+  }
+
   applyPreviewText(): void {
     if (!this.intentPreview) return;
 
@@ -291,13 +335,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     // Get current document content
     const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
-    
+
     // Append the preview text to the document
     const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
-    
+
     // Update the document content
     this.documentService.updateDocumentContent(doc.id, newContent);
-    
+
     // Mark as applied
     this.textApplied = true;
 
@@ -330,9 +374,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
     };
   }
 
-  get dramaPoint()   { return this.valueToPointXY(this.drama, -90); }
-  get humorPoint()   { return this.valueToPointXY(this.humor, 0); }
-  get conflictPoint(){ return this.valueToPointXY(this.conflict, 90); }
+  get dramaPoint() { return this.valueToPointXY(this.drama, -90); }
+  get humorPoint() { return this.valueToPointXY(this.humor, 0); }
+  get conflictPoint() { return this.valueToPointXY(this.conflict, 90); }
   get mysteryPoint() { return this.valueToPointXY(this.mystery, 180); }
 
   get spiderPoints(): string {

@@ -239,6 +239,8 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
 # Helper function
 def _build_document_detail(document: models.Document, db: Session) -> schemas.DocumentDetail:
     """Build DocumentDetail response with sentences and emojis."""
+    import json
+    
     sentences = db.query(models.Sentence).filter(
         models.Sentence.document_id == document.id
     ).order_by(models.Sentence.index).all()
@@ -260,11 +262,64 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             emojis=emojis
         ))
     
+    # Get word mappings
+    word_mappings = db.query(models.WordEmojiMapping).filter(
+        models.WordEmojiMapping.document_id == document.id
+    ).all()
+    
+    word_mapping_responses = [
+        schemas.WordEmojiMappingResponse(
+            id=m.id,
+            document_id=m.document_id,
+            word_pattern=m.word_pattern,
+            emoji=m.emoji,
+            is_active=bool(m.is_active),
+            created_at=m.created_at
+        ) for m in word_mappings
+    ]
+    
+    # Get custom emoji sets
+    emoji_sets = db.query(models.CustomEmojiSet).filter(
+        models.CustomEmojiSet.document_id == document.id
+    ).all()
+    
+    emoji_set_responses = [
+        schemas.CustomEmojiSetResponse(
+            id=s.id,
+            document_id=s.document_id,
+            name=s.name,
+            emojis=json.loads(s.emojis),
+            is_default=bool(s.is_default),
+            created_at=s.created_at
+        ) for s in emoji_sets
+    ]
+    
+    # Get character definitions
+    characters = db.query(models.CharacterDefinition).filter(
+        models.CharacterDefinition.document_id == document.id
+    ).all()
+    
+    character_responses = [
+        schemas.CharacterDefinitionResponse(
+            id=c.id,
+            document_id=c.document_id,
+            name=c.name,
+            emoji=c.emoji,
+            aliases=json.loads(c.aliases) if c.aliases else [],
+            description=c.description,
+            color=c.color,
+            created_at=c.created_at
+        ) for c in characters
+    ]
+    
     return schemas.DocumentDetail(
         id=document.id,
         title=document.title,
         content=document.content,
         created_at=document.created_at,
         updated_at=document.updated_at,
-        sentences=sentence_responses
+        sentences=sentence_responses,
+        word_mappings=word_mapping_responses,
+        custom_emoji_sets=emoji_set_responses,
+        characters=character_responses
     )

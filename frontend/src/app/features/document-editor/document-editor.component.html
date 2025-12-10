@@ -12,33 +12,21 @@
 
         <!-- Vertical tab buttons strip (far right) -->
         <div class="tab-strip">
-            <button class="tab-btn"
-                    [class.active]="sidebarVisible && activeTab === 'emojis'"
-                    (click)="toggleTab('emojis')"
-                    (dblclick)="hideSidebar()"
-                    title="Emojis (Double-click to hide)">
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'emojis'"
+                (click)="toggleTab('emojis')" (dblclick)="hideSidebar()" title="Emojis (Double-click to hide)">
                 <span class="icon">😀</span>
             </button>
-            <button class="tab-btn"
-                    [class.active]="sidebarVisible && activeTab === 'graph'"
-                    (click)="toggleTab('graph')"
-                    (dblclick)="hideSidebar()"
-                    title="Graph (Double-click to hide)">
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'graph'"
+                (click)="toggleTab('graph')" (dblclick)="hideSidebar()" title="Graph (Double-click to hide)">
                 <span class="icon">📊</span>
             </button>
-            <button class="tab-btn"
-                    [class.active]="sidebarVisible && activeTab === 'characters'"
-                    (click)="toggleTab('characters')"
-                    (dblclick)="hideSidebar()"
-                    title="Characters (Double-click to hide)">
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'characters'"
+                (click)="toggleTab('characters')" (dblclick)="hideSidebar()" title="Characters (Double-click to hide)">
                 <span class="icon">👥</span>
             </button>
-            <button class="tab-btn"
-                    [class.active]="sidebarVisible && activeTab === 'analysis'"
-                    (click)="toggleTab('analysis')"
-                    (dblclick)="hideSidebar()"
-                    title="Story Analysis (Double-click to hide)">
-                <span class="icon">🕸️</span>
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'analysis'"
+                (click)="toggleTab('analysis')" (dblclick)="hideSidebar()" title="Analysis (Double-click to hide)">
+                <span class="icon">🎭</span>
             </button>
 
         </div>

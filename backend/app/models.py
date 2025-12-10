@@ -50,3 +50,41 @@ class EmojiTag(Base):
 
     # Relationship
     sentence = relationship("Sentence", back_populates="emoji_tags")
+
+
+class WordEmojiMapping(Base):
+    """Word-level emoji mapping - associates specific words/phrases with emojis."""
+    __tablename__ = "word_emoji_mappings"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    word_pattern = Column(String, nullable=False)  # The word/phrase to match (case-insensitive)
+    emoji = Column(String, nullable=False)  # The emoji to associate
+    is_active = Column(Integer, default=1)  # Boolean flag to enable/disable mapping
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class CustomEmojiSet(Base):
+    """Custom emoji collection for a document - author's curated emoji palette."""
+    __tablename__ = "custom_emoji_sets"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    name = Column(String, nullable=False)  # e.g., "Fantasy Elements", "Character Emotions"
+    emojis = Column(Text, nullable=False)  # JSON array of emoji strings
+    is_default = Column(Integer, default=0)  # Whether this is the default set for quick access
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class CharacterDefinition(Base):
+    """Character/subject definition with associated emoji and metadata."""
+    __tablename__ = "character_definitions"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    name = Column(String, nullable=False)  # Character/subject name
+    emoji = Column(String, nullable=False)  # Primary emoji representation
+    aliases = Column(Text, nullable=True)  # JSON array of alternative names/references
+    description = Column(Text, nullable=True)  # Optional description
+    color = Column(String, nullable=True)  # Hex color for highlighting (e.g., "#FF5733")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

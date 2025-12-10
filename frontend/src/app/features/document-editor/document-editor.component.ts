@@ -19,9 +19,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
 
   // Sidebar management
   sidebarVisible = true;
-  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
-
-  constructor(public documentService: DocumentService) { }
+  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';  constructor(public documentService: DocumentService) { }
 
   ngOnInit(): void {
     // Subscribe to current document

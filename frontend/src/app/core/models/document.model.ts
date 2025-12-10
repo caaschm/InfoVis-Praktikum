@@ -20,6 +20,9 @@ export interface Sentence {
 
 export interface DocumentDetail extends Document {
     sentences: Sentence[];
+    wordMappings: WordEmojiMapping[];
+    customEmojiSets: CustomEmojiSet[];
+    characters: CharacterDefinition[];
 }
 
 export interface DocumentMetadata {
@@ -28,6 +31,83 @@ export interface DocumentMetadata {
     createdAt: string;
     updatedAt: string;
 }
+
+// ========== Word Emoji Mapping ==========
+
+export interface WordEmojiMapping {
+    id: string;
+    documentId: string;
+    wordPattern: string;
+    emoji: string;
+    isActive: boolean;
+    createdAt: string;
+}
+
+export interface WordEmojiMappingCreate {
+    wordPattern: string;
+    emoji: string;
+    isActive: boolean;
+}
+
+export interface WordEmojiMappingUpdate {
+    wordPattern?: string;
+    emoji?: string;
+    isActive?: boolean;
+}
+
+// ========== Custom Emoji Set ==========
+
+export interface CustomEmojiSet {
+    id: string;
+    documentId: string;
+    name: string;
+    emojis: string[];
+    isDefault: boolean;
+    createdAt: string;
+}
+
+export interface CustomEmojiSetCreate {
+    name: string;
+    emojis: string[];
+    isDefault: boolean;
+}
+
+export interface CustomEmojiSetUpdate {
+    name?: string;
+    emojis?: string[];
+    isDefault?: boolean;
+}
+
+// ========== Character Definition ==========
+
+export interface CharacterDefinition {
+    id: string;
+    documentId: string;
+    name: string;
+    emoji: string;
+    aliases: string[];
+    description?: string;
+    color?: string;
+    createdAt: string;
+}
+
+export interface CharacterDefinitionCreate {
+    name: string;
+    emoji: string;
+    aliases?: string[];
+    description?: string;
+    color?: string;
+}
+
+export interface CharacterDefinitionUpdate {
+    name?: string;
+    emoji?: string;
+    aliases?: string[];
+    description?: string;
+    color?: string;
+}
+
+// ========== AI Integration ==========
 
 export interface EmojiSuggestionRequest {
     documentId: string;

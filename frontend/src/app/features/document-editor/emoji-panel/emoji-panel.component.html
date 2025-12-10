@@ -1,32 +1,128 @@
 <div class="emoji-panel">
-    <h3 class="panel-title">Current Plot</h3>
-
-    <div class="current-emojis" *ngIf="selectedSentence">
-        <div class="emoji-slots">
-            <div *ngFor="let emoji of currentEmojis; let i = index" class="emoji-slot filled" (click)="removeEmoji(i)"
-                title="Click to remove">
-                <span class="emoji">{{ emoji }}</span>
-            </div>
-            <div *ngFor="let _ of [].constructor(maxEmojis - currentEmojis.length)" class="emoji-slot empty">
-                <span class="placeholder">+</span>
-            </div>
-        </div>
-
-        <p class="helper-text">{{ currentEmojis.length }} / {{ maxEmojis }} emojis</p>
+    <!-- Sub-tab navigation -->
+    <div class="sub-tabs">
+        <button 
+            class="sub-tab-btn" 
+            [class.active]="activeSubTab === 'sentence'"
+            (click)="activeSubTab = 'sentence'"
+        >
+            📝 Sentence Emojis
+        </button>
+        <button 
+            class="sub-tab-btn" 
+            [class.active]="activeSubTab === 'words'"
+            (click)="activeSubTab = 'words'"
+        >
+            🔤 Word Mappings
+        </button>
+        <button 
+            class="sub-tab-btn" 
+            [class.active]="activeSubTab === 'characters'"
+            (click)="activeSubTab = 'characters'"
+        >
+            👥 Characters
+        </button>
+        <button 
+            class="sub-tab-btn" 
+            [class.active]="activeSubTab === 'sets'"
+            (click)="activeSubTab = 'sets'"
+        >
+            🎨 Emoji Sets
+        </button>
     </div>
 
-    <div class="no-selection" *ngIf="!selectedSentence">
-        <p>Select a sentence to edit its emojis</p>
-    </div>
-
-    <!-- Quick emoji picker -->
-    <div class="emoji-picker" *ngIf="selectedSentence && canAddMore()">
-        <p class="picker-title">Quick Add:</p>
-        <div class="emoji-grid">
-            <button *ngFor="let emoji of commonEmojis" class="emoji-btn" (click)="addEmoji(emoji)"
-                [disabled]="!canAddMore()">
-                {{ emoji }}
+    <!-- Sentence Emojis Content -->
+    <div class="sub-tab-content" *ngIf="activeSubTab === 'sentence'">
+        <!-- Generate for all sentences button -->
+        <div class="bulk-actions">
+            <h3>✨ Auto-Generate Emojis</h3>
+            <button class="ai-btn primary bulk" (click)="generateEmojisForAll()" [disabled]="isGenerating">
+                <span class="icon">🤖</span>
+                <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis for All Sentences' }}</span>
             </button>
+            <p class="description">AI will analyze each sentence and add emojis automatically</p>
         </div>
+
+        <div class="divider"></div>
+
+        <div *ngIf="selectedSentence">
+            <h3>Emoji Editor</h3>
+
+            <!-- Current emoji slots -->
+            <div class="current-emojis">
+                <div class="emoji-slots">
+                    <div *ngFor="let emoji of selectedSentence.emojis; let i = index" class="emoji-slot filled"
+                        (click)="removeEmoji(i)" title="Click to remove">
+                        <span class="emoji">{{ emoji }}</span>
+                    </div>
+                    <div *ngFor="let _ of [].constructor(maxEmojis - selectedSentence.emojis.length)"
+                        class="emoji-slot empty">
+                        <span class="placeholder">+</span>
+                    </div>
+                </div>
+                <p class="helper-text">{{ selectedSentence.emojis.length }} / {{ maxEmojis }} emojis</p>
+            </div>
+
+            <!-- Quick emoji picker -->
+            <div class="emoji-picker" *ngIf="canAddMore()">
+                <p class="picker-title">Quick Add:</p>
+                <div class="emoji-grid">
+                    <button *ngFor="let emoji of commonEmojis" class="emoji-btn" (click)="addEmoji(emoji)"
+                        [disabled]="!canAddMore()">
+                        {{ emoji }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- AI Actions -->
+            <div class="ai-actions">
+                <h3>AI Suggestions</h3>
+
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
+                        <span class="icon">🧙‍♂️</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
+                    </button>
+                    <p class="description">Analyze current sentence and suggest emojis</p>
+                </div>
+
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateTextFromEmojis()"
+                        [disabled]="isGenerating || selectedSentence.emojis.length === 0">
+                        <span class="icon">✨</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
+                    </button>
+                    <p class="description">Create text matching your emojis</p>
+                </div>
+
+                <!-- Show suggestion if generated -->
+                <div class="suggestion-result" *ngIf="lastSuggestion">
+                    <h4>Suggested Text:</h4>
+                    <p class="suggestion-text">{{ lastSuggestion }}</p>
+                    <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="no-selection" *ngIf="!selectedSentence">
+            <p>Select a sentence to edit its emojis and use AI suggestions</p>
+        </div>
+    </div>
+
+    <!-- Word Mappings Content -->
+    <div class="sub-tab-content" *ngIf="activeSubTab === 'words'">
+        <app-word-mapping-manager></app-word-mapping-manager>
+    </div>
+
+    <!-- Characters Content -->
+    <div class="sub-tab-content" *ngIf="activeSubTab === 'characters'">
+        <app-character-manager></app-character-manager>
+    </div>
+
+    <!-- Emoji Sets Content -->
+    <div class="sub-tab-content" *ngIf="activeSubTab === 'sets'">
+        <app-emoji-set-manager></app-emoji-set-manager>
     </div>
 </div>
