@@ -813,3 +813,111 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
             "ideas": ["Focus on sensory details.", "Show specific character reactions.", "Vary sentence rhythm."],
             "preview": "Service is currently unavailable. Please try again later."
         }
+    
+async def generate_story_arc(text: str, granularity: int = 10) -> dict:
+    """
+    Analyze the narrative arc and return a JSON dict:
+    {
+      "arc": [0.0..1.0],         # length == granularity
+      "beats": [{"name": "...", "position": 0.0..1.0, "note": "..."}]
+    }
+    """
+    api_key = get_api_key()
+
+    # Simple fallback: neutral arc with optional center peak if "climax" words found
+    if not api_key:
+        words = text.lower()
+        arc = [0.3] * granularity
+        if any(w in words for w in ["climax", "climactic", "finale", "showdown", "battle", "fight"]):
+            arc[granularity // 2] = 0.95
+        return {"arc": arc, "beats": []}
+
+    prompt = f"""
+    Analyze the following text and compute a story arc as an array of {granularity} numeric values between 0 and 1,
+    where 0 means no dramatic tension and 1 means peak dramatic tension.
+
+    Also identify up to 5 key beats (e.g., inciting incident, midpoint, climax) with a short name and normalized position (0.0-1.0).
+
+    Return the result EXACTLY as a JSON object like:
+    {{ "arc": [ ... ], "beats": [{{"name":"", "position":0.0, "note":""}}, ...] }}
+    Do not add extra commentary or markdown.
+
+    Text:
+    {text}
+    """
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            res = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.6,
+                    "max_tokens": 300,
+                },
+            )
+
+        if res.status_code != 200:
+            print(f"❌ Error response: {res.text}")
+            return {"arc": [0.5] * granularity, "beats": []}
+
+        result = res.json()
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
+        # Remove code fences and try to extract the first JSON object
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content).strip()
+
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            m = re.search(r'({[\s\S]*})', content)
+            if m:
+                parsed = json.loads(m.group(1))
+            else:
+                raise
+
+        arc_raw = parsed.get("arc", [])
+        beats = parsed.get("beats", [])
+
+        # Normalize/convert arc values to floats in range 0..1
+        arc_vals = []
+        for v in arc_raw:
+            try:
+                fv = float(v)
+            except Exception:
+                fv = 0.5
+            # If values look like 0..100, scale down
+            if fv > 1.1:
+                fv = max(0.0, min(1.0, fv / 100.0))
+            else:
+                fv = max(0.0, min(1.0, fv))
+            arc_vals.append(fv)
+
+        # If length mismatch, simple linear resample/interpolate
+        if len(arc_vals) != granularity and len(arc_vals) > 0:
+            src_len = len(arc_vals)
+            new = []
+            for i in range(granularity):
+                pos = i * (src_len - 1) / (granularity - 1) if granularity > 1 else 0
+                lo = int(pos)
+                hi = min(lo + 1, src_len - 1)
+                t = pos - lo
+                new.append((1 - t) * arc_vals[lo] + t * arc_vals[hi])
+            arc_vals = new
+
+        # Ensure to always return exactly `granularity` floats
+        if len(arc_vals) != granularity:
+            arc_vals = [0.5] * granularity
+
+        return {"arc": arc_vals, "beats": beats}
+    except Exception as e:
+        print(f"❌ Error generating story arc: {e}")
+        return {"arc": [0.5] * granularity, "beats": []}

@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent
+from app.services.ai_client import generate_spider_intent, generate_story_arc
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -271,3 +271,32 @@ async def spider_intent(
     except Exception as e:
         print("❌ Error generating spider intent:", e)
         raise HTTPException(status_code=500, detail="AI intent generation failed.")
+
+@router.post("/story-arc", response_model=schemas.StoryArcResponse)
+async def compute_story_arc(
+    request: schemas.StoryArcRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Compute a story arc (array of tension values + key beats) for the provided text.
+    If document_id is provided and text is empty, use document content/title as fallback.
+    """
+    text = request.text
+    if request.document_id and not text:
+        document = db.query(models.Document).filter(
+            models.Document.id == request.document_id
+        ).first()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        # Minimal fallback: use title + body if available
+        text = (document.title or "") + "\n\n" + (document.body or "")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided for story arc analysis")
+
+    try:
+        result = await generate_story_arc(text=text, granularity=request.granularity)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute story arc: {e}")
+
+    return schemas.StoryArcResponse(arc=result["arc"], beats=result.get("beats", []))

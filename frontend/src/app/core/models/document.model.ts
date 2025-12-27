@@ -249,3 +249,14 @@ export interface SpiderChartIntentResponse {
     ideas: string[];
     preview: string;
 }
+// -------------------------------------- Story Arc Models --------------------------------------
+export interface Beat {
+  name: string;
+  position: number; // 0..1
+  note?: string;
+}
+
+export interface StoryArcResponse {
+  arc: number[]; // Werte 0..1
+  beats: Beat[];
+}

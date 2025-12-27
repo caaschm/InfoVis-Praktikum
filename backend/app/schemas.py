@@ -243,6 +243,23 @@ class SpiderChartIntentResponse(BaseModel):
     ideas: list[str]
     preview: str
 
+# ========== Story Arc ==========
+""" Represents Story Points (Climax, Rising Action, etc.) and their positions in the story arc. """
+class Beat(BaseModel):
+    name: str
+    position: float
+    note: Optional[str] = None
+    sentence_id: Optional[str] = None
+    sentence_index: Optional[int] = None
+
+class StoryArcRequest(BaseModel):
+    document_id: Optional[int] = None
+    text: Optional[str] = None
+    granularity: int = 10
+
+class StoryArcResponse(BaseModel):
+    arc: List[float]
+    beats: List[Beat] = []
 
 
 # ========== Health Check ==========

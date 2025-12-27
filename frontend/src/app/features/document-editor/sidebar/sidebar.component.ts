@@ -29,6 +29,11 @@ interface ChapterAnalysis {
   textHash?: string;
 }
 
+interface Beat {
+  name: string;
+  position: number;
+}
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -40,6 +45,7 @@ interface ChapterAnalysis {
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
 })
+
 export class SidebarComponent implements OnInit, OnDestroy {
   private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai';
 
@@ -62,6 +68,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
     conflict: 80,
     mystery: 30,
   };
+
+  // ===== STORY ARC STATE =====
+  storyArc: number[] = [];
+  storyBeats: Beat[] = [];
+  storyArcPath = '';
+  arcLoading = false;
+  arcGranularity = 20;
 
   @Input()
   set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc') {
@@ -1056,5 +1069,71 @@ export class SidebarComponent implements OnInit, OnDestroy {
    */
   trackByChapterId(index: number, chapter: Chapter): string {
     return chapter.id;
+  }
+
+  // ========== STORY ARC LOGIC ==========
+  fetchStoryArc(): void {
+    console.log('Fetching story arc...');
+    const doc = this.documentService.getCurrentDocument();
+    console.log('Current document:', doc);
+    if (!doc) return;
+
+    const text = doc.sentences.map(s => s.text).join(' ').trim();
+    console.log('Document text:', text);
+    if (!text) return;
+
+    this.arcLoading = true;
+    this.aiService.getStoryArc({
+      documentId: doc.id,
+      text: text,
+      granularity: this.arcGranularity
+    }).subscribe({
+      next: (res) => {
+        // API returns arc in range 0-1
+        this.storyArc = res.arc;
+        this.storyBeats = res.beats || [];
+        this.storyArcPath = this.computeArcPath(this.storyArc);
+        this.arcLoading = false;
+      },
+      error: (err) => {
+        console.error('Error fetching story arc:', err);
+        this.arcLoading = false;
+      }
+    });
+    }
+    computeArcPath(arc: number[]): string {
+      if (!arc || arc.length === 0) return '';
+      const w = 360; // width inside svg
+      const hTop = 40;   // min y
+      const hBottom = 250; // max y
+      const points = arc.map((v, i) => {
+        const x = 20 + (i / (arc.length - 1)) * w;
+        const y = hBottom - v * (hBottom - hTop);
+        return { x, y };
+      });
+      // build smooth path (quadratic between points)
+      let d = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const cur = points[i];
+        const cx = (prev.x + cur.x) / 2;
+        const cy = (prev.y + cur.y) / 2;
+        d += ` Q ${prev.x} ${prev.y} ${cx} ${cy}`;
+      }
+      const last = points[points.length - 1];
+      d += ` T ${last.x} ${last.y}`;
+      return d;
+  }
+
+  // Helperfunctions to calculate Beat-Position in SVG (for Template)
+  beatX(pos: number): number { return 20 + Number(pos) * 360; }
+  beatY(pos: number): number {
+    // upper/lower limits like in computeArcPath
+    const hTop = 40;
+    const hBottom = 250;
+    // Map position into index in arc and take nearest y
+    const idx = Math.round(Number(pos) * (this.storyArc.length - 1));
+    const v = (this.storyArc[idx] ?? 0.5);
+    return hBottom - v * (hBottom - hTop);
   }
 }

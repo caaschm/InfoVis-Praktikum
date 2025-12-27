@@ -11,7 +11,8 @@ import {
     TextFromCharactersRequest,
     TextFromCharactersResponse,
     SpiderChartAnalysisRequest,
-    SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse
+    SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse,
+    StoryArcResponse
 } from '../models/document.model';
 
 export interface SpiderIntentRequest {
@@ -90,6 +91,10 @@ export class AiService {
             baselineValue: payload.baselineValue,
             currentValue: payload.currentValue,
         });
+    }
+
+    getStoryArc(payload: { documentId?: number | string; text?: string; granularity?: number }) {
+        return this.apiService.post<StoryArcResponse>('/api/ai/story-arc', payload);
     }
 
 }
