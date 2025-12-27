@@ -1729,6 +1729,148 @@
     }
 }
 
+/* Story Arc Styles */
+.story-arc-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stage-selector {
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.selector-label {
+  font-size: 14px;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.stage-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.stage-btn {
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.stage-btn:hover {
+  background: #8B5CF6;
+  color: white;
+  border-color: #8B5CF6;
+}
+
+.arc-graph {
+  width: 100%;
+  height: 300px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+.arc-point {
+  cursor: pointer;
+  transition: r 0.2s;
+}
+
+.arc-point:hover {
+  r: 8px;
+}
+
+.point-label {
+  font-size: 11px;
+  font-weight: bold;
+  fill: #333;
+}
+
+.arc-label {
+  font-size: 12px;
+  fill: #666;
+}
+
+.arc-details {
+  border-top: 2px solid #eee;
+  padding-top: 15px;
+}
+
+.arc-details h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.arc-stage {
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  border-left: 4px solid #8B5CF6;
+}
+
+.stage-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #8B5CF6;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.stage-name {
+  font-weight: 600;
+  font-size: 13px;
+  flex: 1;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.remove-btn:hover {
+  color: #ef4444;
+}
+
+.sentence-text {
+  margin: 0;
+  font-size: 12px;
+  color: #666;
+  margin-left: 32px;
+}
+
 /* Ganz unten in deiner sidebar.component.scss einfügen */
 
 :host-context(body.protanopia-mode) {

@@ -41,7 +41,7 @@ interface ChapterAnalysis {
   styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' = 'ai';
+  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai';
 
   // ===== INTENT PANEL STATE =====
   intentSummary: string | null = null;
@@ -64,7 +64,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   };
 
   @Input()
-  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc') {
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc') {
     this._activeTab = value;
     if (value === 'analysis' && !this.isAnalyzing) {
       // Ensure we have the latest document state
@@ -85,10 +85,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
   }
 
-  get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' {
+  get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' {
     return this._activeTab;
   }
-  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc'>();
+  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc'>();
 
   selectedSentence: Sentence | null = null;
   currentDocument: DocumentDetail | null = null;
@@ -147,11 +147,38 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private characterFormService: CharacterFormService,
     private chapterStateService: ChapterStateService
   ) { }
-
   private computeTextHash(text: string): string {
     const t = text || '';
     return `${t.length}_${t.substring(0, 50)}`;
   }
+
+   // ========== STORY ARC STAGES ==========
+  storyStages = [
+  {
+    name: 'Exposition',
+    description: 'Introduction of characters and setting',
+    sentenceIndices: [1]
+  },
+  {
+    name: 'Rising Action',
+    description: 'Events building tension and conflict',
+    sentenceIndices: [2, 3, 4, 5]
+  },
+  {
+    name: 'Climax',
+    description: 'The peak moment of the story',
+    sentenceIndices: [6]
+  },
+  {
+    name: 'Falling Action',
+    description: 'Events after the climax',
+    sentenceIndices: [7, 8]
+  },
+  {
+    name: 'Denouement',
+    description: 'Final resolution and conclusion',
+    sentenceIndices: [9, 10]
+  }];
 
   // ========== INIT ==========
   ngOnInit(): void {

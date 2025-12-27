@@ -666,16 +666,49 @@
                         <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
                     </div>
                 </div>
-            </div>
-
-            <div class="toc-empty" *ngIf="chapters.length === 0">
-                <div class="empty-state">
-                    <span class="empty-icon">📖</span>
-                    <p class="empty-title">No chapters yet</p>
-                    <p class="empty-description">Create your first chapter to get started!</p>
+                <div class="toc-empty" *ngIf="chapters.length === 0">
+                    <div class="empty-state">
+                        <span class="empty-icon">📖</span>
+                        <p class="empty-title">No chapters yet</p>
+                        <p class="empty-description">Create your first chapter to get started!</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+
+  <!-- Story arc -->
+    <div class="tab-content" *ngSwitchCase="'storyarc'">
+        <h3>Story Arc</h3>
+        <div class="story-arc-container">
+            <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
+                <!-- Arc line -->
+                <path class="arc-line" d="M 20 250 Q 100 200, 200 80 T 380 250" 
+                    stroke="#8B5CF6" stroke-width="3" fill="none" />
+                
+                <!-- Stage markers -->
+                <circle cx="50" cy="230" r="6" class="arc-point exposition" />
+                <circle cx="130" cy="140" r="6" class="arc-point rising" />
+                <circle cx="200" cy="60" r="6" class="arc-point climax" />
+                <circle cx="270" cy="140" r="6" class="arc-point falling" />
+                <circle cx="350" cy="230" r="6" class="arc-point denouement" />
+                
+                <!-- Labels -->
+                <text x="50" y="270" text-anchor="middle" class="arc-label">Exposition</text>
+                <text x="130" y="270" text-anchor="middle" class="arc-label">Rising</text>
+                <text x="200" y="270" text-anchor="middle" class="arc-label">Climax</text>
+                <text x="270" y="270" text-anchor="middle" class="arc-label">Falling</text>
+                <text x="350" y="270" text-anchor="middle" class="arc-label">Resolution</text>
+            </svg>
+            
+            <div class="arc-details">
+                <div class="arc-stage" *ngFor="let stage of storyStages">
+                    <h4>{{ stage.name }}</h4>
+                    <p>{{ stage.description }}</p>
+                    <span class="sentence-count">{{ stage.sentenceIndices.length || 0 }} sentences</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
