@@ -1,6 +1,11 @@
 <header class="top-bar">
     <div class="container">
-        <h1 class="app-title">{{ appTitle }}</h1>
+        <div class="left">
+            <h1 class="app-title">{{ appTitle }}</h1>
+            <button class="goBack-btn" (click)="goBack()" aria-label="goBack">
+                ↩ Back
+            </button>
+        </div>
         <div class="actions">
             <input type="file" #fileInput (change)="onFileSelected($event)" accept=".txt,.pdf" style="display: none;"
                 aria-label="Upload file">

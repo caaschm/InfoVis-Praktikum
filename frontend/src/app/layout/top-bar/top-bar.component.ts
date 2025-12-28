@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Location } from '@angular/common'; // Neu hinzugefügt
 import { DocumentService } from '../../core/services/document.service';
 
 @Component({
@@ -10,15 +11,48 @@ import { DocumentService } from '../../core/services/document.service';
 })
 export class TopBarComponent {
   appTitle = 'Plottery';
+  private historyStack: string[] = [];
 
-  constructor(private documentService: DocumentService) { }
+  // Wir fügen 'location' einfach im constructor hinzu
+  constructor(
+    private documentService: DocumentService,
+    private location: Location 
+  ) { }
+
+  ngOnInit(): void {
+    // Die Historie wird hier mitgefilmt
+    this.documentService.currentDocument$.subscribe(doc => {
+      if (doc && doc.content) {
+        if (this.historyStack.length === 0 || this.historyStack[this.historyStack.length - 1] !== doc.content) {
+          this.historyStack.push(doc.content);
+        }
+      }
+    });
+  }
+
+  goBack(): void {
+    const currentDoc = this.documentService.getCurrentDocument(); // Holt das aktuelle Dokument-Objekt
+    
+    if (this.historyStack.length > 1 && currentDoc) {
+      this.historyStack.pop(); // Aktuellen Stand entfernen
+      const previousContent = this.historyStack[this.historyStack.length - 1];
+      
+      // Wir nutzen deine existierende Methode:
+      this.documentService.updateDocumentContent(currentDoc.id, previousContent); 
+      
+      console.log('Inhalt im Backend auf vorherigen Stand zurückgesetzt');
+    } else {
+      alert('Kein Zurück-Schritt möglich.');
+    }
+  }
+
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
 
     const file = input.files[0];
-    const fileName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+    const fileName = file.name.replace(/\.[^/.]+$/, ''); 
 
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       this.readTextFile(file, fileName);
@@ -27,8 +61,6 @@ export class TopBarComponent {
     } else {
       alert('Please upload a .txt or .pdf file');
     }
-
-    // Reset input
     input.value = '';
   }
 
@@ -47,23 +79,20 @@ export class TopBarComponent {
   }
 
   private readPdfFile(file: File, title: string): void {
-    // For PDF, we'll send to backend for processing
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', title);
 
-    // Use document service to upload
     this.documentService.uploadPdfDocument(formData).subscribe({
       next: () => console.log('PDF document uploaded'),
       error: (err) => {
         console.error('Error uploading PDF:', err);
-        alert('PDF upload is not yet fully supported. Please use .txt files or the backend will need pypdf2 installed.');
+        alert('PDF upload is not yet fully supported.');
       }
     });
   }
 
   onSettingsClick(): void {
-    // TODO: Implement settings functionality
     console.log('Settings clicked');
   }
 }
