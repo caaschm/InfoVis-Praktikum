@@ -16,7 +16,7 @@ import { AiService } from '../../../core/services/ai.service';
 import { CharacterFormService } from '../../../core/services/character-form.service';
 import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
 import { ChapterStateService } from '../../../core/services/chapter-state.service';
-import { Sentence, Chapter, DocumentDetail } from '../../../core/models/document.model';
+import { Sentence, Chapter, DocumentDetail, SentenceClassification } from '../../../core/models/document.model';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
@@ -75,6 +75,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   storyArcPath = '';
   arcLoading = false;
   arcGranularity = 20;
+  sentenceClassifications: SentenceClassification[] = [];
 
   @Input()
   set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc') {
@@ -152,6 +153,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   // ✅ NEW: track "committed" (Apply Text) state per chapter+hash
   private appliedStateByChapter: { [chapterId: string]: { textHash: string; applied: boolean } } = {};
+  private previousSentenceCount: number = 0;
 
   constructor(
     public documentService: DocumentService,
@@ -165,39 +167,39 @@ export class SidebarComponent implements OnInit, OnDestroy {
     return `${t.length}_${t.substring(0, 50)}`;
   }
 
-   // ========== STORY ARC STAGES ==========
-  storyStages = [
+  // ========== STORY ARC STAGES ==========
+storyStages: { name: string; description: string; sentenceIndices: number[] }[] = [
   {
     name: 'Exposition',
     description: 'Introduction of characters and setting',
-    sentenceIndices: [1]
+    sentenceIndices: []
   },
   {
     name: 'Rising Action',
     description: 'Events building tension and conflict',
-    sentenceIndices: [2, 3, 4, 5]
+    sentenceIndices: []
   },
   {
     name: 'Climax',
     description: 'The peak moment of the story',
-    sentenceIndices: [6]
+    sentenceIndices: []
   },
   {
     name: 'Falling Action',
     description: 'Events after the climax',
-    sentenceIndices: [7, 8]
+    sentenceIndices: []
   },
   {
     name: 'Denouement',
     description: 'Final resolution and conclusion',
-    sentenceIndices: [9, 10]
+    sentenceIndices: []
   }];
 
   // ========== INIT ==========
-  ngOnInit(): void {
-    this.documentService.selectedSentence$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(sentence => this.selectedSentence = sentence);
+ngOnInit(): void {
+  this.documentService.selectedSentence$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(sentence => this.selectedSentence = sentence);
 
     // Load emoji dictionary when document changes
     this.documentService.currentDocument$
@@ -232,6 +234,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe(doc => {
+
+        if (!doc) {
+          this.previousSentenceCount = 0;
+          return;
+        }
+
+        const currentSentenceCount = doc.sentences?.length || 0;
+
+        // Story arc logic
+        if (this.previousSentenceCount === 0 && currentSentenceCount > 0) {
+          this.previousSentenceCount = currentSentenceCount;
+        }
+
+        const hasNewSentence = currentSentenceCount > this.previousSentenceCount;
+        if (hasNewSentence) {
+          this.previousSentenceCount = currentSentenceCount;
+
+          if (this.activeTab === 'storyarc' && !this.arcLoading) {
+            setTimeout(() => this.fetchStoryArc(), 300);
+          }
+          
+        } else if (currentSentenceCount !== this.previousSentenceCount) {
+            this.previousSentenceCount = currentSentenceCount;
+        }
+        
         if (doc && this.activeTab === 'analysis' && !this.isAnalyzing) {
           if (this.chapters.length === 1) {
             // If exactly one chapter, force that chapter view
@@ -266,7 +293,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         }
       });
 
-    // ✅ Slider changes: DO NOT persist. Only fetch intent suggestions.
+    // Slider changes: DO NOT persist. Only fetch intent suggestions.
     this.sliderChangeSubject
       .pipe(
         takeUntil(this.destroy$),
@@ -278,10 +305,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
       });
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
+ngOnDestroy(): void {
+  this.destroy$.next();
+  this.destroy$.complete();
+}
+
 
   private loadEmojiDictionary(documentId: string): void {
     this.documentService.getEmojiDictionary(documentId).subscribe({
@@ -1082,6 +1110,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
     console.log('Document text:', text);
     if (!text) return;
 
+    // Update sentence count when fetching
+    this.previousSentenceCount = doc.sentences?.length || 0;
+
     this.arcLoading = true;
     this.aiService.getStoryArc({
       documentId: doc.id,
@@ -1092,8 +1123,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // API returns arc in range 0-1
         this.storyArc = res.arc;
         this.storyBeats = res.beats || [];
+        this.sentenceClassifications = res.sentence_classifications || [];
         this.storyArcPath = this.computeArcPath(this.storyArc);
+
+        // Map story arc / beats to sentence indices and story stages
+        try {
+          if (res.sentence_classifications && res.sentence_classifications.length > 0) {
+            this.applySentenceClassifications(res.sentence_classifications);
+          } else {
+            // Fallback: infer stages by index/position
+            this.assignSentencesToStages(doc);
+          }
+        } catch (e) {
+          console.error('Error assigning sentences to stages:', e);
+        }
+
         this.arcLoading = false;
+        console.log('Fetched story arc:', this.storyArc);
       },
       error: (err) => {
         console.error('Error fetching story arc:', err);
@@ -1126,6 +1172,98 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   // Helperfunctions to calculate Beat-Position in SVG (for Template)
+  assignSentencesToStages(doc: any): void {
+    // Reset stage sentence indices
+    this.storyStages.forEach(stage => stage.sentenceIndices = []);
+    if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+
+    const N = doc.sentences.length;
+
+    // Assign each sentence to a stage based on its normalized index position
+    doc.sentences.forEach((s: Sentence) => {
+      const idx = typeof s.index === 'number' ? s.index : doc.sentences.indexOf(s);
+      const posNormalized = N > 1 ? idx / (N - 1) : 0;
+      const stageIndex = Math.min(this.storyStages.length - 1, Math.floor(posNormalized * this.storyStages.length));
+      this.storyStages[stageIndex].sentenceIndices.push(idx);
+    });
+
+    // Also map AI beats to nearest sentence indices and ensure they are included in stages
+    this.storyBeats.forEach(b => {
+      const beatIdx = Math.round((b.position ?? 0) * (N - 1));
+      const stageIndex = Math.min(this.storyStages.length - 1, Math.floor((beatIdx / Math.max(1, N - 1)) * this.storyStages.length));
+      if (!this.storyStages[stageIndex].sentenceIndices.includes(beatIdx)) {
+        this.storyStages[stageIndex].sentenceIndices.push(beatIdx);
+      }
+    });
+
+    // Sort indices for each stage
+    this.storyStages.forEach(stage => stage.sentenceIndices.sort((a, b) => a - b));
+  }
+
+  applySentenceClassifications(classifications: { index: number; stage: string }[]): void {
+    // Reset
+    this.storyStages.forEach(stage => stage.sentenceIndices = []);
+    if (!classifications || classifications.length === 0) return;
+
+    // Map stage name to stage index in storyStages
+    const stageNameToIndex: Record<string, number> = {};
+    this.storyStages.forEach((s, i) => stageNameToIndex[s.name] = i);
+
+    classifications.forEach(c => {
+      const sIdx = stageNameToIndex[c.stage] ?? -1;
+      if (sIdx >= 0) {
+        // Ensure sentence index exists in document
+        const doc = this.documentService.getCurrentDocument();
+        if (!doc) return;
+        const exists = doc.sentences.some(ss => ss.index === c.index);
+        if (exists && !this.storyStages[sIdx].sentenceIndices.includes(c.index)) {
+          this.storyStages[sIdx].sentenceIndices.push(c.index);
+        }
+      }
+    });
+
+    // Ensure beats (AI key points) are also included (by sentence_index if provided)
+    if (this.storyBeats && this.storyBeats.length > 0) {
+      this.storyBeats.forEach(b => {
+        const si = (b as any).sentence_index ?? null;
+        if (si !== null && typeof si === 'number') {
+          // Find which stage this sentence is already in, if not present try to map by approximate position
+          let found = false;
+          this.storyStages.forEach(stage => {
+            if (stage.sentenceIndices.includes(si)) found = true;
+          });
+          if (!found) {
+            // Map by position (index / N)
+            const doc = this.documentService.getCurrentDocument();
+            if (!doc) return;
+            const N = doc.sentences.length;
+            const pos = si / Math.max(1, N - 1);
+            const stageIndex = Math.min(this.storyStages.length - 1, Math.floor(pos * this.storyStages.length));
+            this.storyStages[stageIndex].sentenceIndices.push(si);
+          }
+        }
+      });
+    }
+
+    // Sort indices for each stage
+    this.storyStages.forEach(stage => stage.sentenceIndices.sort((a, b) => a - b));
+  }
+
+  sentencePreview(index: number, maxLen = 100): string {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return '';
+    const s = doc.sentences.find(ss => ss.index === index);
+    if (!s) return '';
+    return s.text.length > maxLen ? s.text.substring(0, maxLen) + '...' : s.text;
+  }
+
+  selectSentenceByIndex(index: number): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+    const s = doc.sentences.find(ss => ss.index === index);
+    if (s) this.documentService.selectSentence(s);
+  }
+
   beatX(pos: number): number { return 20 + Number(pos) * 360; }
   beatY(pos: number): number {
     // upper/lower limits like in computeArcPath
@@ -1135,5 +1273,50 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const idx = Math.round(Number(pos) * (this.storyArc.length - 1));
     const v = (this.storyArc[idx] ?? 0.5);
     return hBottom - v * (hBottom - hTop);
+  }
+
+  // Calculate position for sentence points on the arc
+  sentenceX(sentenceIndex: number, totalSentences?: number): number {
+    const total = totalSentences ?? this.totalSentences;
+    if (total <= 1) return 20;
+    const pos = sentenceIndex / (total - 1);
+    return 20 + pos * 360;
+  }
+
+  sentenceY(sentenceIndex: number, totalSentences?: number): number {
+    const hTop = 40;
+    const hBottom = 250;
+    
+    // Try to get value from sentence classification
+    const classification = this.sentenceClassifications.find(c => c.index === sentenceIndex);
+    if (classification && classification.value !== undefined) {
+      return hBottom - classification.value * (hBottom - hTop);
+    }
+    
+    // Fallback: calculate from arc position
+    const total = totalSentences ?? this.totalSentences;
+    if (total <= 1) {
+      return hBottom - (this.storyArc[0] ?? 0.5) * (hBottom - hTop);
+    }
+    const pos = sentenceIndex / (total - 1);
+    const idx = Math.round(pos * (this.storyArc.length - 1));
+    const v = this.storyArc[idx] ?? 0.5;
+    return hBottom - v * (hBottom - hTop);
+  }
+
+  getSentenceText(sentenceIndex: number): string {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return '';
+    const sentence = doc.sentences.find(s => s.index === sentenceIndex);
+    return sentence ? sentence.text : '';
+  }
+
+  get current_Document() {
+    return this.documentService.getCurrentDocument();
+  }
+
+  get totalSentences(): number {
+    const doc = this.currentDocument;
+    return doc?.sentences?.length || 0;
   }
 }

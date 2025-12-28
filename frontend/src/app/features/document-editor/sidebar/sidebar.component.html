@@ -686,6 +686,34 @@
             <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
                 <path class="arc-line" [attr.d]="storyArcPath" stroke="#8B5CF6" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
 
+                <!-- Sentence Points -->
+                <g *ngIf="storyArcPath && sentenceClassifications.length > 0">
+                    <circle *ngFor="let classification of sentenceClassifications; let i = index"
+                            [attr.cx]="sentenceX(classification.index)"
+                            [attr.cy]="sentenceY(classification.index)"
+                            r="3"
+                            class="arc-point sentence-point"
+                            [class.selected]="selectedSentence?.index === classification.index"
+                            (click)="selectSentenceByIndex(classification.index)"
+                            [attr.data-index]="classification.index"
+                            [title]="getSentenceText(classification.index)">
+                    </circle>
+                </g>
+
+                <!-- Fallback: Show sentence points even without classifications -->
+                <g *ngIf="storyArcPath && sentenceClassifications.length === 0 && currentDocument?.sentences">
+                    <circle *ngFor="let sentence of currentDocument!.sentences"
+                            [attr.cx]="sentenceX(sentence.index)"
+                            [attr.cy]="sentenceY(sentence.index)"
+                            r="3"
+                            class="arc-point sentence-point"
+                            [class.selected]="selectedSentence?.index === sentence.index"
+                            (click)="selectSentenceByIndex(sentence.index)"
+                            [attr.data-index]="sentence.index"
+                            [title]="sentence.text">
+                    </circle>
+                </g>
+
                 <!-- Beats -->
                 <circle *ngFor="let b of storyBeats"
                         [attr.cx]="beatX(b.position)"
@@ -727,6 +755,14 @@
                     <h4>{{ stage.name }}</h4>
                     <p>{{ stage.description }}</p>
                     <span class="sentence-count">{{ stage.sentenceIndices.length || 0 }} sentences</span>
+
+                    <ul class="stage-sentences" *ngIf="stage.sentenceIndices.length > 0">
+                        <li *ngFor="let idx of stage.sentenceIndices">
+                            <button class="link" (click)="selectSentenceByIndex(idx)">{{ idx + 1 }}: {{ sentencePreview(idx) }}</button>
+                        </li>
+                    </ul>
+
+                    <p *ngIf="stage.sentenceIndices.length === 0" class="muted">No sentences assigned</p>
                 </div>
             </div>
         </div>

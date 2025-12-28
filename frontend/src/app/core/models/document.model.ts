@@ -254,9 +254,18 @@ export interface Beat {
   name: string;
   position: number; // 0..1
   note?: string;
+  sentence_id?: string;
+  sentence_index?: number;
+}
+
+export interface SentenceClassification {
+  index: number;
+  stage: 'Exposition' | 'Rising Action' | 'Climax' | 'Falling Action' | 'Denouement';
+  value?: number; // Arc value 0..1 for positioning on the arc
 }
 
 export interface StoryArcResponse {
   arc: number[]; // Werte 0..1
   beats: Beat[];
+  sentence_classifications?: SentenceClassification[];
 }

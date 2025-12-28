@@ -252,6 +252,15 @@ class Beat(BaseModel):
     sentence_id: Optional[str] = None
     sentence_index: Optional[int] = None
 
+class StageValue(BaseModel):
+    stage: str
+    value: float
+
+class SentenceClassification(BaseModel):
+    index: int
+    stage: str  # One of: Exposition, Rising Action, Climax, Falling Action, Denouement
+    value: Optional[float] = None
+
 class StoryArcRequest(BaseModel):
     document_id: Optional[int] = None
     text: Optional[str] = None
@@ -260,6 +269,8 @@ class StoryArcRequest(BaseModel):
 class StoryArcResponse(BaseModel):
     arc: List[float]
     beats: List[Beat] = []
+    sentence_classifications: List[SentenceClassification] = []
+    stage_values: List[StageValue] = []
 
 
 # ========== Health Check ==========

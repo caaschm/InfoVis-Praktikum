@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_story_arc
+from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -299,4 +299,90 @@ async def compute_story_arc(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compute story arc: {e}")
 
-    return schemas.StoryArcResponse(arc=result["arc"], beats=result.get("beats", []))
+    # If we have a document, try to map beats to nearest sentence indices and ask AI to classify sentences
+    sentence_classifications = []
+    stage_values = []
+    if request.document_id:
+        sentences = db.query(models.Sentence).filter(models.Sentence.document_id == request.document_id).order_by(models.Sentence.index).all()
+        if sentences and len(sentences) > 0:
+            N = len(sentences)
+            # Map beats positions to nearest sentence index and attach ids
+            beats = result.get("beats", [])
+            for b in beats:
+                pos = float(b.get("position", 0)) if isinstance(b, dict) else getattr(b, 'position', 0)
+                si = int(round(pos * (N - 1)))
+                b["sentence_index"] = si
+                b["sentence_id"] = sentences[si].id
+
+            # Ask AI to classify each sentence into stages (best-effort)
+            try:
+                texts = [s.text for s in sentences]
+                classifications = await generate_sentence_stage_mapping(text, texts)
+            except Exception as e:
+                print("❌ Error classifying sentences:", e)
+                classifications = []
+
+            # Build index->classification map
+            cls_map = {c["index"]: c for c in classifications if isinstance(c, dict) and c.get("index") is not None}
+
+            # Prepare to sample arc values if AI didn't provide numeric tension per sentence
+            arc = result.get("arc", [])
+            G = len(arc) if arc else request.granularity or 10
+
+            def sample_arc_at_pos(pos: float) -> float:
+                if not arc:
+                    return 0.5
+                pos = max(0.0, min(1.0, pos))
+                fpos = pos * (G - 1)
+                lo = int(fpos)
+                hi = min(lo + 1, G - 1)
+                t = fpos - lo
+                return (1 - t) * arc[lo] + t * arc[hi]
+
+            sentence_classifications = []
+            for i, s in enumerate(sentences):
+                if i in cls_map:
+                    item = cls_map[i]
+                    val = item.get("value")
+                    if val is None:
+                        pos = i / max(1, N - 1)
+                        val = sample_arc_at_pos(pos)
+                    sentence_classifications.append({"index": i, "stage": item.get("stage"), "value": float(val)})
+                else:
+                    # fallback stage by position
+                    pos = i / max(1, N - 1)
+                    if pos < 0.2:
+                        stage = "Exposition"
+                    elif pos < 0.55:
+                        stage = "Rising Action"
+                    elif pos < 0.7:
+                        stage = "Climax"
+                    elif pos < 0.9:
+                        stage = "Falling Action"
+                    else:
+                        stage = "Denouement"
+                    val = sample_arc_at_pos(pos)
+                    sentence_classifications.append({"index": i, "stage": stage, "value": float(val)})
+
+            # Aggregate per-stage average values
+            from collections import defaultdict
+            sums = defaultdict(float)
+            counts = defaultdict(int)
+            for c in sentence_classifications:
+                sums[c["stage"]] += c["value"]
+                counts[c["stage"]] += 1
+
+            stages_order = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
+            stage_values = []
+            for stage in stages_order:
+                if counts.get(stage, 0) > 0:
+                    stage_values.append({"stage": stage, "value": sums[stage] / counts[stage]})
+                else:
+                    stage_values.append({"stage": stage, "value": 0.0})
+
+    return schemas.StoryArcResponse(
+        arc=result["arc"],
+        beats=result.get("beats", []),
+        sentence_classifications=sentence_classifications,
+        stage_values=stage_values,
+    )
