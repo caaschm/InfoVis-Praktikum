@@ -71,5 +71,11 @@
             background: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
         }
+
+        &:disabled {
+        opacity: 0.5;         // Macht den Button halb-transparent
+        cursor: not-allowed;  // Zeigt ein "Verbotsschild" als Mauszeiger
+        filter: grayscale(1); // Entzieht dem Button die Farbe
+    }
     }
 }

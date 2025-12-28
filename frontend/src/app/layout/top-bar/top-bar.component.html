@@ -2,7 +2,7 @@
     <div class="container">
         <div class="left">
             <h1 class="app-title">{{ appTitle }}</h1>
-            <button class="goBack-btn" (click)="goBack()" aria-label="goBack">
+            <button class="goBack-btn" (click)="goBack()" [disabled]="!canUndo" aria-label="goBack">
                 ↩ Back
             </button>
         </div>

@@ -30,6 +30,11 @@ export class TopBarComponent {
     });
   }
 
+  get canUndo(): boolean {
+  // Der Button soll nur klickbar sein, wenn mehr als ein Zustand im Speicher ist
+    return this.historyStack.length > 1;
+  }
+
   goBack(): void {
     const currentDoc = this.documentService.getCurrentDocument(); // Holt das aktuelle Dokument-Objekt
     
