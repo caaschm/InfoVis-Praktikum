@@ -296,212 +296,191 @@
     <!-- Analysis Tab -->
     <div class="tab-content" *ngIf="activeTab === 'analysis'">
         <h3>Story Analysis</h3>
+        
+        <!-- Spider Chart -->
+        <div class="spider-wrapper">
+            <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
+                <!-- Grid circles -->
+                <circle cx="100" cy="100" r="80" class="spider-grid" />
+                <circle cx="100" cy="100" r="55" class="spider-grid" />
+                <circle cx="100" cy="100" r="30" class="spider-grid" />
+
+                <!-- Axes -->
+                <line x1="100" y1="20"  x2="100" y2="180" class="spider-axis" />
+                <line x1="20"  y1="100" x2="180" y2="100" class="spider-axis" />
+
+                <!-- Dynamic polygon -->
+                <polygon class="spider-area" [attr.points]="spiderPoints"></polygon>
+
+                <!-- Labels -->
+                <text x="100" y="15"  text-anchor="middle" class="spider-label">Drama</text>
+                <text x="190" y="105" text-anchor="end"    class="spider-label">Humor</text>
+                <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
+                <text x="10"  y="105" text-anchor="start"  class="spider-label">Mystery</text>
+
+                <!-- Drag handles -->
+                <circle class="spider-handle"
+                        [attr.cx]="dramaPoint.x"
+                        [attr.cy]="dramaPoint.y"
+                        r="4"
+                        (mousedown)="startDrag('drama', $event)"></circle>
+                <circle class="spider-handle"
+                        [attr.cx]="humorPoint.x"
+                        [attr.cy]="humorPoint.y"
+                        r="4"
+                        (mousedown)="startDrag('humor', $event)"></circle>
+                <circle class="spider-handle"
+                        [attr.cx]="conflictPoint.x"
+                        [attr.cy]="conflictPoint.y"
+                        r="4"
+                        (mousedown)="startDrag('conflict', $event)"></circle>
+                <circle class="spider-handle"
+                        [attr.cx]="mysteryPoint.x"
+                        [attr.cy]="mysteryPoint.y"
+                        r="4"
+                        (mousedown)="startDrag('mystery', $event)"></circle>
+
+                <!-- Value labels beim Draggen -->
+                <text *ngIf="draggingHandle === 'drama'"
+                      [attr.x]="dramaPoint.x"
+                      [attr.y]="dramaPoint.y - 8"
+                      text-anchor="middle"
+                      class="spider-value">
+                  {{ drama }}%
+                </text>
+                <text *ngIf="draggingHandle === 'humor'"
+                      [attr.x]="humorPoint.x"
+                      [attr.y]="humorPoint.y - 8"
+                      text-anchor="middle"
+                      class="spider-value">
+                  {{ humor }}%
+                </text>
+                <text *ngIf="draggingHandle === 'conflict'"
+                      [attr.x]="conflictPoint.x"
+                      [attr.y]="conflictPoint.y - 8"
+                      text-anchor="middle"
+                      class="spider-value">
+                  {{ conflict }}%
+                </text>
+                <text *ngIf="draggingHandle === 'mystery'"
+                      [attr.x]="mysteryPoint.x"
+                      [attr.y]="mysteryPoint.y - 8"
+                      text-anchor="middle"
+                      class="spider-value">
+                  {{ mystery }}%
+                </text>
+            </svg>
+        </div>
+
+        <!-- Metric Cards with Sliders -->
         <div class="analysis-section">
             <div class="metric-card drama">
                 <div class="metric-icon">🎭</div>
                 <div class="metric-info">
-                    <h4>Drama</h4>
-                    <div class="metric-bar">
-                        <div class="metric-fill" style="width: 65%;"></div>
+                    <h4>Drama: {{ drama }}%</h4>
+                    <div class="slider-wrapper">
+                        <div class="slider-fill" [style.width.%]="drama"></div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            [(ngModel)]="drama"
+                            (input)="onSliderChange('drama')"
+                            class="metric-slider"
+                        />
                     </div>
-                    <p>65% - High tension moments</p>
                 </div>
             </div>
 
             <div class="metric-card humor">
                 <div class="metric-icon">😄</div>
                 <div class="metric-info">
-                    <h4>Humor</h4>
-                    <div class="metric-bar">
-                        <div class="metric-fill" style="width: 40%;"></div>
+                    <h4>Humor: {{ humor }}%</h4>
+                    <div class="slider-wrapper">
+                        <div class="slider-fill" [style.width.%]="humor"></div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            [(ngModel)]="humor"
+                            (input)="onSliderChange('humor')"
+                            class="metric-slider"
+                        />
                     </div>
-                    <p>40% - Moderate comedy</p>
                 </div>
             </div>
 
             <div class="metric-card conflict">
                 <div class="metric-icon">⚔️</div>
                 <div class="metric-info">
-                    <h4>Conflict</h4>
-                    <div class="metric-bar">
-                        <div class="metric-fill" style="width: 80%;"></div>
+                    <h4>Conflict: {{ conflict }}%</h4>
+                    <div class="slider-wrapper">
+                        <div class="slider-fill" [style.width.%]="conflict"></div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            [(ngModel)]="conflict"
+                            (input)="onSliderChange('conflict')"
+                            class="metric-slider"
+                        />
                     </div>
-                    <p>80% - Strong conflicts present</p>
                 </div>
             </div>
 
             <div class="metric-card mystery">
                 <div class="metric-icon">🔍</div>
                 <div class="metric-info">
-                    <h4>Mystery</h4>
-                    <div class="metric-bar">
-                        <div class="metric-fill" style="width: 30%;"></div>
+                    <h4>Mystery: {{ mystery }}%</h4>
+                    <div class="slider-wrapper">
+                        <div class="slider-fill" [style.width.%]="mystery"></div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            [(ngModel)]="mystery"
+                            (input)="onSliderChange('mystery')"
+                            class="metric-slider"
+                        />
                     </div>
-                    <p>30% - Some intrigue</p>
                 </div>
             </div>
         </div>
 
-        <div class="quick-tips">
+        <!-- Suggestions Box -->
+        <div *ngIf="intentLoading" class="suggestions-box loading">
+            <div class="loading-spinner"></div>
+            <span>Analyzing…</span>
+        </div>
+
+        <div *ngIf="intentSummary && !intentLoading" class="suggestions-box">
+            <div class="suggestions-header">
+                <span class="suggestions-icon">💡</span>
+                <h4>Suggestions</h4>
+            </div>
+            
+            <div class="suggestions-list">
+                <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
+                    <span class="suggestion-badge">{{ i + 1 }}</span>
+                    <span class="suggestion-text">{{ idea }}</span>
+                </div>
+            </div>
+
+            <div *ngIf="intentPreview" class="suggestions-example">
+                <div class="example-label">EXAMPLE:</div>
+                <div class="example-text">{{ intentPreview }}</div>
+            </div>
+        </div>
+
+        <!-- Fallback suggestions if no intent suggestions -->
+        <div *ngIf="!intentSummary && !intentLoading" class="quick-tips">
             <h4>Suggestions</h4>
             <div class="tip-card">
                 <span class="tip-icon">💡</span>
-                <p>Consider adding more humor to balance the high drama</p>
-            </div>
-            <div class="tip-card">
-                <span class="tip-icon">💡</span>
-                <p>Mystery elements could enhance reader engagement</p>
+                <p>Adjust the sliders to see AI-powered suggestions for improving your story</p>
             </div>
         </div>
     </div>
 
-  <!-- Spider Chart Tab -->
-  <div class="tab-content spider-tab" *ngIf="activeTab === 'spider-chart'">
-    <h3>Spider Chart</h3>
-    <div class="spider-wrapper">
-      <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
-        <!-- Grid circles -->
-        <circle cx="100" cy="100" r="80" class="spider-grid" />
-        <circle cx="100" cy="100" r="55" class="spider-grid" />
-        <circle cx="100" cy="100" r="30" class="spider-grid" />
-
-        <!-- Axes -->
-        <line x1="100" y1="20"  x2="100" y2="180" class="spider-axis" />
-        <line x1="20"  y1="100" x2="180" y2="100" class="spider-axis" />
-
-        <!-- Dynamic polygon -->
-        <polygon class="spider-area" [attr.points]="spiderPoints"></polygon>
-
-        <!-- Labels -->
-        <text x="100" y="15"  text-anchor="middle" class="spider-label">Drama</text>
-        <text x="190" y="105" text-anchor="end"    class="spider-label">Humor</text>
-        <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
-        <text x="10"  y="105" text-anchor="start"  class="spider-label">Mystery</text>
-
-        <!-- Drag handles -->
-        <circle class="spider-handle"
-                [attr.cx]="dramaPoint.x"
-                [attr.cy]="dramaPoint.y"
-                r="4"
-                (mousedown)="startDrag('drama', $event)"></circle>
-        <circle class="spider-handle"
-                [attr.cx]="humorPoint.x"
-                [attr.cy]="humorPoint.y"
-                r="4"
-                (mousedown)="startDrag('humor', $event)"></circle>
-        <circle class="spider-handle"
-                [attr.cx]="conflictPoint.x"
-                [attr.cy]="conflictPoint.y"
-                r="4"
-                (mousedown)="startDrag('conflict', $event)"></circle>
-        <circle class="spider-handle"
-                [attr.cx]="mysteryPoint.x"
-                [attr.cy]="mysteryPoint.y"
-                r="4"
-                (mousedown)="startDrag('mystery', $event)"></circle>
-
-        <!-- Value labels beim Draggen -->
-        <text *ngIf="draggingHandle === 'drama'"
-              [attr.x]="dramaPoint.x"
-              [attr.y]="dramaPoint.y - 8"
-              text-anchor="middle"
-              class="spider-value">
-          {{ drama }}%
-        </text>
-        <text *ngIf="draggingHandle === 'humor'"
-              [attr.x]="humorPoint.x"
-              [attr.y]="humorPoint.y - 8"
-              text-anchor="middle"
-              class="spider-value">
-          {{ humor }}%
-        </text>
-        <text *ngIf="draggingHandle === 'conflict'"
-              [attr.x]="conflictPoint.x"
-              [attr.y]="conflictPoint.y - 8"
-              text-anchor="middle"
-              class="spider-value">
-          {{ conflict }}%
-        </text>
-        <text *ngIf="draggingHandle === 'mystery'"
-              [attr.x]="mysteryPoint.x"
-              [attr.y]="mysteryPoint.y - 8"
-              text-anchor="middle"
-              class="spider-value">
-          {{ mystery }}%
-        </text>
-      </svg>
-
-      <!-- Sliders unter dem Chart -->
-      <div class="spider-sliders">
-        <div class="slider-row">
-          <label>Drama: {{ drama }}</label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="drama"
-            (input)="onSliderChange('drama')"
-          />
-        </div>
-
-        <div class="slider-row">
-          <label>Humor: {{ humor }}</label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="humor"
-            (input)="onSliderChange('humor')"
-          />
-        </div>
-
-        <div class="slider-row">
-          <label>Conflict: {{ conflict }}</label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="conflict"
-            (input)="onSliderChange('conflict')"
-          />
-        </div>
-
-        <div class="slider-row">
-          <label>Mystery: {{ mystery }}</label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="mystery"
-            (input)="onSliderChange('mystery')"
-          />
-        </div>
-      </div>
-
-      <!-- Suggestions Box -->
-      <div *ngIf="intentLoading" class="suggestions-box loading">
-        <div class="loading-spinner"></div>
-        <span>Analyzing…</span>
-      </div>
-
-      <div *ngIf="intentSummary && !intentLoading" class="suggestions-box">
-        <div class="suggestions-header">
-          <span class="suggestions-icon">💡</span>
-          <h4>Suggestions</h4>
-        </div>
-        
-        <div class="suggestions-list">
-          <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
-            <span class="suggestion-badge">{{ i + 1 }}</span>
-            <span class="suggestion-text">{{ idea }}</span>
-          </div>
-        </div>
-
-        <div *ngIf="intentPreview" class="suggestions-example">
-          <div class="example-label">EXAMPLE:</div>
-          <div class="example-text">{{ intentPreview }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
+
