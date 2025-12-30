@@ -37,16 +37,9 @@
                     [class.active]="sidebarVisible && activeTab === 'analysis'"
                     (click)="toggleTab('analysis')"
                     (dblclick)="hideSidebar()"
-                    title="Analysis (Double-click to hide)">
-                <span class="icon">🎭</span>
+                    title="Story Analysis (Double-click to hide)">
+                <span class="icon">🕸️</span>
             </button>
-          <button class="tab-btn"
-                  [class.active]="sidebarVisible && activeTab === 'spider-chart'"
-                  (click)="toggleTab('spider-chart')"
-                  (dblclick)="hideSidebar()"
-                  title="Spider Chart (Double-click to hide)">
-            <span class="icon">🕸️</span>
-          </button>
 
         </div>
     </div>

@@ -25,7 +25,7 @@ type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
   styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart' = 'emojis';
+  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
 
   // ===== INTENT PANEL STATE =====
   intentSummary: string | null = null;
@@ -43,9 +43,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   };
 
   @Input()
-  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart') {
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis') {
     this._activeTab = value;
-    if (value === 'spider-chart' && !this.isAnalyzing) {
+    if (value === 'analysis' && !this.isAnalyzing) {
       const doc = this.documentService.getCurrentDocument();
       if (doc && doc.id !== this.lastAnalyzedDocumentId) {
         setTimeout(() => this.analyzeDocument(), 100);
@@ -114,7 +114,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe(doc => {
-        if (doc && this.activeTab === 'spider-chart' && !this.isAnalyzing) {
+        if (doc && this.activeTab === 'analysis' && !this.isAnalyzing) {
           const currentText = doc.sentences.map(s => s.text).join(' ').trim();
           if (currentText) {
             const textHash = `${currentText.length}_${currentText.substring(0, 50)}`;

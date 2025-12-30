@@ -19,7 +19,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
 
   // Sidebar management
   sidebarVisible = true;
-  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart' = 'emojis';
+  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
 
   constructor(public documentService: DocumentService) { }
 
@@ -51,7 +51,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'spider-chart'): void {
+  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis'): void {
     if (this.activeTab === tab && this.sidebarVisible) {
       // Clicking same tab hides sidebar
       this.sidebarVisible = false;
