@@ -1222,3 +1222,57 @@
 
     }
 }
+/* Ganz unten in deiner sidebar.component.scss einfügen */
+
+:host-context(body.protanopia-mode) {
+    .sidebar {
+        // 1. Die lila AI-Buttons (jetzt Blau)
+        .tab-content .ai-actions .action-card .ai-btn {
+            background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
+            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3) !important;
+            
+            &:hover {
+                background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%) !important;
+            }
+        }
+
+        // 2. Charakter-Karten & Sentiment
+        .tab-content .character-list .character-card {
+            .character-header .character-avatar {
+                background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
+            }
+
+            .sentiment-timeline {
+                background: linear-gradient(90deg, #D81B60 0%, #FB8C00 50%, #26C6DA 100%) !important;
+                
+                .timeline-point {
+                    &.positive { background: #26C6DA !important; }
+                    &.neutral  { background: #FB8C00 !important; }
+                    &.negative { background: #D81B60 !important; }
+                }
+            }
+
+            .sentiment-summary .sentiment-bar .bar-segment {
+                &.positive { background: #26C6DA !important; }
+                &.neutral  { background: #FB8C00 !important; }
+                &.negative { background: #D81B60 !important; }
+            }
+        }
+
+        // 3. Analyse-Metriken (Drama, Humor, Mystery)
+        .tab-content .analysis-section .metric-card {
+            &.drama .metric-info .metric-bar .metric-fill { background: #D81B60 !important; }
+            &.humor .metric-info .metric-bar .metric-fill { background: #FB8C00 !important; }
+            &.mystery .metric-info .metric-bar .metric-fill { background: #00ACC1 !important; }
+            &.conflict .metric-info .metric-bar .metric-fill { background: #1E88E5 !important; }
+        }
+
+        // 4. Sankey Graph (Verbindungen)
+        .tab-content .graph-section .sankey-graph {
+            .flow-connections .flow-path {
+                stroke: #1E88E5 !important; // Blau statt Grau für bessere Sichtbarkeit
+                &:hover { stroke: #0D47A1 !important; }
+            }
+        }
+    }
+}

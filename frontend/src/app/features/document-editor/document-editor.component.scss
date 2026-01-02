@@ -108,3 +108,39 @@ $card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     color: #666;
     font-size: 1.2rem;
 }
+
+// Der Holzhammer: Wir greifen vom Editor aus nach oben zum Body
+:host-context(body.protanopia-mode) {
+    .tab-strip {
+        background: linear-gradient(180deg, #1E88E5 0%, #1565C0 100%) !important;
+        
+        .tab-btn.active {
+            background: white !important;
+            .icon { filter: none !important; color: #1565C0 !important; }
+        }
+    }
+
+    .workspace-panel {
+        background: #fdfdfd !important;
+    }
+
+    // Wir erzwingen die Farben für alle Kinder (Sidebar/Emoji-Panel)
+    ::ng-deep {
+        .bulk-actions, .auto-generate-container {
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%) !important;
+            border-color: #FB8C00 !important;
+            h3 { color: #E65100 !important; }
+        }
+
+        .ai-btn.bulk, .ai-btn.primary, .auto-generate-btn {
+            background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
+            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3) !important;
+        }
+        
+        .sentiment-timeline .timeline-point {
+            &.positive { background: #26C6DA !important; }
+            &.neutral  { background: #FB8C00 !important; }
+            &.negative { background: #D81B60 !important; }
+        }
+    }
+}

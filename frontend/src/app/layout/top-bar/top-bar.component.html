@@ -6,15 +6,31 @@
                 ↩ Back
             </button>
         </div>
+
         <div class="actions">
             <input type="file" #fileInput (change)="onFileSelected($event)" accept=".txt,.pdf" style="display: none;"
                 aria-label="Upload file">
+            
             <button class="upload-btn" (click)="fileInput.click()" aria-label="Upload file">
                 📁 Upload
             </button>
-            <button class="settings-btn" (click)="onSettingsClick()" aria-label="Settings">
-                ⚙️ Settings
-            </button>
-        </div>
-    </div>
-</header>
+
+            <div class="settings-container">
+                <button class="settings-btn" (click)="onSettingsClick()" aria-label="Settings">
+                    ⚙️ Settings
+                </button>
+
+                <div class="dropdown-menu" *ngIf="showSettingsDropdown">
+                    <div class="dropdown-header">Einstellungen</div>
+                    <div class="dropdown-item">
+                        <span>Rot-Grün-Schwäche</span>
+                        <label class="switch">
+                            <input type="checkbox" 
+                                   [checked]="isColorBlindMode" 
+                                   (change)="toggleColorBlindMode()">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="dropdown-item">Profil</div>
+                </div>
+            </div> </div> </div> </header>
