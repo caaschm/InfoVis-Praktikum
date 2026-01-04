@@ -824,6 +824,7 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
     }
     """
     api_key = get_api_key()
+    stages = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
 
     # Simple fallback: neutral arc with optional center peak if "climax" words found
     if not api_key:
@@ -834,18 +835,51 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
         return {"arc": arc, "beats": []}
 
     prompt = f"""
-    Analyze the following text and compute a story arc as an array of {granularity} numeric values between 0 and 1,
-    where 0 means no dramatic tension and 1 means peak dramatic tension.
 
-    Also identify up to 5 key beats (e.g., inciting incident, midpoint, climax) with a short name and normalized position (0.0-1.0).
+    Analyze the following text and map it onto a fixed narrative structure. You must strictly follow the rules below.
+    These rules are strict. If unsure, prefer assigning zero tension rather than inventing narrative structure.
 
-    Return the result EXACTLY as a JSON object like:
-    {{ "arc": [ ... ], "beats": [{{"name":"", "position":0.0, "note":""}}, ...] }}
-    Do not add extra commentary or markdown.
+
+    STAGES (fixed order, must not be changed):
+    {stages}
+
+    RULES:
+
+    1. For each stage, determine whether the text contains a sentence that fulfills the narrative role of that stage.
+    - If no suitable sentence exists for a stage, its tension value MUST be 0 and its note MUST be an empty string.
+
+    2. The story arc is an array of {granularity} numeric values between 0 and 1.
+    - The arc represents narrative tension over an abstract story timeline from 0.0 to 1.0.
+    - The arc may ONLY rise if at least one stage has a non-zero tension value.
+    - If no stage contains significant narrative tension, the arc MUST be a flat line (all values equal).
+
+    3. A Climax may ONLY exist if the text clearly contains a peak moment.
+    - If no climax is present in the text, the Climax stage MUST have a value of 0.
+    - The arc MUST NOT invent or exaggerate tension beyond what the text supports.
+
+    4. Beat positions:
+    - Beats must appear in the EXACT order of the stages list.
+    - Beat positions must be monotonically increasing.
+    - If a stage has no content, its position should still be present but reflect minimal progression.
+
+    5. The highest arc value MUST correspond to the Climax ONLY IF the Climax has non-zero tension.
+    - Otherwise, the highest arc value should correspond to the most advanced non-zero stage.
+
+    Return EXACTLY this JSON structure:
+    {{
+    "arc": [...],
+    "beats": [
+        {{"name": "Exposition", "position": 0.0, "note": ""}},
+        ...
+    ]
+    }}
+
+    No explanations, no markdown, no extra text.
 
     Text:
     {text}
     """
+
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -871,6 +905,7 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
 
         result = res.json()
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        print("🧠 RAW AI RESPONSE:", content)
 
         # Remove code fences and try to extract the first JSON object
         content = re.sub(r'```json\s*', '', content)
@@ -927,10 +962,11 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
 # TODO @Caro: not every sentence needs a stage/value, only if they significantly matter to a stage
 async def generate_sentence_stage_mapping(text: str, sentences: list[str]) -> list[dict]:
     """
-    Ask the AI to classify each sentence into one of five story stages and provide a numeric "value" (0.0-1.0)
-    that represents the narrative tension for that sentence.
-    Returns list of dicts: [{"index": <int>, "stage": "Exposition"|..., "value": 0.0..1.0 }, ...]
+    Classify each sentence into one of five story stages and provide a numeric "value" (0.0-1.0) that represents the narrative tension for that sentence.
+    
+    Return list of dicts: [{"index": <int>, "stage": "Exposition"|..., "value": 0.0..1.0 }, ...]
     """
+
     api_key = get_api_key()
     print("🔑 OPENROUTER_API_KEY present?", bool(api_key))
     STAGES = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
@@ -964,7 +1000,7 @@ async def generate_sentence_stage_mapping(text: str, sentences: list[str]) -> li
     print("res:", res)
 
     prompt = f"""
-    You are given a list of sentences from a short story. For each sentence, assign it to one of the following five story stages: {', '.join(STAGES)}.
+    You are given a short story, devided into a list of sentences. For each sentence, assign it to one of the following five story stages: {', '.join(STAGES)}.
     Also provide a numeric "value" between 0.0 and 1.0 representing the narrative tension of that sentence (0.0 = no tension, 1.0 = peak tension).
 
     Respond with a single JSON array where each element is an object {{"index": <sentence index>, "stage": "<stage>", "value": <0.0-1.0>}}. Use the exact stage names above. Do not include extra text or commentary.
