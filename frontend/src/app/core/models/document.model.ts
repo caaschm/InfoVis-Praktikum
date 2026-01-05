@@ -259,9 +259,10 @@ export interface Beat {
 }
 
 export interface SentenceClassification {
-  index: number;
-  stage: 'Exposition' | 'Rising Action' | 'Climax' | 'Falling Action' | 'Denouement';
-  value?: number; // Arc value 0..1 for positioning on the arc
+    index: number;
+    stage: 'Exposition' | 'Rising Action' | 'Climax' | 'Falling Action' | 'Denouement';
+    value?: number; // Arc value 0..1 for positioning on the arc
+    significant?: boolean; // Whether the classification is significant
 }
 
 export interface StoryArcResponse {

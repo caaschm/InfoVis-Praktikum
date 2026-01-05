@@ -686,46 +686,42 @@
             <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
                 <path class="arc-line" [attr.d]="storyArcPath" stroke="#8B5CF6" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
 
-                <!-- Sentence Points -->
-                <g *ngIf="storyArcPath && sentenceClassifications.length > 0">
-                    <circle *ngFor="let classification of sentenceClassifications; let i = index"
-                            [attr.cx]="sentenceX(classification.index)"
-                            [attr.cy]="sentenceY(classification.index)"
-                            r="3"
-                            class="arc-point sentence-point"
-                            [class.selected]="selectedSentence?.index === classification.index"
-                            (click)="selectSentenceByIndex(classification.index)"
-                            [attr.data-index]="classification.index"
-                            [title]="getSentenceText(classification.index)">
-                    </circle>
+                <!-- Signifikante Satzpunkte -->
+                <g *ngIf="storyArcPath && significantSentenceClassifications.length > 0">
+                <circle *ngFor="let c of significantSentenceClassifications"
+                        [attr.cx]="sentenceX(c.index)"
+                        [attr.cy]="sentenceY(c.index)"
+                        r="4"
+                        class="arc-point sentence-point"
+                        (click)="selectSentenceByIndex(c.index)"
+                        [title]="getSentenceText(c.index)">
+                </circle>
                 </g>
 
+
                 <!-- Fallback: Show sentence points even without classifications -->
-                <g *ngIf="storyArcPath && sentenceClassifications.length === 0 && currentDocument?.sentences">
+                <!-- <g *ngIf="storyArcPath && totalSentences > 0">
                     <circle *ngFor="let sentence of currentDocument!.sentences"
                             [attr.cx]="sentenceX(sentence.index)"
                             [attr.cy]="sentenceY(sentence.index)"
                             r="3"
-                            class="arc-point sentence-point"
-                            [class.selected]="selectedSentence?.index === sentence.index"
-                            (click)="selectSentenceByIndex(sentence.index)"
-                            [attr.data-index]="sentence.index"
-                            [title]="sentence.text">
+                            class="arc-point sentence-point muted"
+                            (click)="selectSentenceByIndex(sentence.index)">
                     </circle>
-                </g>
+                </g> -->
 
                 <!-- Beats -->
                 <circle *ngFor="let b of storyBeats"
                         [attr.cx]="beatX(b.position)"
                         [attr.cy]="beatY(b.position)"
-                        r="5"
-                        class="arc-point beat-marker"></circle>
+                        r="6"
+                        class="arc-point beat-marker"
+                        [class.clickable]="b.sentence_index != null"
+                        (click)="onBeatClick(b)"
+                        [title]="b.note">
+                </circle>
 
-                <text *ngFor="let b of storyBeats"
-                        [attr.x]="beatX(b.position)"
-                        [attr.y]="beatY(b.position) - 10"
-                        text-anchor="middle"
-                        class="arc-label-small">{{ b.name }}</text>
+
             </svg>
             
             <!--

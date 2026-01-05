@@ -279,7 +279,7 @@ async def compute_story_arc(
 ):
     """
     Compute a story arc (array of tension values + key beats) for the provided text.
-    If document_id is provided and text is empty, use document content/title as fallback.
+    Also classify sentences to stages and aggregate stage tension values.
     """
     text = request.text
     if request.document_id and not text:
@@ -294,95 +294,126 @@ async def compute_story_arc(
     if not text:
         raise HTTPException(status_code=400, detail="No text provided for story arc analysis")
 
+    granularity = request.granularity or 20
+    stages_order = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
+
+    # 1️⃣ Generate story arc & beats via AI
     try:
-        result = await generate_story_arc(text=text, granularity=request.granularity)
+        result = await generate_story_arc(text=text, granularity=granularity)
+        arc_raw = result.get("arc", [0.5]*granularity)
+        beats = result.get("beats", [])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compute story arc: {e}")
 
-    # If we have a document, try to map beats to nearest sentence indices and ask AI to classify sentences
-    sentence_classifications = []
-    stage_values = []
+    # 2️⃣ Load sentences if document_id provided
+    sentences = []
     if request.document_id:
-        sentences = db.query(models.Sentence).filter(models.Sentence.document_id == request.document_id).order_by(models.Sentence.index).all()
-        if sentences and len(sentences) > 0:
-            N = len(sentences)
-            # Map beats positions to nearest sentence index and attach ids
-            beats = result.get("beats", [])
-            for b in beats:
-                pos = float(b.get("position", 0)) if isinstance(b, dict) else getattr(b, 'position', 0)
-                si = int(round(pos * (N - 1)))
-                b["sentence_index"] = si
-                b["sentence_id"] = sentences[si].id
+        sentences = db.query(models.Sentence).filter(
+            models.Sentence.document_id == request.document_id
+        ).order_by(models.Sentence.index).all()
 
-            # Ask AI to classify each sentence into stages (best-effort)
-            try:
-                texts = [s.text for s in sentences]
-                classifications = await generate_sentence_stage_mapping(text, texts)
-            except Exception as e:
-                print("❌ Error classifying sentences:", e)
-                classifications = []
+    N = len(sentences)
 
-            # Build index->classification map
-            cls_map = {c["index"]: c for c in classifications if isinstance(c, dict) and c.get("index") is not None}
+    # 3️⃣ Map beats to nearest sentences for clickable notes
+    if sentences and beats:
+        for b in beats:
+            pos = float(b.get("position", 0))
+            si = int(round(pos * (N-1))) if N > 0 else 0
+            si = max(0, min(N-1, si))
+            b["sentence_index"] = si
+            b["sentence_id"] = sentences[si].id if N > 0 else None
+            b["note"] = sentences[si].text if N > 0 else ""
 
-            # Prepare to sample arc values if AI didn't provide numeric tension per sentence
-            arc = result.get("arc", [])
-            G = len(arc) if arc else request.granularity or 10
+        # Ensure positions are monotonically increasing
+        last_pos = 0.0
+        for b in beats:
+            b["position"] = max(last_pos, b["position"])
+            last_pos = b["position"]
 
-            def sample_arc_at_pos(pos: float) -> float:
-                if not arc:
-                    return 0.5
-                pos = max(0.0, min(1.0, pos))
-                fpos = pos * (G - 1)
-                lo = int(fpos)
-                hi = min(lo + 1, G - 1)
-                t = fpos - lo
-                return (1 - t) * arc[lo] + t * arc[hi]
+    # 4️⃣ Sentence classification
+    sentence_classifications = []
+    if sentences:
+        try:
+            classifications = await generate_sentence_stage_mapping(text, [s.text for s in sentences])
+        except Exception as e:
+            print("❌ Error classifying sentences:", e)
+            classifications = []
 
-            sentence_classifications = []
-            for i, s in enumerate(sentences):
-                if i in cls_map:
-                    item = cls_map[i]
-                    val = item.get("value")
-                    if val is None:
-                        pos = i / max(1, N - 1)
-                        val = sample_arc_at_pos(pos)
-                    sentence_classifications.append({"index": i, "stage": item.get("stage"), "value": float(val)})
+        # Build index -> classification map
+        cls_map = {c["index"]: c for c in classifications if "index" in c}
+
+        DEFAULT_STAGE_VALUES = {
+            "Exposition": 0.15,
+            "Rising Action": 0.35,
+            "Climax": 0.9,
+            "Falling Action": 0.4,
+            "Denouement": 0.2
+        }
+
+        SIGNIFICANT_THRESHOLD = 0.01
+
+
+        sentence_classifications = []
+
+        for i in range(N):
+            if i in cls_map:
+                item = cls_map[i]
+                stage = item["stage"]
+                val = item.get("value")
+                if val is None:
+                    val = DEFAULT_STAGE_VALUES[stage]
+            else:
+                pos = i / max(1, N - 1)
+                if pos < 0.2:
+                    stage = "Exposition"
+                elif pos < 0.55:
+                    stage = "Rising Action"
+                elif pos < 0.7:
+                    stage = "Climax"
+                elif pos < 0.9:
+                    stage = "Falling Action"
                 else:
-                    # fallback stage by position
-                    pos = i / max(1, N - 1)
-                    if pos < 0.2:
-                        stage = "Exposition"
-                    elif pos < 0.55:
-                        stage = "Rising Action"
-                    elif pos < 0.7:
-                        stage = "Climax"
-                    elif pos < 0.9:
-                        stage = "Falling Action"
-                    else:
-                        stage = "Denouement"
-                    val = sample_arc_at_pos(pos)
-                    sentence_classifications.append({"index": i, "stage": stage, "value": float(val)})
+                    stage = "Denouement"
+                val = DEFAULT_STAGE_VALUES[stage]
 
-            # Aggregate per-stage average values
-            from collections import defaultdict
-            sums = defaultdict(float)
-            counts = defaultdict(int)
-            for c in sentence_classifications:
-                sums[c["stage"]] += c["value"]
-                counts[c["stage"]] += 1
+        sentence_classifications.append({
+            "index": i,
+            "stage": stage,
+            "value": float(val),
+            "significant": float(val) >= SIGNIFICANT_THRESHOLD
+        })
+    # 5️⃣ Aggregate per-stage tension values
+    from collections import defaultdict
+    sums, counts = defaultdict(float), defaultdict(int)
+    for c in sentence_classifications:
+        sums[c["stage"]] += c["value"]
+        counts[c["stage"]] += 1
 
-            stages_order = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
-            stage_values = []
-            for stage in stages_order:
-                if counts.get(stage, 0) > 0:
-                    stage_values.append({"stage": stage, "value": sums[stage] / counts[stage]})
-                else:
-                    stage_values.append({"stage": stage, "value": 0.0})
+    stage_values = []
+    for stage in stages_order:
+        if counts.get(stage, 0) > 0:
+            stage_values.append({"stage": stage, "value": sums[stage]/counts[stage]})
+        else:
+            stage_values.append({"stage": stage, "value": 0.0})
+
+    # 6️⃣ Ensure arc is consistent: flat if all stage values = 0
+    stage_curve = [
+        v["value"] for v in stage_values
+    ]
+
+    # simple linear interpolation über Stages → Arc
+    arc_vals = []
+    for i in range(granularity):
+        pos = i / max(1, granularity - 1)
+        f = pos * (len(stage_curve) - 1)
+        lo, hi = int(f), min(int(f) + 1, len(stage_curve) - 1)
+        t = f - lo
+        arc_vals.append((1 - t) * stage_curve[lo] + t * stage_curve[hi])
+
 
     return schemas.StoryArcResponse(
-        arc=result["arc"],
-        beats=result.get("beats", []),
+        arc=arc_vals,
+        beats=beats,
         sentence_classifications=sentence_classifications,
-        stage_values=stage_values,
+        stage_values=stage_values
     )

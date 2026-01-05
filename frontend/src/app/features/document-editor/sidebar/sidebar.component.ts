@@ -31,7 +31,10 @@ interface ChapterAnalysis {
 
 interface Beat {
   name: string;
-  position: number;
+  position: number; // 0..1
+  note?: string;
+  sentence_id?: string;
+  sentence_index?: number;
 }
 
 @Component({
@@ -1100,6 +1103,12 @@ ngOnDestroy(): void {
   }
 
   // ========== STORY ARC LOGIC ==========
+
+  onBeatClick(b: any): void {
+    if (b.sentence_index == null) return;
+    this.selectSentenceByIndex(b.sentence_index);
+  }
+
   fetchStoryArc(): void {
     console.log('Fetching story arc...');
     const doc = this.documentService.getCurrentDocument();
@@ -1126,6 +1135,11 @@ ngOnDestroy(): void {
         this.sentenceClassifications = res.sentence_classifications || [];
         this.storyArcPath = this.computeArcPath(this.storyArc);
 
+        this.sentenceClassifications = this.sentenceClassifications.map(c => ({
+          ...c,
+          significant: (c.value ?? 0) > 0   // alles mit Spannung > 0 wird als signifikant markiert
+        }));
+
         // Map story arc / beats to sentence indices and story stages
         try {
           if (res.sentence_classifications && res.sentence_classifications.length > 0) {
@@ -1137,6 +1151,16 @@ ngOnDestroy(): void {
         } catch (e) {
           console.error('Error assigning sentences to stages:', e);
         }
+
+        this.storyBeats.forEach(b => {
+          if (b.sentence_index == null && this.currentDocument) {
+            const N = this.currentDocument.sentences.length;
+            // Map Position 0..1 auf Satzindex
+            const idx = Math.round((b.position ?? 0) * (N - 1));
+            b.sentence_index = idx;
+          }
+        });
+
 
         this.arcLoading = false;
         console.log('Fetched story arc:', this.storyArc);
@@ -1283,26 +1307,26 @@ ngOnDestroy(): void {
     return 20 + pos * 360;
   }
 
-  sentenceY(sentenceIndex: number, totalSentences?: number): number {
+  sentenceY(sentenceIndex: number): number {
     const hTop = 40;
     const hBottom = 250;
-    
-    // Try to get value from sentence classification
-    const classification = this.sentenceClassifications.find(c => c.index === sentenceIndex);
-    if (classification && classification.value !== undefined) {
-      return hBottom - classification.value * (hBottom - hTop);
+
+    // Finde Klassifizierung für diesen Satz
+    const c = this.sentenceClassifications.find(c => c.index === sentenceIndex);
+
+    // Nur Sätze mit Wert > 0 beeinflussen die Kurve
+    if (c?.value !== undefined && c.value > 0) {
+      return hBottom - c.value * (hBottom - hTop);
     }
-    
-    // Fallback: calculate from arc position
-    const total = totalSentences ?? this.totalSentences;
-    if (total <= 1) {
-      return hBottom - (this.storyArc[0] ?? 0.5) * (hBottom - hTop);
-    }
-    const pos = sentenceIndex / (total - 1);
+
+    // Fallback: linear über Arc interpolieren
+    const total = this.totalSentences;
+    const pos = total > 1 ? sentenceIndex / (total - 1) : 0;
     const idx = Math.round(pos * (this.storyArc.length - 1));
-    const v = this.storyArc[idx] ?? 0.5;
+    const v = this.storyArc[idx] ?? 0.0;  // Sätze ohne Wert = 0
     return hBottom - v * (hBottom - hTop);
   }
+
 
   getSentenceText(sentenceIndex: number): string {
     const doc = this.documentService.getCurrentDocument();
@@ -1318,5 +1342,11 @@ ngOnDestroy(): void {
   get totalSentences(): number {
     const doc = this.currentDocument;
     return doc?.sentences?.length || 0;
+  }
+
+  get significantSentenceClassifications(): SentenceClassification[] {
+    return this.sentenceClassifications
+      ?.filter(c => c.value !== undefined && c.value > 0)   // nur Sätze mit Wert
+      .filter(c => this.currentDocument?.sentences?.some(s => s.index === c.index)) ?? [];
   }
 }

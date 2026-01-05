@@ -847,10 +847,14 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
 
     1. For each stage, determine whether the text contains a sentence that fulfills the narrative role of that stage.
     - If no suitable sentence exists for a stage, its tension value MUST be 0 and its note MUST be an empty string.
+    - Note MUST be either empty OR a short paraphrase (max 20 words).
+
+
 
     2. The story arc is an array of {granularity} numeric values between 0 and 1.
     - The arc represents narrative tension over an abstract story timeline from 0.0 to 1.0.
-    - The arc may ONLY rise if at least one stage has a non-zero tension value.
+    - Rising Action may have low but non-zero tension (0.2–0.4).
+    - A story without a climax may still have narrative progression.
     - If no stage contains significant narrative tension, the arc MUST be a flat line (all values equal).
 
     3. A Climax may ONLY exist if the text clearly contains a peak moment.
@@ -896,6 +900,7 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.6,
                     "max_tokens": 300,
+                    "response_format": { "type": "json_object" }
                 },
             )
 
@@ -954,6 +959,12 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
             arc_vals = [0.5] * granularity
 
         return {"arc": arc_vals, "beats": beats}
+    
+    except json.JSONDecodeError:
+        return {
+            "arc": [0.0] * granularity,
+            "beats": []
+        }
     except Exception as e:
         print(f"❌ Error generating story arc: {e}")
         return {"arc": [0.5] * granularity, "beats": []}
