@@ -1,13 +1,21 @@
 <div class="text-viewer">
     <div class="header-row">
         <h2 class="section-title">Workspace</h2>
-        <div class="view-toggle">
-            <label class="toggle-label">
-                <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
-                <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
-                <span class="toggle-slider"></span>
-                <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
-            </label>
+        <div class="header-controls">
+            <div class="view-toggle">
+                <label class="toggle-label">
+                    <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
+                    <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
+                </label>
+            </div>
+            <button class="ai-highlight-btn" 
+                    [class.active]="showAiHighlight" 
+                    (click)="toggleAiHighlight()"
+                    title="Highlight AI-generated sentences">
+                <span class="ai-icon">🤖</span>
+            </button>
         </div>
     </div>
 
@@ -16,9 +24,12 @@
         <div class="line-numbers">
             <span *ngFor="let sentence of sentences; let i = index" class="line-number">{{ i + 1 }}</span>
         </div>
-        <div class="text-content">
+        <div class="text-content" [class.ai-highlight-mode]="showAiHighlight">
             <span *ngFor="let sentence of sentences; let isLast = last" class="sentence-inline"
-                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)">
+                [class.selected]="isSelected(sentence.id)"
+                [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
+                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight"
+                (click)="onSentenceClick(sentence)">
                 <span class="sentence-text" contenteditable="true"
                     (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                     (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
@@ -29,10 +40,14 @@
     </div>
 
     <!-- Emoji-Only View -->
-    <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'">
+    <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
+         [class.ai-highlight-mode]="showAiHighlight">
         <div class="emoji-content">
             <span *ngFor="let sentence of sentences; let i = index" class="emoji-sentence"
-                [class.selected]="isSelected(sentence.id)" (click)="onSentenceClick(sentence)"
+                [class.selected]="isSelected(sentence.id)"
+                [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
+                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight"
+                (click)="onSentenceClick(sentence)"
                 [attr.title]="sentence.text">
                 <span class="emoji-group" *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>
                 <span class="emoji-group empty" *ngIf="sentence.emojis.length === 0">📝</span>

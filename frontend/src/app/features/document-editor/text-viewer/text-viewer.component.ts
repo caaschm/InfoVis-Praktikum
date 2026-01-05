@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
+import { AiTrackingService } from '../../../core/services/ai-tracking.service';
 import { Sentence } from '../../../core/models/document.model';
 
 @Component({
@@ -16,10 +17,15 @@ export class TextViewerComponent implements OnInit, OnDestroy {
   sentences: Sentence[] = [];
   selectedSentenceId: string | null = null;
   viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
+  showAiHighlight: boolean = false; // Toggle for AI highlight mode
+  private aiGeneratedSentenceIds = new Set<string>(); // Track AI-generated sentences
   private destroy$ = new Subject<void>();
   private sentenceUpdateTimer: any = null;
 
-  constructor(private documentService: DocumentService) { }
+  constructor(
+    private documentService: DocumentService,
+    private aiTrackingService: AiTrackingService
+  ) { }
 
   ngOnInit(): void {
     // Subscribe to current document
@@ -27,7 +33,21 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(doc => {
         if (doc) {
+          const previousSentences = this.sentences;
           this.sentences = doc.sentences;
+          
+          // If sentences changed (re-parsed), sync AI status by text matching
+          if (previousSentences.length > 0 && 
+              (previousSentences.length !== doc.sentences.length || 
+               previousSentences.some((s, i) => s.id !== doc.sentences[i]?.id))) {
+            // Document was re-parsed, sync AI status by matching text
+            this.aiTrackingService.syncSentenceIds(
+              doc.sentences.map(s => ({ id: s.id, text: s.text }))
+            );
+          }
+          
+          // Sync AI-generated sentence IDs
+          this.aiGeneratedSentenceIds = this.aiTrackingService.getAllAiGeneratedIds();
         }
       });
 
@@ -36,6 +56,13 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(sentence => {
         this.selectedSentenceId = sentence?.id || null;
+      });
+
+    // Subscribe to AI tracking updates
+    this.aiTrackingService.aiGenerated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(ids => {
+        this.aiGeneratedSentenceIds = ids;
       });
   }
 
@@ -116,5 +143,21 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
   toggleViewMode(): void {
     this.viewMode = this.viewMode === 'text' ? 'emoji' : 'text';
+  }
+
+  toggleAiHighlight(): void {
+    this.showAiHighlight = !this.showAiHighlight;
+  }
+
+  isAiGenerated(sentenceId: string): boolean {
+    return this.aiGeneratedSentenceIds.has(sentenceId);
+  }
+
+  markAsAiGenerated(sentenceId: string): void {
+    this.aiTrackingService.markAsAiGenerated(sentenceId);
+  }
+
+  unmarkAsAiGenerated(sentenceId: string): void {
+    this.aiTrackingService.unmarkAsAiGenerated(sentenceId);
   }
 }

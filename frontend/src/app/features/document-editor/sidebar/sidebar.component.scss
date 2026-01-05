@@ -1068,6 +1068,74 @@
                 }
               }
 
+              .suggestions-actions {
+                padding: 14px 16px;
+                background: #f5f3ff;
+                border-top: 1px solid rgba(139, 92, 246, 0.15);
+
+                .apply-text-btn {
+                  width: 100%;
+                  padding: 0.75rem 1rem;
+                  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+                  color: white;
+                  border: none;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  font-weight: 600;
+                  font-size: 14px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 0.5rem;
+                  transition: all 0.2s ease;
+                  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+
+                  .btn-icon {
+                    font-size: 16px;
+                  }
+
+                  .btn-label {
+                    letter-spacing: 0.3px;
+                  }
+
+                  &:hover:not(:disabled) {
+                    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+                    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+                    transform: translateY(-1px);
+                  }
+
+                  &:active:not(:disabled) {
+                    transform: translateY(0);
+                    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+                  }
+
+                  &:disabled,
+                  &.applied {
+                    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+                    cursor: not-allowed;
+                    opacity: 0.7;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+                    &:hover {
+                      transform: none;
+                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    }
+                  }
+                }
+
+                .already-applied-message {
+                  margin-top: 0.75rem;
+                  padding: 0.5rem 0.75rem;
+                  background: #fef3c7;
+                  border: 1px solid #fcd34d;
+                  border-radius: 6px;
+                  color: #92400e;
+                  font-size: 12px;
+                  text-align: center;
+                  font-weight: 500;
+                }
+              }
+
               &.loading {
                 display: flex;
                 align-items: center;
