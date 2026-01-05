@@ -470,6 +470,20 @@
                 <div class="example-label">EXAMPLE:</div>
                 <div class="example-text">{{ intentPreview }}</div>
             </div>
+
+            <div *ngIf="intentPreview" class="suggestions-actions">
+                <button 
+                    class="apply-text-btn" 
+                    [class.applied]="textApplied"
+                    [disabled]="textApplied"
+                    (click)="applyPreviewText()">
+                    <span class="btn-icon">✨</span>
+                    <span class="btn-label">{{ textApplied ? 'Text Applied' : 'Apply Text' }}</span>
+                </button>
+                <div *ngIf="textApplied" class="already-applied-message">
+                    You already added the text
+                </div>
+            </div>
         </div>
 
         <!-- Fallback suggestions if no intent suggestions -->

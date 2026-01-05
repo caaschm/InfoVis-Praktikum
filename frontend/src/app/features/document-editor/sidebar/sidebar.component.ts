@@ -32,6 +32,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   intentIdeas: string[] = [];
   intentPreview: string | null = null;
   intentLoading = false;
+  textApplied = false;
   private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number }>();
 
   // ===== BASELINE VALUES NACH AI-ANALYSE =====
@@ -269,6 +270,30 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.lastSuggestion = null;
   }
 
+  applyPreviewText(): void {
+    if (!this.intentPreview) return;
+
+    // Check if text was already applied
+    if (this.textApplied) {
+      return;
+    }
+
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
+    // Get current document content
+    const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
+    
+    // Append the preview text to the document
+    const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+    
+    // Update the document content
+    this.documentService.updateDocumentContent(doc.id, newContent);
+    
+    // Mark as applied
+    this.textApplied = true;
+  }
+
   // ========== SPIDER SHAPE ==========
   private valueToPointXY(value: number, angleDeg: number) {
     const r = (value / 100) * this.maxRadius;
@@ -367,9 +392,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.intentIdeas = [];
       this.intentPreview = null;
       this.intentLoading = false;
+      this.textApplied = false; // Reset when suggestions are cleared
       return;
     }
 
+    this.textApplied = false; // Reset when new suggestions are being fetched
     this.sliderChangeSubject.next({ dimension, current, baseline });
   }
 
@@ -388,6 +415,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.intentSummary = 'Analyzing intent...';
     this.intentIdeas = [];
     this.intentPreview = null;
+    this.textApplied = false; // Reset when new suggestions are generated
 
     this.aiService.getSpiderIntent({
       documentId: doc.id,
