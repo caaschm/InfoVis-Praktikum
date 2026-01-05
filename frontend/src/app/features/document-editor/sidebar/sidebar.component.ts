@@ -13,6 +13,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
+import { AiTrackingService } from '../../../core/services/ai-tracking.service';
 import { Sentence } from '../../../core/models/document.model';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
@@ -95,7 +96,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   constructor(
     private documentService: DocumentService,
-    private aiService: AiService
+    private aiService: AiService,
+    private aiTrackingService: AiTrackingService
   ) {}
 
   // ========== INIT ==========
@@ -263,6 +265,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
   applySuggestion(): void {
     if (!this.lastSuggestion || !this.selectedSentence) return;
 
+    // Mark sentence as AI-generated when applying AI suggestion (by ID and text)
+    this.aiTrackingService.markAsAiGenerated(
+      this.selectedSentence.id,
+      this.lastSuggestion
+    );
+
     this.documentService.updateSentenceText(
       this.selectedSentence.id,
       this.lastSuggestion
@@ -292,6 +300,24 @@ export class SidebarComponent implements OnInit, OnDestroy {
     
     // Mark as applied
     this.textApplied = true;
+
+    // Note: New sentences created from preview text will be marked as AI-generated
+    // when the document is updated and sentences are re-parsed.
+    // We'll mark them after the document update completes.
+    setTimeout(() => {
+      const updatedDoc = this.documentService.getCurrentDocument();
+      if (updatedDoc) {
+        // Mark the last sentence(s) as AI-generated (the newly added preview text)
+        const newSentenceCount = updatedDoc.sentences.length - doc.sentences.length;
+        if (newSentenceCount > 0) {
+          const newSentences = updatedDoc.sentences.slice(-newSentenceCount);
+          newSentences.forEach(sentence => {
+            // Mark by both ID and text so it persists across re-parses
+            this.aiTrackingService.markAsAiGenerated(sentence.id, sentence.text);
+          });
+        }
+      }
+    }, 500);
   }
 
   // ========== SPIDER SHAPE ==========
