@@ -73,17 +73,17 @@
             <p class="description" *ngIf="character.description">
                 {{ character.description }}
             </p>
-            
+
             <!-- Word associations section -->
             <div class="word-associations">
                 <div class="associations-header">
                     <label>Represents these words/phrases:</label>
-                    <button class="btn-edit-small" (click)="toggleEditPhrases(character.id)" 
+                    <button class="btn-edit-small" (click)="toggleEditPhrases(character.id)"
                         title="{{ editingPhrasesId === character.id ? 'Save' : 'Edit word associations' }}">
                         {{ editingPhrasesId === character.id ? '✓ Save' : '✎ Edit' }}
                     </button>
                 </div>
-                
+
                 <!-- Display mode -->
                 <div class="phrases-display" *ngIf="editingPhrasesId !== character.id">
                     <span *ngFor="let phrase of (character.wordPhrases || [])" class="phrase-chip">
@@ -93,20 +93,22 @@
                         No word associations defined
                     </span>
                 </div>
-                
+
                 <!-- Edit mode -->
                 <div class="phrases-edit" *ngIf="editingPhrasesId === character.id">
                     <div class="phrases-list-editable">
-                        <div *ngFor="let phrase of getEditablePhrases(character.id); let i = index" class="phrase-edit-item">
-                            <input type="text" [(ngModel)]="getEditablePhrases(character.id)[i]" 
-                                class="phrase-input" placeholder="word or phrase" />
-                            <button class="btn-remove-phrase" (click)="removePhrase(character.id, i)" title="Remove">✕</button>
+                        <div *ngFor="let phrase of getEditablePhrases(character.id); let i = index"
+                            class="phrase-edit-item">
+                            <input type="text" [(ngModel)]="getEditablePhrases(character.id)[i]" class="phrase-input"
+                                placeholder="word or phrase" />
+                            <button class="btn-remove-phrase" (click)="removePhrase(character.id, i)"
+                                title="Remove">✕</button>
                         </div>
                     </div>
                     <button class="btn-add-phrase" (click)="addNewPhrase(character.id)">+ Add phrase</button>
                 </div>
             </div>
-            
+
             <div class="color-indicator" [style.background-color]="character.color"></div>
         </div>
     </div>

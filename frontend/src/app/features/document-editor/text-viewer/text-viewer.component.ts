@@ -325,12 +325,16 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     if (phrases.length === 0) {
       // No mapping available - don't highlight anything
       return [{ text: sentence.text, isHighlighted: false }];
+      return [{ text: sentence.text, isHighlighted: false }];
     }
 
     // Find all phrase occurrences in the text using word boundaries
     const segments: Array<{ text: string, isHighlighted: boolean }> = [];
 
+    const segments: Array<{ text: string, isHighlighted: boolean }> = [];
+
     // Build a list of matches with positions
+    const matches: Array<{ start: number, end: number, phrase: string }> = [];
     const matches: Array<{ start: number, end: number, phrase: string }> = [];
     for (const phrase of phrases) {
       // Use word boundary regex to avoid false matches (e.g., "hero" shouldn't match "heroic")
@@ -349,6 +353,7 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     // Sort matches by position and remove overlaps
     matches.sort((a, b) => a.start - b.start);
     const filteredMatches: Array<{ start: number, end: number }> = [];
+    const filteredMatches: Array<{ start: number, end: number }> = [];
     for (const match of matches) {
       const overlaps = filteredMatches.some(existing =>
         (match.start >= existing.start && match.start < existing.end) ||
@@ -361,6 +366,7 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     // Build segments
     if (filteredMatches.length === 0) {
+      return [{ text: sentence.text, isHighlighted: false }];
       return [{ text: sentence.text, isHighlighted: false }];
     }
 
