@@ -6,53 +6,68 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import {
-  EmojiSuggestionRequest,
-  EmojiSuggestionResponse,
-  TextFromEmojisRequest,
-  TextFromEmojisResponse,
-  SpiderChartAnalysisRequest,
-  SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse
+    CharacterSuggestionRequest,
+    CharacterSuggestionResponse,
+    TextFromCharactersRequest,
+    TextFromCharactersResponse,
+    SpiderChartAnalysisRequest,
+    SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse
 } from '../models/document.model';
 
 export interface SpiderIntentRequest {
-  documentId: number | string;
-  text: string;
-  dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
-  baselineValue: number;
-  currentValue: number;
+    documentId: number | string;
+    text: string;
+    dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
+    baselineValue: number;
+    currentValue: number;
 }
 
 export interface SpiderIntentResponse {
-  summary: string;
-  ideas: string[];
-  preview: string;
+    summary: string;
+    ideas: string[];
+    preview: string;
 }
 
 @Injectable({
     providedIn: 'root'
 })
 export class AiService {
-  private http: any;
+    private http: any;
     constructor(private apiService: ApiService) { }
 
     /**
-     * Generate emoji suggestions from sentence text
-     * TODO: Fine-tune on backend for better results
+     * Suggest characters mentioned in the sentence text
      */
-    generateEmojisFromText(request: EmojiSuggestionRequest): Observable<EmojiSuggestionResponse> {
-        return this.apiService.post<EmojiSuggestionResponse>(
-            '/api/ai/emojis-from-text',
+    suggestCharacters(request: CharacterSuggestionRequest): Observable<CharacterSuggestionResponse> {
+        return this.apiService.post<CharacterSuggestionResponse>(
+            '/api/ai/suggest-characters',
             request
         );
     }
 
     /**
-     * Generate text from emojis
-     * TODO: Improve prompt engineering on backend for more context-aware generation
+     * Generate text from selected characters
      */
-    generateTextFromEmojis(request: TextFromEmojisRequest): Observable<TextFromEmojisResponse> {
-        return this.apiService.post<TextFromEmojisResponse>(
-            '/api/ai/text-from-emojis',
+    generateTextFromCharacters(request: TextFromCharactersRequest): Observable<TextFromCharactersResponse> {
+        return this.apiService.post<TextFromCharactersResponse>(
+            '/api/ai/text-from-characters',
+            request
+        );
+    }
+
+    // DEPRECATED - kept for compatibility during migration
+    generateEmojisFromText(request: any): Observable<any> {
+        // Map to character suggestion for now
+        return this.apiService.post<any>(
+            '/api/ai/suggest-characters',
+            request
+        );
+    }
+
+    generateTextFromEmojis(request: any): Observable<any> {
+        // Map to character-based generation
+        return this.apiService.post<any>(
+            '/api/ai/text-from-characters',
             request
         );
     }
@@ -67,14 +82,14 @@ export class AiService {
         );
     }
 
-  getSpiderIntent(payload: SpiderIntentRequest): Observable<SpiderIntentResponse> {
-    return this.apiService.post<SpiderIntentResponse>('/api/ai/spider-intent', {
-      documentId: payload.documentId,
-      text: payload.text,
-      dimension: payload.dimension,
-      baselineValue: payload.baselineValue,
-      currentValue: payload.currentValue,
-    });
-  }
+    getSpiderIntent(payload: SpiderIntentRequest): Observable<SpiderIntentResponse> {
+        return this.apiService.post<SpiderIntentResponse>('/api/ai/spider-intent', {
+            documentId: payload.documentId,
+            text: payload.text,
+            dimension: payload.dimension,
+            baselineValue: payload.baselineValue,
+            currentValue: payload.currentValue,
+        });
+    }
 
 }

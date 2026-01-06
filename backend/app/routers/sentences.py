@@ -1,6 +1,7 @@
 """Sentence management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import json
 
 from app.database import get_db
 from app import models, schemas
@@ -10,25 +11,20 @@ router = APIRouter(prefix="/api/sentences", tags=["sentences"])
 
 @router.get("/{sentence_id}", response_model=schemas.SentenceResponse)
 def get_sentence(sentence_id: str, db: Session = Depends(get_db)):
-    """Get a single sentence with its emojis."""
+    """Get a single sentence with its character references."""
     sentence = db.query(models.Sentence).filter(models.Sentence.id == sentence_id).first()
     
     if not sentence:
         raise HTTPException(status_code=404, detail="Sentence not found")
     
-    # Get emojis
-    emoji_tags = db.query(models.EmojiTag).filter(
-        models.EmojiTag.sentence_id == sentence_id
-    ).order_by(models.EmojiTag.position).all()
-    
-    emojis = [tag.emoji for tag in emoji_tags]
+    character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
     
     return schemas.SentenceResponse(
         id=sentence.id,
         document_id=sentence.document_id,
         index=sentence.index,
         text=sentence.text,
-        emojis=emojis
+        character_refs=character_refs
     )
 
 
@@ -39,8 +35,11 @@ def update_sentence(
     db: Session = Depends(get_db)
 ):
     """
-    Update a sentence's text and/or emojis.
-    Max 5 emojis enforced via schema validation.
+    Update a sentence's text, emojis, and/or character references.
+    
+    Supports HYBRID emoji system:
+    - emojis: Raw emoji strings (free generation)
+    - character_refs: Character IDs (structured, normalized)
     """
     sentence = db.query(models.Sentence).filter(models.Sentence.id == sentence_id).first()
     
@@ -51,21 +50,13 @@ def update_sentence(
     if update.text is not None:
         sentence.text = update.text
     
-    # Update emojis if provided
+    # Update raw emojis if provided
     if update.emojis is not None:
-        # Delete existing emoji tags
-        db.query(models.EmojiTag).filter(
-            models.EmojiTag.sentence_id == sentence_id
-        ).delete()
-        
-        # Create new emoji tags
-        for position, emoji in enumerate(update.emojis[:5]):  # Enforce max 5
-            emoji_tag = models.EmojiTag(
-                sentence_id=sentence_id,
-                position=position,
-                emoji=emoji
-            )
-            db.add(emoji_tag)
+        sentence.emojis = json.dumps(update.emojis)
+    
+    # Update character references if provided
+    if update.character_refs is not None:
+        sentence.character_refs = json.dumps(update.character_refs)
     
     # Update parent document's updated_at timestamp
     document = db.query(models.Document).filter(
@@ -78,17 +69,14 @@ def update_sentence(
     db.commit()
     db.refresh(sentence)
     
-    # Get updated emojis
-    emoji_tags = db.query(models.EmojiTag).filter(
-        models.EmojiTag.sentence_id == sentence_id
-    ).order_by(models.EmojiTag.position).all()
-    
-    emojis = [tag.emoji for tag in emoji_tags]
+    emojis = json.loads(sentence.emojis) if sentence.emojis else []
+    character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
     
     return schemas.SentenceResponse(
         id=sentence.id,
         document_id=sentence.document_id,
         index=sentence.index,
         text=sentence.text,
-        emojis=emojis
+        emojis=emojis,
+        character_refs=character_refs
     )

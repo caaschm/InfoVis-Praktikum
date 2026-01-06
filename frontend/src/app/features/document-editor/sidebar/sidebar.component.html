@@ -13,28 +13,29 @@
 
         <div class="divider"></div>
 
-        <!-- Enhanced Emoji Features -->
-        <div class="emoji-features-tabs">
-            <button class="feature-tab" (click)="showWordMappings()">🔤 Word Mappings</button>
-            <button class="feature-tab" (click)="showCharacters()">👥 Characters</button>
-            <button class="feature-tab" (click)="showEmojiSets()">🎨 Emoji Sets</button>
-        </div>
-
-        <!-- Word Mapping Manager (can be toggled) -->
-        <div *ngIf="showWordMappingPanel">
-            <app-word-mapping-manager></app-word-mapping-manager>
-            <div class="divider"></div>
-        </div>
-
-        <!-- Character Manager (can be toggled) -->
-        <div *ngIf="showCharacterPanel">
+        <!-- Character Manager -->
+        <div>
             <app-character-manager></app-character-manager>
             <div class="divider"></div>
         </div>
 
-        <!-- Emoji Set Manager (can be toggled) -->
-        <div *ngIf="showEmojiSetPanel">
-            <app-emoji-set-manager></app-emoji-set-manager>
+        <!-- Emoji Dictionary (Read-Only) -->
+        <div class="emoji-dictionary" *ngIf="emojiDictionary">
+            <h3>📖 Emoji Dictionary</h3>
+            <p class="helper-text">Auto-generated from your characters</p>
+            
+            <div class="dictionary-entries">
+                <div *ngFor="let entry of emojiDictionary.entries" class="dictionary-entry">
+                    <span class="emoji-icon">{{ entry.emoji }}</span>
+                    <div class="entry-info">
+                        <span class="character-name" [style.color]="entry.color">{{ entry.characterName }}</span>
+                        <span class="usage-count">Used {{ entry.usageCount }} time{{ entry.usageCount !== 1 ? 's' : '' }}</span>
+                    </div>
+                </div>
+                <div *ngIf="emojiDictionary.entries.length === 0" class="no-entries">
+                    <p>No characters defined yet. Add characters above to see them here!</p>
+                </div>
+            </div>
             <div class="divider"></div>
         </div>
 
@@ -44,16 +45,16 @@
             <!-- Current emoji slots -->
             <div class="current-emojis">
                 <div class="emoji-slots">
-                    <div *ngFor="let emoji of selectedSentence.emojis; let i = index" class="emoji-slot filled"
+                    <div *ngFor="let emoji of selectedSentence.emojis || []; let i = index" class="emoji-slot filled"
                         (click)="removeEmoji(i)" title="Click to remove">
                         <span class="emoji">{{ emoji }}</span>
                     </div>
-                    <div *ngFor="let _ of [].constructor(maxEmojis - selectedSentence.emojis.length)"
+                    <div *ngFor="let _ of [].constructor(maxEmojis - (selectedSentence.emojis?.length || 0))"
                         class="emoji-slot empty">
                         <span class="placeholder">+</span>
                     </div>
                 </div>
-                <p class="helper-text">{{ selectedSentence.emojis.length }} / {{ maxEmojis }} emojis</p>
+                <p class="helper-text">{{ selectedSentence.emojis.length || 0 }} / {{ maxEmojis }} emojis</p>
             </div>
 
             <!-- Quick emoji picker -->
@@ -83,7 +84,7 @@
 
                 <div class="action-card">
                     <button class="ai-btn primary" (click)="generateTextFromEmojis()"
-                        [disabled]="isGenerating || selectedSentence.emojis.length === 0">
+                        [disabled]="isGenerating || (selectedSentence.emojis.length || 0) === 0">
                         <span class="icon">✨</span>
                         <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
                     </button>

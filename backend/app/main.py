@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import init_db
-from app.routers import documents, sentences, ai, emoji_mappings
+from app.routers import documents, sentences, ai, characters
 from app.schemas import HealthResponse
 
 # Create FastAPI app
 app = FastAPI(
     title="Plottery API",
-    description="Creative writing app with AI-powered emoji and text generation",
-    version="1.0.0"
+    description="Creative writing app with character-based emoji visualization",
+    version="2.0.0"  # Major version bump - consolidated emoji system
 )
 
 # Configure CORS to allow Angular dev server
@@ -34,7 +34,7 @@ app.add_middleware(
 app.include_router(documents.router)
 app.include_router(sentences.router)
 app.include_router(ai.router)
-app.include_router(emoji_mappings.router)
+app.include_router(characters.router)
 
 
 @app.on_event("startup")

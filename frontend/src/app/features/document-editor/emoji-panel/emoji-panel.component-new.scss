@@ -1,288 +1,288 @@
 .emoji-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-
-  // Sub-tab navigation
-  .sub-tabs {
     display: flex;
-    border-bottom: 2px solid #e5e7eb;
-    background: #f9fafb;
-    flex-shrink: 0;
+    flex-direction: column;
+    height: 100%;
 
-    .sub-tab-btn {
-      flex: 1;
-      padding: 0.75rem 0.5rem;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: #6b7280;
-      transition: all 0.2s;
-      border-bottom: 3px solid transparent;
+    // Sub-tab navigation
+    .sub-tabs {
+        display: flex;
+        border-bottom: 2px solid #e5e7eb;
+        background: #f9fafb;
+        flex-shrink: 0;
 
-      &:hover {
-        background: #f3f4f6;
-        color: #374151;
-      }
+        .sub-tab-btn {
+            flex: 1;
+            padding: 0.75rem 0.5rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
 
-      &.active {
-        color: #2563eb;
-        border-bottom-color: #2563eb;
-        background: white;
-      }
+            &:hover {
+                background: #f3f4f6;
+                color: #374151;
+            }
+
+            &.active {
+                color: #2563eb;
+                border-bottom-color: #2563eb;
+                background: white;
+            }
+        }
     }
-  }
 
-  .sub-tab-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
-  }
+    .sub-tab-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
 
-  // Bulk actions styling
-  .bulk-actions {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    padding: 1.5rem;
-    border-radius: 16px;
-    margin-bottom: 1rem;
-    border: 2px solid #fbbf24;
+    // Bulk actions styling
+    .bulk-actions {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        border: 2px solid #fbbf24;
+
+        h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.05rem;
+            color: #78350f;
+            font-weight: 700;
+        }
+
+        .ai-btn.bulk {
+            width: 100%;
+            padding: 1.25rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+
+            .icon {
+                font-size: 1.5rem;
+            }
+
+            &:hover:not(:disabled) {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                transform: translateY(-2px);
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+
+        .description {
+            margin: 0.75rem 0 0 0;
+            font-size: 0.85rem;
+            color: #92400e;
+            text-align: center;
+        }
+    }
+
+    .divider {
+        height: 1px;
+        background: #e5e7eb;
+        margin: 1.5rem 0;
+    }
 
     h3 {
-      margin: 0 0 1rem 0;
-      font-size: 1.05rem;
-      color: #78350f;
-      font-weight: 700;
-    }
-
-    .ai-btn.bulk {
-      width: 100%;
-      padding: 1.25rem;
-      font-size: 0.95rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      border: none;
-      border-radius: 12px;
-      color: white;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      transition: all 0.3s ease;
-
-      .icon {
-        font-size: 1.5rem;
-      }
-
-      &:hover:not(:disabled) {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        transform: translateY(-2px);
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    }
-
-    .description {
-      margin: 0.75rem 0 0 0;
-      font-size: 0.85rem;
-      color: #92400e;
-      text-align: center;
-    }
-  }
-
-  .divider {
-    height: 1px;
-    background: #e5e7eb;
-    margin: 1.5rem 0;
-  }
-
-  h3 {
-    margin: 0 0 1rem 0;
-    color: #1f2937;
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-
-  // Current emojis
-  .current-emojis {
-    margin-bottom: 1.5rem;
-
-    .emoji-slots {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-      justify-content: center;
-
-      .emoji-slot {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.8rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-
-        &.filled {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-          border: 2px solid #fbbf24;
-
-          &:hover {
-            transform: scale(1.1);
-          }
-        }
-
-        &.empty {
-          background: #f3f4f6;
-          border: 2px dashed #d1d5db;
-          cursor: default;
-
-          .placeholder {
-            color: #9ca3af;
-            font-size: 1.5rem;
-          }
-        }
-      }
-    }
-
-    .helper-text {
-      text-align: center;
-      font-size: 0.85rem;
-      color: #6b7280;
-      margin: 0;
-    }
-  }
-
-  // Emoji picker
-  .emoji-picker {
-    .picker-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #374151;
-      margin: 0 0 0.75rem 0;
-    }
-
-    .emoji-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 0.5rem;
-      max-height: 200px;
-      overflow-y: auto;
-
-      .emoji-btn {
-        width: 100%;
-        aspect-ratio: 1;
-        border: none;
-        border-radius: 6px;
-        background: #f9fafb;
-        font-size: 1.3rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-
-        &:hover:not(:disabled) {
-          background: #fef3c7;
-          transform: scale(1.1);
-        }
-
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      }
-    }
-  }
-
-  // AI actions
-  .ai-actions {
-    .action-card {
-      margin-bottom: 1rem;
-
-      .ai-btn {
-        width: 100%;
-        padding: 1rem;
-        border: 2px solid #3b82f6;
-        border-radius: 8px;
-        background: white;
-        color: #3b82f6;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        font-weight: 600;
-        transition: all 0.2s;
-
-        .icon {
-          font-size: 1.2rem;
-        }
-
-        &:hover:not(:disabled) {
-          background: #3b82f6;
-          color: white;
-        }
-
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      }
-
-      .description {
-        margin: 0.5rem 0 0 0;
-        font-size: 0.8rem;
-        color: #6b7280;
-        text-align: center;
-      }
-    }
-
-    .suggestion-result {
-      background: #f0fdf4;
-      border: 2px solid #86efac;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-top: 1rem;
-
-      h4 {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.9rem;
-        color: #166534;
-      }
-
-      .suggestion-text {
         margin: 0 0 1rem 0;
-        font-size: 0.9rem;
-        color: #166534;
-        font-style: italic;
-      }
-
-      .apply-btn {
-        width: 100%;
-        padding: 0.75rem;
-        background: #22c55e;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
+        color: #1f2937;
+        font-size: 1.1rem;
         font-weight: 600;
-        transition: all 0.2s;
-
-        &:hover {
-          background: #16a34a;
-        }
-      }
     }
-  }
 
-  .no-selection {
-    text-align: center;
-    padding: 2rem 1rem;
-    color: #9ca3af;
-    font-size: 0.9rem;
-  }
+    // Current emojis
+    .current-emojis {
+        margin-bottom: 1.5rem;
+
+        .emoji-slots {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            justify-content: center;
+
+            .emoji-slot {
+                width: 50px;
+                height: 50px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.8rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &.filled {
+                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                    border: 2px solid #fbbf24;
+
+                    &:hover {
+                        transform: scale(1.1);
+                    }
+                }
+
+                &.empty {
+                    background: #f3f4f6;
+                    border: 2px dashed #d1d5db;
+                    cursor: default;
+
+                    .placeholder {
+                        color: #9ca3af;
+                        font-size: 1.5rem;
+                    }
+                }
+            }
+        }
+
+        .helper-text {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin: 0;
+        }
+    }
+
+    // Emoji picker
+    .emoji-picker {
+        .picker-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 0.75rem 0;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+
+            .emoji-btn {
+                width: 100%;
+                aspect-ratio: 1;
+                border: none;
+                border-radius: 6px;
+                background: #f9fafb;
+                font-size: 1.3rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover:not(:disabled) {
+                    background: #fef3c7;
+                    transform: scale(1.1);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+
+    // AI actions
+    .ai-actions {
+        .action-card {
+            margin-bottom: 1rem;
+
+            .ai-btn {
+                width: 100%;
+                padding: 1rem;
+                border: 2px solid #3b82f6;
+                border-radius: 8px;
+                background: white;
+                color: #3b82f6;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                font-weight: 600;
+                transition: all 0.2s;
+
+                .icon {
+                    font-size: 1.2rem;
+                }
+
+                &:hover:not(:disabled) {
+                    background: #3b82f6;
+                    color: white;
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .description {
+                margin: 0.5rem 0 0 0;
+                font-size: 0.8rem;
+                color: #6b7280;
+                text-align: center;
+            }
+        }
+
+        .suggestion-result {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+
+            h4 {
+                margin: 0 0 0.5rem 0;
+                font-size: 0.9rem;
+                color: #166534;
+            }
+
+            .suggestion-text {
+                margin: 0 0 1rem 0;
+                font-size: 0.9rem;
+                color: #166534;
+                font-style: italic;
+            }
+
+            .apply-btn {
+                width: 100%;
+                padding: 0.75rem;
+                background: #22c55e;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.2s;
+
+                &:hover {
+                    background: #16a34a;
+                }
+            }
+        }
+    }
+
+    .no-selection {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
 }

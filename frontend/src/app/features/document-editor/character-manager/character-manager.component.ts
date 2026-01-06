@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
-import { EmojiMappingService } from '../../../core/services/emoji-mapping.service';
-import { CharacterDefinition, DocumentDetail } from '../../../core/models/document.model';
+import { ApiService } from '../../../core/services/api.service';
+import { Character, DocumentDetail, CharacterCreate } from '../../../core/models/document.model';
 
 @Component({
     selector: 'app-character-manager',
@@ -15,7 +15,7 @@ import { CharacterDefinition, DocumentDetail } from '../../../core/models/docume
 })
 export class CharacterManagerComponent implements OnInit, OnDestroy {
     currentDocument: DocumentDetail | null = null;
-    characters: CharacterDefinition[] = [];
+    characters: Character[] = [];
 
     // Form state
     showAddForm = false;
@@ -43,17 +43,16 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
 
     constructor(
         private documentService: DocumentService,
-        private emojiMappingService: EmojiMappingService
+        private apiService: ApiService
     ) { }
 
     ngOnInit(): void {
         this.documentService.currentDocument$
             .pipe(takeUntil(this.destroy$))
-            .subscribe(doc => this.currentDocument = doc);
-
-        this.emojiMappingService.characters$
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(chars => this.characters = chars);
+            .subscribe(doc => {
+                this.currentDocument = doc;
+                this.characters = doc?.characters || [];
+            });
     }
 
     ngOnDestroy(): void {
@@ -81,34 +80,56 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
             return;
         }
 
+        const documentId = this.currentDocument.id; // Store ID to avoid null issues in callbacks
+
         const aliases = this.newAliases
             .split(',')
             .map(a => a.trim())
             .filter(a => a.length > 0);
 
-        this.emojiMappingService.createCharacter(this.currentDocument.id, {
+        const characterData: CharacterCreate = {
             name: this.newName.trim(),
             emoji: this.newEmoji,
+            color: this.newColor,
             aliases: aliases,
-            description: this.newDescription.trim() || undefined,
-            color: this.newColor
-        }).subscribe({
-            next: () => {
-                this.resetForm();
-                this.showAddForm = false;
+            description: this.newDescription.trim() || undefined
+        };
+
+        this.apiService.post<Character>(
+            `/api/documents/${documentId}/characters`,
+            characterData
+        ).subscribe({
+            next: (newCharacter) => {
+                // Selectively normalize sentences mentioning this character (non-destructive)
+                this.apiService.post(
+                    `/api/documents/${documentId}/characters/${newCharacter.id}/normalize`,
+                    {}
+                ).subscribe({
+                    next: (result: any) => {
+                        console.log(`✅ ${result.message}`);
+                        this.resetForm();
+                        this.showAddForm = false;
+                        // Reload document to get updated characters and sentences
+                        this.documentService.loadDocument(documentId).subscribe();
+                    },
+                    error: (err) => console.error('Error normalizing character:', err)
+                });
             },
             error: (err) => console.error('Error creating character:', err)
         });
     }
 
-    deleteCharacter(character: CharacterDefinition): void {
+    deleteCharacter(character: Character): void {
         if (!this.currentDocument) return;
 
         if (confirm(`Delete character "${character.name}"?`)) {
-            this.emojiMappingService.deleteCharacter(
-                this.currentDocument.id,
-                character.id
+            this.apiService.delete(
+                `/api/documents/${this.currentDocument.id}/characters/${character.id}`
             ).subscribe({
+                next: () => {
+                    // Reload document to get updated characters
+                    this.documentService.loadDocument(this.currentDocument!.id).subscribe();
+                },
                 error: (err) => console.error('Error deleting character:', err)
             });
         }

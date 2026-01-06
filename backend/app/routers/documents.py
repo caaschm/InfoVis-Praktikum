@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import io
+import json
 
 from app.database import get_db
 from app import models, schemas
@@ -172,44 +173,41 @@ def update_document_content(
     # Update content
     document.content = content_update.content
     
-    # Get existing sentences with their emojis
+    # Get existing sentences with their emojis and character_refs
     existing_sentences = db.query(models.Sentence).filter(
         models.Sentence.document_id == document_id
     ).all()
     
-    # Create a map of sentence text to emojis
-    emoji_map = {}
+    # Create a map of sentence text to emojis and character_refs
+    sentence_data_map = {}
     for sent in existing_sentences:
-        emojis = db.query(models.EmojiTag).filter(
-            models.EmojiTag.sentence_id == sent.id
-        ).all()
-        emoji_map[sent.text.strip()] = [e.emoji for e in emojis]
+        # Parse JSON arrays from database
+        emojis = json.loads(sent.emojis) if sent.emojis else []
+        character_refs = json.loads(sent.character_refs) if sent.character_refs else []
+        sentence_data_map[sent.text.strip()] = {
+            'emojis': emojis,
+            'character_refs': character_refs
+        }
     
-    # Delete existing sentences and emojis (cascade will handle emojis)
+    # Delete existing sentences
     db.query(models.Sentence).filter(models.Sentence.document_id == document_id).delete()
     
     # Split new content into sentences
     sentences = split_into_sentences(content_update.content)
     
-    # Create new sentence records, preserving emojis where text matches
+    # Create new sentence records, preserving emojis and character_refs where text matches
     for index, sentence_text in enumerate(sentences):
+        # Restore data if this sentence text existed before
+        preserved_data = sentence_data_map.get(sentence_text.strip(), {})
+        
         db_sentence = models.Sentence(
             document_id=document.id,
             index=index,
-            text=sentence_text
+            text=sentence_text,
+            emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data.get('emojis') else None,
+            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data.get('character_refs') else None
         )
         db.add(db_sentence)
-        db.flush()  # Get the new sentence ID
-        
-        # Restore emojis if this sentence text existed before
-        if sentence_text.strip() in emoji_map:
-            for emoji_pos, emoji in enumerate(emoji_map[sentence_text.strip()]):
-                db_emoji = models.EmojiTag(
-                    sentence_id=db_sentence.id,
-                    position=emoji_pos,
-                    emoji=emoji
-                )
-                db.add(db_emoji)
     
     db.commit()
     db.refresh(document)
@@ -238,7 +236,7 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
 
 # Helper function
 def _build_document_detail(document: models.Document, db: Session) -> schemas.DocumentDetail:
-    """Build DocumentDetail response with sentences and emojis."""
+    """Build DocumentDetail response with sentences and characters."""
     import json
     
     sentences = db.query(models.Sentence).filter(
@@ -247,67 +245,33 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
     
     sentence_responses = []
     for sentence in sentences:
-        # Get emojis for this sentence
-        emoji_tags = db.query(models.EmojiTag).filter(
-            models.EmojiTag.sentence_id == sentence.id
-        ).order_by(models.EmojiTag.position).all()
-        
-        emojis = [tag.emoji for tag in emoji_tags]
+        # Parse character references and emojis from JSON
+        character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
+        emojis = json.loads(sentence.emojis) if sentence.emojis else []
         
         sentence_responses.append(schemas.SentenceBase(
             id=sentence.id,
             document_id=sentence.document_id,
             index=sentence.index,
             text=sentence.text,
-            emojis=emojis
+            emojis=emojis,
+            character_refs=character_refs
         ))
     
-    # Get word mappings
-    word_mappings = db.query(models.WordEmojiMapping).filter(
-        models.WordEmojiMapping.document_id == document.id
-    ).all()
-    
-    word_mapping_responses = [
-        schemas.WordEmojiMappingResponse(
-            id=m.id,
-            document_id=m.document_id,
-            word_pattern=m.word_pattern,
-            emoji=m.emoji,
-            is_active=bool(m.is_active),
-            created_at=m.created_at
-        ) for m in word_mappings
-    ]
-    
-    # Get custom emoji sets
-    emoji_sets = db.query(models.CustomEmojiSet).filter(
-        models.CustomEmojiSet.document_id == document.id
-    ).all()
-    
-    emoji_set_responses = [
-        schemas.CustomEmojiSetResponse(
-            id=s.id,
-            document_id=s.document_id,
-            name=s.name,
-            emojis=json.loads(s.emojis),
-            is_default=bool(s.is_default),
-            created_at=s.created_at
-        ) for s in emoji_sets
-    ]
-    
-    # Get character definitions
-    characters = db.query(models.CharacterDefinition).filter(
-        models.CharacterDefinition.document_id == document.id
-    ).all()
+    # Get all characters for this document (SINGLE SOURCE OF TRUTH)
+    characters = db.query(models.Character).filter(
+        models.Character.document_id == document.id
+    ).order_by(models.Character.created_at).all()
     
     character_responses = [
-        schemas.CharacterDefinitionResponse(
+        schemas.CharacterResponse(
             id=c.id,
             document_id=c.document_id,
             name=c.name,
             emoji=c.emoji,
+            color=c.color,
             aliases=json.loads(c.aliases) if c.aliases else [],
             description=c.description,
-            color=c.color,
             created_at=c.created_at
         ) for c in characters
     ]
@@ -319,7 +283,5 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         created_at=document.created_at,
         updated_at=document.updated_at,
         sentences=sentence_responses,
-        word_mappings=word_mapping_responses,
-        custom_emoji_sets=emoji_set_responses,
         characters=character_responses
     )

@@ -1,5 +1,10 @@
 /**
  * Core domain models for Plottery
+ * 
+ * CONSOLIDATED EMOJI SYSTEM:
+ * - Characters are the SINGLE SOURCE OF TRUTH for all emojis
+ * - Sentences store character references, not literal emojis
+ * - Text rendering is reactive - changing a character's emoji updates all text
  */
 
 export interface Document {
@@ -15,14 +20,13 @@ export interface Sentence {
     documentId: string;
     index: number;
     text: string;
-    emojis: string[];
+    characterRefs: string[];  // Array of character IDs
+    emojis: string[];  // DEPRECATED - kept for compatibility during migration
 }
 
 export interface DocumentDetail extends Document {
     sentences: Sentence[];
-    wordMappings: WordEmojiMapping[];
-    customEmojiSets: CustomEmojiSet[];
-    characters: CharacterDefinition[];
+    characters: Character[];  // SINGLE SOURCE OF TRUTH
 }
 
 export interface DocumentMetadata {
@@ -32,7 +36,80 @@ export interface DocumentMetadata {
     updatedAt: string;
 }
 
-// ========== Word Emoji Mapping ==========
+// ========== Character (SINGLE SOURCE OF TRUTH) ==========
+
+export interface Character {
+    id: string;
+    documentId: string;
+    name: string;
+    emoji: string;
+    color: string;  // Required hex color for highlighting
+    aliases: string[];
+    description?: string;
+    createdAt: string;
+}
+
+export interface CharacterCreate {
+    name: string;
+    emoji: string;
+    color: string;
+    aliases?: string[];
+    description?: string;
+}
+
+export interface CharacterUpdate {
+    name?: string;
+    emoji?: string;
+    color?: string;
+    aliases?: string[];
+    description?: string;
+}
+
+// ========== Emoji Dictionary (Read-Only, Auto-Derived) ==========
+
+export interface EmojiDictionaryEntry {
+    emoji: string;
+    characterName: string;
+    characterId: string;
+    color: string;
+    usageCount: number;
+}
+
+export interface EmojiDictionary {
+    documentId: string;
+    entries: EmojiDictionaryEntry[];
+}
+
+// ========== AI Integration ==========
+
+export interface CharacterSuggestionRequest {
+    documentId: string;
+    sentenceId: string;
+    text: string;
+    characters: Character[];  // Available characters
+}
+
+export interface CharacterSuggestionResponse {
+    sentenceId: string;
+    emojis: string[];  // Raw emoji strings (free or structured)
+    characterRefs: string[];  // Character IDs (structured only)
+}
+
+export interface TextFromCharactersRequest {
+    documentId: string;
+    sentenceId?: string;
+    characterIds: string[];
+    characters: Character[];
+}
+
+export interface TextFromCharactersResponse {
+    sentenceId?: string;
+    suggestedText: string;
+}
+
+// ========== DEPRECATED - Compatibility Layer ==========
+// These interfaces are deprecated but kept temporarily for migration
+// TODO: Remove these and update all dependent code to use Character-based system
 
 export interface WordEmojiMapping {
     id: string;
@@ -55,8 +132,6 @@ export interface WordEmojiMappingUpdate {
     isActive?: boolean;
 }
 
-// ========== Custom Emoji Set ==========
-
 export interface CustomEmojiSet {
     id: string;
     documentId: string;
@@ -77,8 +152,6 @@ export interface CustomEmojiSetUpdate {
     emojis?: string[];
     isDefault?: boolean;
 }
-
-// ========== Character Definition ==========
 
 export interface CharacterDefinition {
     id: string;
@@ -106,8 +179,6 @@ export interface CharacterDefinitionUpdate {
     description?: string;
     color?: string;
 }
-
-// ========== AI Integration ==========
 
 export interface EmojiSuggestionRequest {
     documentId: string;

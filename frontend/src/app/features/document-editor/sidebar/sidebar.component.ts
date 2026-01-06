@@ -14,10 +14,8 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { AiTrackingService } from '../../../core/services/ai-tracking.service';
-import { Sentence } from '../../../core/models/document.model';
-import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
+import { Sentence, EmojiDictionary, DocumentDetail } from '../../../core/models/document.model';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
-import { EmojiSetManagerComponent } from '../emoji-set-manager/emoji-set-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
 
@@ -26,9 +24,7 @@ type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    WordMappingManagerComponent,
-    CharacterManagerComponent,
-    EmojiSetManagerComponent
+    CharacterManagerComponent
   ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
@@ -68,18 +64,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   selectedSentence: Sentence | null = null;
-
-  // ===== Emoji / Text-Generation =====
+  emojiDictionary: EmojiDictionary | null = null;
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
 
   private destroy$ = new Subject<void>();
 
-  // Enhanced emoji feature panels
-  showWordMappingPanel = false;
-  showCharacterPanel = false;
-  showEmojiSetPanel = false;
+  // Character panel
+  showCharacterPanel = true; // Always show by default
 
   // Enhanced emoji feature panels
   showWordMappingPanel = false;
@@ -156,6 +149,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
       .subscribe(({ dimension, current, baseline }) => {
         this.fetchIntentSuggestions(dimension, current, baseline);
       });
+
+    // Subscribe to current document and load emoji dictionary
+    this.documentService.currentDocument$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((doc: DocumentDetail | null) => {
+        if (doc) {
+          this.loadEmojiDictionary(doc.id);
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -163,10 +165,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  private loadEmojiDictionary(documentId: string): void {
+    this.documentService.getEmojiDictionary(documentId).subscribe({
+      next: (dictionary) => {
+        this.emojiDictionary = dictionary;
+      },
+      error: (err) => console.error('Error loading emoji dictionary:', err)
+    });
+  }
+
   // ================= EMOJI LOGIK =================
 
   addEmoji(emoji: string): void {
-    if (!this.selectedSentence) return;
+    if (!this.selectedSentence || !this.selectedSentence.emojis) return;
     if (this.selectedSentence.emojis.length >= this.maxEmojis) return;
 
     const newEmojis = [...this.selectedSentence.emojis, emoji];
@@ -174,16 +185,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   removeEmoji(index: number): void {
-    if (!this.selectedSentence) return;
+    if (!this.selectedSentence || !this.selectedSentence.emojis) return;
 
-    const newEmojis = this.selectedSentence.emojis.filter((_, i) => i !== index);
+    const newEmojis = this.selectedSentence.emojis.filter((_, i: number) => i !== index);
     this.documentService.updateSentenceEmojis(this.selectedSentence.id, newEmojis);
   }
 
   canAddMore(): boolean {
-    return this.selectedSentence
-      ? this.selectedSentence.emojis.length < this.maxEmojis
-      : false;
+    return this.selectedSentence && this.selectedSentence.emojis ? this.selectedSentence.emojis.length < this.maxEmojis : false;
   }
 
   generateEmojis(): void {
@@ -192,22 +201,33 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
+    // Use character array if available (optional - works without characters too)
+    const characters = doc.characters || [];
+
     this.isGenerating = true;
 
-    this.aiService.generateEmojisFromText({
+    // Use character suggestion endpoint (works with or without predefined characters)
+    this.aiService.suggestCharacters({
       documentId: doc.id,
       sentenceId: this.selectedSentence.id,
-      text: this.selectedSentence.text
+      text: this.selectedSentence.text,
+      characters: characters
     }).subscribe({
       next: (response) => {
+        // Use emojis from response (works for both free and structured generation)
+        const emojis = response.emojis || [];
+
         this.documentService.updateSentenceEmojis(
           this.selectedSentence!.id,
-          response.emojis
+          emojis
         );
         this.isGenerating = false;
+
+        // Reload dictionary to update usage counts
+        this.loadEmojiDictionary(doc.id);
       },
       error: (err) => {
-        console.error('Error generating emojis:', err);
+        console.error('Error generating character suggestions:', err);
         this.isGenerating = false;
       }
     });
@@ -223,31 +243,39 @@ export class SidebarComponent implements OnInit, OnDestroy {
       const doc = this.documentService.getCurrentDocument();
       if (!doc || !doc.sentences || doc.sentences.length === 0) return;
 
+      // Use character array if available (optional)
+      const characters = doc.characters || [];
+
       this.isGeneratingEmojisForAll = true;
       let processedCount = 0;
       const totalSentences = doc.sentences.length;
 
-      this.processEmojisForAllSentences(doc, processedCount, totalSentences);
+      this.processEmojisForAllSentences(doc, characters, processedCount, totalSentences);
     }, 150);
   }
 
-  private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
+  private processEmojisForAllSentences(doc: any, characters: any[], processedCount: number, totalSentences: number): void {
     // Process each sentence one by one
     doc.sentences.forEach((sentence: Sentence, index: number) => {
-      this.aiService.generateEmojisFromText({
+      this.aiService.suggestCharacters({
         documentId: doc.id,
         sentenceId: sentence.id,
-        text: sentence.text
+        text: sentence.text,
+        characters: characters
       }).subscribe({
         next: (response) => {
-          this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
+          // Use emojis from response
+          const emojis = response.emojis || [];
+          this.documentService.updateSentenceEmojis(sentence.id, emojis);
           processedCount++;
           if (processedCount === totalSentences) {
-            this.isGeneratingEmojisForAll = false;
+            this.isGenerating = false;
+            // Reload dictionary to update usage counts
+            this.loadEmojiDictionary(doc.id);
           }
         },
         error: (err) => {
-          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
+          console.error(`Error generating characters for sentence ${index + 1}:`, err);
           processedCount++;
           if (processedCount === totalSentences) {
             this.isGeneratingEmojisForAll = false;
@@ -258,17 +286,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   generateTextFromEmojis(): void {
-    if (!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
+    if (!this.selectedSentence || !this.selectedSentence.emojis || this.selectedSentence.emojis.length === 0) return;
 
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
+    // Ensure characters array exists
+    const characters = doc.characters || [];
+    if (characters.length === 0) {
+      console.warn('No characters defined yet.');
+      return;
+    }
+
     this.isGenerating = true;
 
-    this.aiService.generateTextFromEmojis({
+    // Find character IDs from emojis
+    const characterIds = this.selectedSentence.emojis.map(emoji => {
+      const char = characters.find(c => c.emoji === emoji);
+      return char ? char.id : null;
+    }).filter(id => id !== null) as string[];
+
+    this.aiService.generateTextFromCharacters({
       documentId: doc.id,
       sentenceId: this.selectedSentence.id,
-      emojis: this.selectedSentence.emojis
+      characterIds: characterIds,
+      characters: characters
     }).subscribe({
       next: (response) => {
         this.lastSuggestion = response.suggestedText;

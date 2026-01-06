@@ -26,65 +26,43 @@ class Document(Base):
 
 
 class Sentence(Base):
-    """Sentence model - individual sentence within a document."""
+    """Sentence model - individual sentence within a document.
+    
+    Supports HYBRID emoji system:
+    - emojis: Raw emoji strings (FREE generation, no structure)
+    - character_refs: Character IDs (STRUCTURED generation, normalized)
+    
+    Workflow: generate emojis freely → define characters → normalize to character_refs
+    """
     __tablename__ = "sentences"
 
     id = Column(String, primary_key=True, default=generate_uuid)
     document_id = Column(String, ForeignKey("documents.id"), nullable=False)
     index = Column(Integer, nullable=False)  # Order within document
     text = Column(Text, nullable=False)
+    emojis = Column(Text, nullable=True)  # JSON array of raw emoji strings (unstructured)
+    character_refs = Column(Text, nullable=True)  # JSON array of character IDs (structured)
 
     # Relationships
     document = relationship("Document", back_populates="sentences")
-    emoji_tags = relationship("EmojiTag", back_populates="sentence", cascade="all, delete-orphan")
 
 
-class EmojiTag(Base):
-    """Emoji tag model - emojis attached to sentences (max 5 per sentence)."""
-    __tablename__ = "emoji_tags"
+class Character(Base):
+    """Character/Subject definition - SINGLE SOURCE OF TRUTH for emojis.
+    
+    All emoji rendering, highlighting, and AI generation derives from this model.
+    When a character's emoji changes, all text automatically re-renders.
+    """
+    __tablename__ = "characters"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    sentence_id = Column(String, ForeignKey("sentences.id"), nullable=False)
-    position = Column(Integer, nullable=False)  # Position 0-4 (max 5 emojis)
-    emoji = Column(String, nullable=False)  # The emoji character(s)
-
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    name = Column(String, nullable=False)  # Primary name (e.g., "Hero", "Dark Forest")
+    emoji = Column(String, nullable=False)  # Emoji representation (e.g., "👑", "🌲")
+    color = Column(String, nullable=False)  # Hex color for text highlighting (e.g., "#FF5733")
+    aliases = Column(Text, nullable=True)  # JSON array of alternative names/mentions
+    description = Column(Text, nullable=True)  # Optional notes about the character/subject
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    
     # Relationship
-    sentence = relationship("Sentence", back_populates="emoji_tags")
-
-
-class WordEmojiMapping(Base):
-    """Word-level emoji mapping - associates specific words/phrases with emojis."""
-    __tablename__ = "word_emoji_mappings"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
-    word_pattern = Column(String, nullable=False)  # The word/phrase to match (case-insensitive)
-    emoji = Column(String, nullable=False)  # The emoji to associate
-    is_active = Column(Integer, default=1)  # Boolean flag to enable/disable mapping
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-
-
-class CustomEmojiSet(Base):
-    """Custom emoji collection for a document - author's curated emoji palette."""
-    __tablename__ = "custom_emoji_sets"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
-    name = Column(String, nullable=False)  # e.g., "Fantasy Elements", "Character Emotions"
-    emojis = Column(Text, nullable=False)  # JSON array of emoji strings
-    is_default = Column(Integer, default=0)  # Whether this is the default set for quick access
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-
-
-class CharacterDefinition(Base):
-    """Character/subject definition with associated emoji and metadata."""
-    __tablename__ = "character_definitions"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
-    name = Column(String, nullable=False)  # Character/subject name
-    emoji = Column(String, nullable=False)  # Primary emoji representation
-    aliases = Column(Text, nullable=True)  # JSON array of alternative names/references
-    description = Column(Text, nullable=True)  # Optional description
-    color = Column(String, nullable=True)  # Hex color for highlighting (e.g., "#FF5733")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    document = relationship("Document", backref="characters")

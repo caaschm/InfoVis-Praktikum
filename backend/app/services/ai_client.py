@@ -60,36 +60,59 @@ def _extract_character_names(text: str) -> list[str]:
     return list(set(characters))  # Remove duplicates
 
 
-async def generate_emojis_for_sentence(text: str) -> list[str]:
+async def generate_emojis_for_sentence(text: str, word_mappings: Optional[Dict[str, str]] = None) -> list[str]:
     """
     Generate up to 5 emojis that capture the mood/plot of the given text.
     
     Args:
         text: The sentence text to analyze
+        word_mappings: Optional dict of word->emoji mappings to apply (from manual config)
         
     Returns:
         List of 1-5 emoji strings
     """
+    word_mappings = word_mappings or {}
+    
+    # 🎨 First, apply manual word mappings
+    manual_emojis = []
+    text_lower = text.lower()
+    for word, emoji in word_mappings.items():
+        if word.lower() in text_lower:
+            manual_emojis.append(emoji)
+            # Also add to character cache for consistency
+            _character_emoji_cache[word.lower()] = emoji
+    
     api_key = get_api_key()
     
     if not api_key:
         print("⚠️  OPENROUTER_API_KEY not found - using keyword-based fallback")
-        return _keyword_based_emoji_selection(text)
+        fallback = _keyword_based_emoji_selection(text)
+        # Combine manual mappings with fallback, dedupe, limit to 5
+        combined = list(dict.fromkeys(manual_emojis + fallback))
+        return combined[:5]
     
     print(f"🔑 Using API key: {api_key[:15]}...{api_key[-4:]}")
+    print(f"🎨 Manual mappings applied: {manual_emojis}")
     
     # 🎭 Extract characters/nouns for consistency
     characters = _extract_character_names(text)
     
-    # 🎭 Build character mapping context
+    # 🎭 Build character mapping context (includes manual mappings)
     character_context = ""
-    if characters:
-        mapped_chars = []
-        for char in characters:
-            if char in _character_emoji_cache:
-                mapped_chars.append(f"{char} → {_character_emoji_cache[char]}")
-        if mapped_chars:
-            character_context = f"\n\nIMPORTANT - Use these consistent character emojis:\n" + "\n".join(mapped_chars)
+    mapped_chars = []
+    
+    # Add manual word mappings to context
+    for word, emoji in word_mappings.items():
+        if word.lower() in text_lower:
+            mapped_chars.append(f"{word} → {emoji} (REQUIRED)")
+    
+    # Add existing character cache
+    for char in characters:
+        if char in _character_emoji_cache and char not in [w.lower() for w in word_mappings.keys()]:
+            mapped_chars.append(f"{char} → {_character_emoji_cache[char]}")
+    
+    if mapped_chars:
+        character_context = f"\n\nIMPORTANT - MUST include these emojis:\n" + "\n".join(mapped_chars)
     
     prompt = f"""Analyze this sentence and suggest 3-5 emojis that capture its meaning.
 

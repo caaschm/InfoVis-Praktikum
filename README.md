@@ -7,12 +7,14 @@ A collaborative creative writing tool that helps authors visualize story emotion
 ## 🚀 Quick Start
 
 ### 1. Get Your Free API Key
+
 1. Visit [OpenRouter](https://openrouter.ai/keys)
 2. Sign up for a free account
 3. Generate an API key
 4. Copy the key
 
 ### 2. Configure Backend
+
 ```bash
 cd backend
 cp .env.example .env
@@ -20,25 +22,29 @@ cp .env.example .env
 # OPENROUTER_API_KEY=your_key_here
 ```
 
-### 3. Terminal 1 - Backend:
+### 3. Terminal 1 - Backend
+
 ```bash
 cd backend
-python3 -m venv venv
+/usr/bin/python3 -m venv venv  # Use system Python for Apple Silicon
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. Terminal 2 - Frontend:
+### 4. Terminal 2 - Frontend
+
 ```bash
 cd frontend
 npm install
 ng serve
 ```
 
-### 5. Then open:
-- **Frontend UI:** http://localhost:4200
-- **Backend API Docs:** http://localhost:8000/docs
+### 5. Then open
+
+- **Frontend UI:** <http://localhost:4200>
+- **Backend API Docs:** <http://localhost:8000/docs>
 
 ---
 
@@ -72,6 +78,7 @@ Plottery is a creative writing application that combines text editing with emoji
 ## Tech Stack
 
 ### Frontend
+
 - **Framework:** Angular 17 (Standalone Components)
 - **Language:** TypeScript
 - **Styling:** SCSS
@@ -79,6 +86,7 @@ Plottery is a creative writing application that combines text editing with emoji
 - **HTTP Client:** Angular HttpClient
 
 ### Backend
+
 - **Framework:** FastAPI (Python 3.11+)
 - **Server:** Uvicorn
 - **Database:** SQLite + SQLAlchemy
@@ -86,6 +94,7 @@ Plottery is a creative writing application that combines text editing with emoji
 - **Validation:** Pydantic v2
 
 ### Development
+
 - **Testing:** pytest (backend), Jasmine/Karma (frontend)
 - **Environment:** .env files
 - **CORS:** Enabled for localhost:4200
@@ -147,6 +156,7 @@ InfoVis-Praktikum/
 ## Setup Instructions
 
 ### Prerequisites
+
 - **Python:** 3.11 or higher
 - **Node.js:** 18 or higher
 - **npm:** 9 or higher
@@ -155,67 +165,82 @@ InfoVis-Praktikum/
 ### Backend Setup
 
 1. **Navigate to backend:**
+
    ```bash
    cd backend
    ```
 
 2. **Create virtual environment:**
+
    ```bash
-   python3 -m venv venv
+   # For Apple Silicon Macs, use system Python:
+   /usr/bin/python3 -m venv venv
+   # For Intel Macs or other systems:
+   # python3 -m venv venv
+   
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. **Install dependencies:**
+
    ```bash
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
 
 4. **Configure environment:**
+
    ```bash
    cp ../infra/.env.example .env
    # Edit .env and add your TOGETHER_API_KEY (optional for testing)
    ```
 
 5. **Run the server:**
+
    ```bash
    python -m uvicorn app.main:app --reload --port 8000
    ```
 
    Or use the script:
+
    ```bash
    chmod +x run_backend.sh
    ./run_backend.sh
    ```
 
-6. **Verify:** Open http://localhost:8000/docs
+6. **Verify:** Open <http://localhost:8000/docs>
 
 ### Frontend Setup
 
 1. **Navigate to frontend:**
+
    ```bash
    cd frontend
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Run the development server:**
+
    ```bash
    ng serve
    ```
 
    Or use the script:
+
    ```bash
    chmod +x run_frontend.sh
    ./run_frontend.sh
    ```
 
-4. **Verify:** Open http://localhost:4200
+4. **Verify:** Open <http://localhost:4200>
 
 ### Database
+
 The SQLite database (`plottery.db`) is automatically created in the `backend/` directory when you first run the server.
 
 ---
@@ -223,28 +248,33 @@ The SQLite database (`plottery.db`) is automatically created in the `backend/` d
 ## API Documentation
 
 ### Base URL
+
 `http://localhost:8000/api`
 
 ### Endpoints
 
 #### Documents
+
 - `POST /api/documents` - Create document from text
 - `GET /api/documents` - List all documents
 - `GET /api/documents/{id}` - Get document with sentences and emojis
 - `DELETE /api/documents/{id}` - Delete document
 
 #### Sentences
+
 - `GET /api/sentences/{id}` - Get single sentence
 - `PATCH /api/sentences/{id}` - Update sentence text and emojis
 
 #### AI
+
 - `POST /api/ai/emojis-from-text` - Generate emoji suggestions from text
 - `POST /api/ai/text-from-emojis` - Generate text from emoji combination
 
 #### Health
+
 - `GET /health` - Health check endpoint
 
-**Interactive Docs:** Visit http://localhost:8000/docs for full API documentation with try-it-out functionality.
+**Interactive Docs:** Visit <http://localhost:8000/docs> for full API documentation with try-it-out functionality.
 
 ---
 
@@ -263,23 +293,27 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ### Key Services
 
 **DocumentService** (`frontend/src/app/core/services/document.service.ts`)
+
 - Central state management
 - Holds current document, sentences, selected sentence
 - Exposes observables for reactive updates
 - Debounces save operations (500ms)
 
 **ApiService** (`frontend/src/app/core/services/api.service.ts`)
+
 - Low-level HTTP wrapper
 - Handles all backend communication
 - Error handling and logging
 
 **AIService** (`frontend/src/app/core/services/ai.service.ts`)
+
 - Calls AI endpoints
 - Manages AI suggestion state
 
 ### Making Changes
 
 **Adding a new API endpoint:**
+
 1. Add route in `backend/app/routers/`
 2. Add Pydantic schema in `backend/app/schemas.py`
 3. Update frontend model in `frontend/src/app/core/models/`
@@ -287,6 +321,7 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 5. Add test in `backend/tests/`
 
 **Adding a UI component:**
+
 1. Generate: `ng generate component features/your-feature/your-component`
 2. Add to parent component's imports
 3. Use DocumentService for state access
@@ -297,7 +332,9 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ## Team Structure (5 Developers)
 
 ### 👤 Developer 1: Layout & UI
+
 **Focus Areas:**
+
 - `frontend/src/app/layout/`
 - Component styling (`.scss` files)
 - Responsive design
@@ -305,6 +342,7 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 - Global styles
 
 **Tasks:**
+
 - Enhance visual design
 - Add loading states
 - Improve mobile responsiveness
@@ -313,13 +351,16 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ---
 
 ### 👤 Developer 2: AI Integration
+
 **Focus Areas:**
+
 - `backend/app/services/ai_client.py`
 - `backend/app/routers/ai.py`
 - together.ai API integration
 - Prompt engineering
 
 **Tasks:**
+
 - Implement real together.ai calls
 - Refine prompts for emoji generation
 - Refine prompts for text generation
@@ -329,13 +370,16 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ---
 
 ### 👤 Developer 3: Database & Models
+
 **Focus Areas:**
+
 - `backend/app/models.py`
 - `backend/app/database.py`
 - `backend/app/schemas.py`
 - Database migrations
 
 **Tasks:**
+
 - Add document search/filter
 - Implement pagination
 - Add database indexes
@@ -345,13 +389,16 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ---
 
 ### 👤 Developer 4: Sidebar Features
+
 **Focus Areas:**
+
 - `frontend/src/app/features/document-editor/sidebar/`
 - New suggestion types
 - Settings panel
 - History tracking
 
 **Tasks:**
+
 - Add "Settings" tab
 - Add "History" tab (version control)
 - Create more AI suggestion types
@@ -361,13 +408,16 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ---
 
 ### 👤 Developer 5: Testing & Tooling
+
 **Focus Areas:**
+
 - `backend/tests/`
 - `frontend/**/*.spec.ts`
 - CI/CD setup
 - Development tools
 
 **Tasks:**
+
 - Add component tests
 - Add E2E tests
 - Set up GitHub Actions
@@ -380,6 +430,7 @@ User Input → Component → DocumentService (State) → ApiService → Backend 
 ## Testing
 
 ### Backend Tests
+
 ```bash
 cd backend
 source venv/bin/activate
@@ -387,6 +438,7 @@ pytest
 ```
 
 ### Frontend Tests
+
 ```bash
 cd frontend
 ng test
@@ -415,11 +467,13 @@ See [`infra/DEV_SETUP.md`](infra/DEV_SETUP.md) for common issues and solutions.
 **Common Issues:**
 
 1. **Backend port already in use:**
+
    ```bash
    lsof -ti:8000 | xargs kill -9
    ```
 
 2. **Frontend port already in use:**
+
    ```bash
    ng serve --port 4201
    ```

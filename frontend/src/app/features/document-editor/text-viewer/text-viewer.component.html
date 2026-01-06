@@ -34,7 +34,7 @@
                     (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                     (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                     [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span class="emoji-tooltip"
-                    *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>{{ isLast ? '' : ' ' }}
+                    *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>{{ isLast ? '' : ' ' }}
             </span>
         </div>
     </div>
@@ -49,8 +49,8 @@
                 [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight"
                 (click)="onSentenceClick(sentence)"
                 [attr.title]="sentence.text">
-                <span class="emoji-group" *ngIf="sentence.emojis.length > 0">{{ sentence.emojis.join(' ') }}</span>
-                <span class="emoji-group empty" *ngIf="sentence.emojis.length === 0">📝</span>
+                <span class="emoji-group" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
+                <span class="emoji-group empty" *ngIf="(sentence.emojis.length || 0) === 0">📝</span>
                 <span class="emoji-dot">•</span>
                 <div class="sentence-tooltip">{{ sentence.text }}</div>
             </span>

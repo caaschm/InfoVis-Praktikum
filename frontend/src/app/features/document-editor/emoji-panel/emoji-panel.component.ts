@@ -26,10 +26,10 @@ export class EmojiPanelComponent implements OnInit, OnDestroy {
   maxEmojis = 5;
   isGenerating = false;
   lastSuggestion: string | null = null;
-  
+
   // Sub-tab management within emoji panel
   activeSubTab: 'sentence' | 'words' | 'characters' | 'sets' = 'sentence';
-  
+
   private destroy$ = new Subject<void>();
 
   // Common emoji suggestions for quick selection

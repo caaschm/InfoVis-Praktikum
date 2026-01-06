@@ -1,32 +1,17 @@
 <div class="emoji-panel">
     <!-- Sub-tab navigation -->
     <div class="sub-tabs">
-        <button 
-            class="sub-tab-btn" 
-            [class.active]="activeSubTab === 'sentence'"
-            (click)="activeSubTab = 'sentence'"
-        >
+        <button class="sub-tab-btn" [class.active]="activeSubTab === 'sentence'" (click)="activeSubTab = 'sentence'">
             📝 Sentence Emojis
         </button>
-        <button 
-            class="sub-tab-btn" 
-            [class.active]="activeSubTab === 'words'"
-            (click)="activeSubTab = 'words'"
-        >
+        <button class="sub-tab-btn" [class.active]="activeSubTab === 'words'" (click)="activeSubTab = 'words'">
             🔤 Word Mappings
         </button>
-        <button 
-            class="sub-tab-btn" 
-            [class.active]="activeSubTab === 'characters'"
-            (click)="activeSubTab = 'characters'"
-        >
+        <button class="sub-tab-btn" [class.active]="activeSubTab === 'characters'"
+            (click)="activeSubTab = 'characters'">
             👥 Characters
         </button>
-        <button 
-            class="sub-tab-btn" 
-            [class.active]="activeSubTab === 'sets'"
-            (click)="activeSubTab = 'sets'"
-        >
+        <button class="sub-tab-btn" [class.active]="activeSubTab === 'sets'" (click)="activeSubTab = 'sets'">
             🎨 Emoji Sets
         </button>
     </div>

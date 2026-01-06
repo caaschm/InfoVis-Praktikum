@@ -6,13 +6,13 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { EmojiMappingService } from './emoji-mapping.service';
 import {
     Document,
     DocumentDetail,
     DocumentMetadata,
     Sentence,
-    SentenceUpdate
+    SentenceUpdate,
+    EmojiDictionary
 } from '../models/document.model';
 
 @Injectable({
@@ -31,8 +31,7 @@ export class DocumentService {
     private sentenceUpdateSubject = new Subject<{ id: string; update: SentenceUpdate }>();
 
     constructor(
-        private apiService: ApiService,
-        private emojiMappingService: EmojiMappingService
+        private apiService: ApiService
     ) {
         // Set up debounced sentence updates
         this.sentenceUpdateSubject
@@ -57,10 +56,6 @@ export class DocumentService {
             .pipe(
                 tap(doc => {
                     this.currentDocumentSubject.next(doc);
-                    // Load enhanced emoji data
-                    this.emojiMappingService.loadWordMappings(doc.id).subscribe();
-                    this.emojiMappingService.loadCustomSets(doc.id).subscribe();
-                    this.emojiMappingService.loadCharacters(doc.id).subscribe();
                 })
             );
     }
@@ -82,11 +77,11 @@ export class DocumentService {
         return this.apiService.get<DocumentDetail>(`/api/documents/${id}`)
             .pipe(
                 tap(doc => {
+                    // Initialize emojis array for compatibility during migration
+                    doc.sentences.forEach(s => {
+                        if (!s.emojis) s.emojis = [];
+                    });
                     this.currentDocumentSubject.next(doc);
-                    // Load enhanced emoji data
-                    this.emojiMappingService.loadWordMappings(id).subscribe();
-                    this.emojiMappingService.loadCustomSets(id).subscribe();
-                    this.emojiMappingService.loadCharacters(id).subscribe();
                 })
             );
     }
@@ -149,7 +144,7 @@ export class DocumentService {
      */
     updateSentenceEmojis(sentenceId: string, emojis: string[]): void {
         const limitedEmojis = emojis.slice(0, 5); // Enforce max 5
-        this.sentenceUpdateSubject.next({ id: sentenceId, update: { emojis: limitedEmojis } });
+        this.sentenceUpdateSubject.next({ id: sentenceId, update: { text: undefined, emojis: limitedEmojis } });
         this.updateLocalSentence(sentenceId, { emojis: limitedEmojis });
     }
 
@@ -165,6 +160,21 @@ export class DocumentService {
      */
     getSelectedSentence(): Sentence | null {
         return this.selectedSentenceSubject.value;
+    }
+
+    /**
+     * Get all sentences from current document
+     */
+    getCurrentSentences(): Sentence[] {
+        const doc = this.currentDocumentSubject.value;
+        return doc ? doc.sentences : [];
+    }
+
+    /**
+     * Get emoji dictionary for current document
+     */
+    getEmojiDictionary(documentId: string): Observable<EmojiDictionary> {
+        return this.apiService.get<EmojiDictionary>(`/api/documents/${documentId}/characters/emoji-dictionary`);
     }
 
     // Private helper methods
