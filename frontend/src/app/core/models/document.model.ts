@@ -21,7 +21,8 @@ export interface Sentence {
     index: number;
     text: string;
     characterRefs: string[];  // Array of character IDs
-    emojis: string[];  // DEPRECATED - kept for compatibility during migration
+    emojis: string[];  // Raw emoji strings
+    emojiMappings?: { [emoji: string]: string[] };  // Maps emoji to phrases it represents
 }
 
 export interface DocumentDetail extends Document {
@@ -46,6 +47,7 @@ export interface Character {
     color: string;  // Required hex color for highlighting
     aliases: string[];
     description?: string;
+    wordPhrases: string[];  // Words/phrases this emoji represents (for highlighting)
     createdAt: string;
 }
 

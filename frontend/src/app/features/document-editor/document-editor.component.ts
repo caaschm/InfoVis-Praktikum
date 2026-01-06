@@ -44,7 +44,16 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
     if (!this.currentDocument) {
       this.documentService.createDocument(
         'Sample Story',
-        'Once upon a time in a distant land. A brave hero embarked on an epic journey. Magic filled the air with wonder.'
+        'Once upon a time in a distant land, a brave hero embarked on an epic journey. ' +
+        'The hero traveled through dark forests and crossed raging rivers. ' +
+        'In a mysterious castle, the hero discovered an ancient treasure. ' +
+        'A fierce dragon guarded the treasure with flames and fury. ' +
+        'The hero fought bravely against the dragon in an epic battle. ' +
+        'Magic filled the air as the hero cast powerful spells. ' +
+        'A wise wizard appeared and offered guidance to the hero. ' +
+        'The dragon finally retreated into the shadows of the castle. ' +
+        'The hero claimed the treasure and became a legend. ' +
+        'The kingdom celebrated the hero with a grand festival.'
       ).subscribe();
     }
   }
@@ -58,6 +67,12 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
       this.activeTab = tab;
       this.sidebarVisible = true;
     }
+  }
+
+  onSwitchTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis'): void {
+    // Handle tab switch request from child components (e.g., sidebar)
+    this.activeTab = tab;
+    this.sidebarVisible = true;
   }
 
   hideSidebar(): void {

@@ -87,14 +87,15 @@ async def generate_emojis_freely(
     
     # STEP 2: Use AI to generate emojis for the sentence
     # Pass character mappings so AI knows to use specific emojis for defined characters
-    suggested_emojis = await ai_client.generate_emojis_for_sentence(
+    suggested_emojis, emoji_word_mappings = await ai_client.generate_emojis_for_sentence(
         text=request.text,
         word_mappings=character_word_mappings
     )
     
-    # Save emojis to sentence
+    # Save emojis and mappings to sentence
     sentence.emojis = json.dumps(suggested_emojis)
     sentence.character_refs = json.dumps(character_refs)
+    sentence.emoji_mappings = json.dumps(emoji_word_mappings) if emoji_word_mappings else None
     db.commit()
     
     # Return emojis with character refs if any matched
@@ -157,7 +158,7 @@ async def suggest_characters_for_text(
                 break
     
     # Use AI to generate emojis, passing character mappings so AI respects them
-    suggested_emojis = await ai_client.generate_emojis_for_sentence(
+    suggested_emojis, emoji_word_mappings = await ai_client.generate_emojis_for_sentence(
         text=request.text,
         word_mappings=character_word_mappings
     )
@@ -165,6 +166,7 @@ async def suggest_characters_for_text(
     # Save results to sentence
     sentence.emojis = json.dumps(suggested_emojis)
     sentence.character_refs = json.dumps(suggested_refs)
+    sentence.emoji_mappings = json.dumps(emoji_word_mappings) if emoji_word_mappings else None
     db.commit()
     
     return schemas.CharacterSuggestionResponse(

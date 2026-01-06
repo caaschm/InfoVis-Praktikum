@@ -238,6 +238,14 @@
             color: transparent;
             z-index: 0;
 
+            .word-highlight {
+                border-radius: 3px;
+                padding: 2px 4px;
+                margin: 0 -2px;
+                transition: all 0.2s ease;
+                font-weight: 500;
+            }
+
             .character-highlight {
                 border-radius: 4px;
                 padding: 10px 6px;

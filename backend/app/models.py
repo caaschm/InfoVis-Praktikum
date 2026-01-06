@@ -31,6 +31,7 @@ class Sentence(Base):
     Supports HYBRID emoji system:
     - emojis: Raw emoji strings (FREE generation, no structure)
     - character_refs: Character IDs (STRUCTURED generation, normalized)
+    - emoji_mappings: Maps each emoji to the words it represents (for word-level highlighting)
     
     Workflow: generate emojis freely → define characters → normalize to character_refs
     """
@@ -42,6 +43,7 @@ class Sentence(Base):
     text = Column(Text, nullable=False)
     emojis = Column(Text, nullable=True)  # JSON array of raw emoji strings (unstructured)
     character_refs = Column(Text, nullable=True)  # JSON array of character IDs (structured)
+    emoji_mappings = Column(Text, nullable=True)  # JSON object: {emoji: [word indices or text spans]}
 
     # Relationships
     document = relationship("Document", back_populates="sentences")
@@ -52,6 +54,7 @@ class Character(Base):
     
     All emoji rendering, highlighting, and AI generation derives from this model.
     When a character's emoji changes, all text automatically re-renders.
+    word_phrases: JSON array of words/phrases this character represents (for highlighting)
     """
     __tablename__ = "characters"
 
@@ -62,6 +65,7 @@ class Character(Base):
     color = Column(String, nullable=False)  # Hex color for text highlighting (e.g., "#FF5733")
     aliases = Column(Text, nullable=True)  # JSON array of alternative names/mentions
     description = Column(Text, nullable=True)  # Optional notes about the character/subject
+    word_phrases = Column(Text, nullable=True)  # JSON array of words/phrases this emoji represents
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Relationship

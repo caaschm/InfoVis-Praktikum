@@ -89,7 +89,7 @@ async def generate_emojis_for_sentence(text: str, word_mappings: Optional[Dict[s
         fallback = _keyword_based_emoji_selection(text)
         # Combine manual mappings with fallback, dedupe, limit to 5
         combined = list(dict.fromkeys(manual_emojis + fallback))
-        return combined[:5]
+        return (combined[:5], {})
     
     print(f"🔑 Using API key: {api_key[:15]}...{api_key[-4:]}")
     print(f"🎨 Manual mappings applied: {manual_emojis}")
@@ -112,25 +112,25 @@ async def generate_emojis_for_sentence(text: str, word_mappings: Optional[Dict[s
             mapped_chars.append(f"{char} → {_character_emoji_cache[char]}")
     
     if mapped_chars:
-        character_context = f"\n\nIMPORTANT - MUST include these emojis:\n" + "\n".join(mapped_chars)
+        character_context = f"\n\nYou MUST include these mappings:\n" + "\n".join(mapped_chars)
     
-    prompt = f"""You are a creative storytelling assistant. Analyze this sentence and suggest 3-5 emojis that best represent it.
-
-RULES:
-1. CHARACTERS FIRST: Any person, creature, or animal mentioned MUST get an emoji (🦁 for lion, 👸 for princess, etc.)
-2. KEY OBJECTS: Important objects in the sentence (🏰 castle, ⚔️ sword, 👑 crown)
-3. EMOTIONS/ACTIONS: Main emotion or action if space allows (😱 scared, ⚔️ fighting, ✨ magic)
-4. Use LITERAL emojis - if text says "lion", use 🦁 not 🐾
-5. Return ONLY the emojis separated by spaces, no text or explanations
+    prompt = f"""Analyze this sentence and return emoji mappings in the exact format shown.
 
 Sentence: "{text}"
 {character_context}
 
-Examples:
-"A brave hero fights a dragon" → 🦸 ⚔️ 🐉
-"The princess lives in a castle" → 👸 🏰
-"A scary lion appears suddenly" → 🦁 😱
-"Magic filled the air" → ✨ 💨"""
+Return ONLY the mappings, one per line, in this exact format:
+phrase:emoji
+
+Rules:
+- phrase can be one or multiple words
+- emoji must be a single emoji character
+- no explanations, no extra text
+
+Example output format:
+brave hero:🦸
+dragon:🐉
+magic castle:🏰"""
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -159,28 +159,87 @@ Examples:
             
             if response.status_code != 200:
                 print(f"❌ Error response: {response.text}")
-                return _keyword_based_emoji_selection(text)
+                fallback = _keyword_based_emoji_selection(text)
+                return (fallback, {})
             
             result = response.json()
             
-            # Extract emojis from response
+            # Extract phrase:emoji pairs from response
             content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
             print(f"✅ AI response: {content}")
+            print(f"📝 Parsing emoji mappings from AI response...")
             
-            # Extract emojis (characters with unicode > 127)
-            emojis = [char for char in content if char.strip() and ord(char) > 127]
+            # Parse phrase:emoji format (e.g., "brave hero:🦸\ndragon:🐉")
+            # Format: {emoji: [phrase1, phrase2, ...]} - one emoji can represent multiple phrases
+            emoji_mappings = {}
+            emojis = []
+            
+            # Clean the response - remove any explanatory text before/after the mappings
+            lines = content.strip().split('\n')
+            print(f"   Found {len(lines)} lines to parse")
+            
+            for line in lines:
+                line = line.strip()
+                print(f"   Parsing line: '{line}'")
+                
+                if not line or not ':' in line:
+                    print(f"     ❌ Skipped - no colon or empty")
+                    continue
+                    
+                parts = line.split(':', 1)
+                if len(parts) != 2:
+                    print(f"     ❌ Skipped - couldn't split into 2 parts")
+                    continue
+                    
+                phrase = parts[0].strip()
+                emoji_part = parts[1].strip()
+                
+                print(f"     phrase='{phrase}', emoji_part='{emoji_part}'")
+                
+                # Validate phrase: should be words/letters, not special characters or formatting
+                if not phrase or not any(c.isalnum() for c in phrase):
+                    print(f"     ❌ Skipped - phrase has no alphanumeric characters")
+                    continue
+                
+                # Skip obvious instruction text
+                if phrase.lower().startswith(('example', 'rule', 'note', 'format', 'return', 'output')):
+                    print(f"     ❌ Skipped - looks like instruction text")
+                    continue
+                
+                # Extract emoji using regex - match actual emoji characters
+                import re
+                # Match emoji patterns (including compound emojis with variation selectors and skin tones)
+                emoji_pattern = r'[\U0001F300-\U0001F9FF]|[\U0001F600-\U0001F64F]|[\U0001F680-\U0001F6FF]|[\u2600-\u26FF]|[\u2700-\u27BF]'
+                emoji_match = re.search(emoji_pattern, emoji_part)
+                
+                if not emoji_match:
+                    # No valid emoji found - skip this line
+                    print(f"     ❌ Skipped - no emoji found in '{emoji_part}'")
+                    continue
+                
+                emoji_char = emoji_match.group(0)
+                print(f"     ✅ Valid! emoji={emoji_char}, phrase={phrase}")
+                
+                # Add phrase to this emoji's list
+                if emoji_char not in emoji_mappings:
+                    emoji_mappings[emoji_char] = []
+                    emojis.append(emoji_char)
+                emoji_mappings[emoji_char].append(phrase)
             
             if emojis:
                 # 🎭 Update character-emoji cache for consistency
                 _update_character_emoji_mapping(text, emojis)
-                return emojis[:5]
+                # Return tuple: (emojis list, mappings dict)
+                return (emojis[:5], emoji_mappings)
             else:
-                print("⚠️  No emojis found in response, using keyword fallback")
-                return _keyword_based_emoji_selection(text)
+                print("⚠️  No valid phrase:emoji pairs found, using keyword fallback")
+                fallback_emojis = _keyword_based_emoji_selection(text)
+                return (fallback_emojis, {})
             
     except Exception as e:
         print(f"❌ Error calling OpenRouter: {type(e).__name__}: {e}")
-        return _keyword_based_emoji_selection(text)
+        fallback = _keyword_based_emoji_selection(text)
+        return (fallback, {})
 
 
 def _update_character_emoji_mapping(text: str, emojis: list[str]) -> None:
@@ -196,9 +255,25 @@ def _update_character_emoji_mapping(text: str, emojis: list[str]) -> None:
     characters = _extract_character_names(text)
     
     # Map each new character to an emoji (prioritize people/creature emojis)
-    people_creature_emojis = [e for e in emojis if ord(e) in range(0x1F600, 0x1F650) or 
-                              ord(e) in range(0x1F400, 0x1F4D0) or
-                              e in ['👑', '⚔️', '🏰', '🦸', '🦹', '👼', '😈', '👻', '🧙', '🧚', '🧛', '🧜']]
+    # List of known character-related emojis
+    known_character_emojis = ['👑', '⚔️', '🏰', '🦸', '🦹', '👼', '😈', '👻', '🧙', '🧚', '🧛', '🧜']
+    
+    people_creature_emojis = []
+    for e in emojis:
+        # Check if it's a known character emoji
+        if e in known_character_emojis:
+            people_creature_emojis.append(e)
+            continue
+        # Try to check Unicode range for single-codepoint emojis
+        try:
+            if len(e) == 1:
+                code = ord(e)
+                if (code in range(0x1F600, 0x1F650) or 
+                    code in range(0x1F400, 0x1F4D0)):
+                    people_creature_emojis.append(e)
+        except (TypeError, ValueError):
+            # Skip emojis we can't process
+            pass
     
     emoji_idx = 0
     for char in characters:

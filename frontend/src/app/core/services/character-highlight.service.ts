@@ -3,36 +3,33 @@ import { BehaviorSubject, Observable } from 'rxjs';
 
 /**
  * Service to manage highlighting across components
- * Supports highlighting by character ID or by sentence IDs
+ * Tracks which emoji is being hovered to highlight in sentences
  */
 @Injectable({
-  providedIn: 'root'
+    providedIn: 'root'
 })
 export class CharacterHighlightService {
-  private hoveredCharacterIdSubject = new BehaviorSubject<string | null>(null);
-  public hoveredCharacterId$: Observable<string | null> = this.hoveredCharacterIdSubject.asObservable();
+    // Track which emoji is currently hovered (from dictionary)
+    private hoveredEmojiSubject = new BehaviorSubject<string | null>(null);
+    public hoveredEmoji$: Observable<string | null> = this.hoveredEmojiSubject.asObservable();
 
-  private hoveredSentenceIdsSubject = new BehaviorSubject<string[]>([]);
-  public hoveredSentenceIds$: Observable<string[]> = this.hoveredSentenceIdsSubject.asObservable();
+    // Track the color for highlighting
+    private highlightColorSubject = new BehaviorSubject<string>('#999999');
+    public highlightColor$: Observable<string> = this.highlightColorSubject.asObservable();
 
-  private highlightColorSubject = new BehaviorSubject<string>('#999999');
-  public highlightColor$: Observable<string> = this.highlightColorSubject.asObservable();
+    /**
+     * Set which emoji is currently hovered (highlights all sentences containing this emoji)
+     */
+    setHoveredEmoji(emoji: string | null, color: string = '#999999'): void {
+        this.hoveredEmojiSubject.next(emoji);
+        this.highlightColorSubject.next(color);
+    }
 
-  setHoveredCharacter(characterId: string | null, color: string = '#999999'): void {
-    this.hoveredCharacterIdSubject.next(characterId);
-    this.hoveredSentenceIdsSubject.next([]);
-    this.highlightColorSubject.next(color);
-  }
-
-  setHoveredSentences(sentenceIds: string[], color: string = '#999999'): void {
-    this.hoveredSentenceIdsSubject.next(sentenceIds);
-    this.hoveredCharacterIdSubject.next(null);
-    this.highlightColorSubject.next(color);
-  }
-
-  clearHover(): void {
-    this.hoveredCharacterIdSubject.next(null);
-    this.hoveredSentenceIdsSubject.next([]);
-    this.highlightColorSubject.next('#999999');
-  }
+    /**
+     * Clear all highlighting
+     */
+    clearHover(): void {
+        this.hoveredEmojiSubject.next(null);
+        this.highlightColorSubject.next('#999999');
+    }
 }

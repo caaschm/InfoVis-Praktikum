@@ -4,18 +4,14 @@ import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { Sentence } from '../../../core/models/document.model';
-import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
-import { EmojiSetManagerComponent } from '../emoji-set-manager/emoji-set-manager.component';
 
 @Component({
   selector: 'app-emoji-panel',
   standalone: true,
   imports: [
     CommonModule,
-    WordMappingManagerComponent,
-    CharacterManagerComponent,
-    EmojiSetManagerComponent
+    CharacterManagerComponent
   ],
   templateUrl: './emoji-panel.component.html',
   styleUrl: './emoji-panel.component.scss'

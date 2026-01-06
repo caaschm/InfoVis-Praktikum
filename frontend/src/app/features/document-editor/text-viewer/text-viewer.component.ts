@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
@@ -17,8 +17,7 @@ export class TextViewerComponent implements OnInit, OnDestroy {
   sentences: Sentence[] = [];
   characters: Character[] = [];
   selectedSentenceId: string | null = null;
-  hoveredCharacterId: string | null = null;
-  hoveredSentenceIds: string[] = [];
+  hoveredEmoji: string | null = null;
   highlightColor: string = '#999999';
   viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
   showAiHighlight: boolean = false; // Toggle for AI highlight mode
@@ -29,9 +28,8 @@ export class TextViewerComponent implements OnInit, OnDestroy {
   constructor(
 
     private documentService: DocumentService,
-    private characterHighlightService: CharacterHighlightService
-    ,
-    private aiTrackingService: AiTrackingService
+    private characterHighlightService: CharacterHighlightService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
@@ -66,18 +64,13 @@ export class TextViewerComponent implements OnInit, OnDestroy {
         this.selectedSentenceId = sentence?.id || null;
       });
 
-    // Subscribe to hovered character for highlighting
-    this.characterHighlightService.hoveredCharacterId$
+    // Subscribe to hovered emoji for highlighting
+    this.characterHighlightService.hoveredEmoji$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(characterId => {
-        this.hoveredCharacterId = characterId;
-      });
-
-    // Subscribe to hovered sentence IDs for emoji dictionary highlighting
-    this.characterHighlightService.hoveredSentenceIds$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(sentenceIds => {
-        this.hoveredSentenceIds = sentenceIds;
+      .subscribe(emoji => {
+        console.log('👁️ [TEXT-VIEWER] Received hovered emoji:', emoji);
+        this.hoveredEmoji = emoji;
+        this.cdr.markForCheck();
       });
 
     // Subscribe to highlight color
@@ -291,14 +284,111 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * Get the color of the hovered character if sentence contains it
+     * Check if a sentence contains the hovered emoji
      */
-    getCharacterColor(sentence: Sentence, characterId: string | null): string {
-      if (!characterId || !this.characters) {
-        return '';
-      }
-
-      const character = this.characters.find(c => c.id === characterId);
-      return character?.color || '';
+    sentenceHasHoveredEmoji(sentence: Sentence): boolean {
+      if (!this.hoveredEmoji) return false;
+      return sentence.emojis.includes(this.hoveredEmoji);
     }
+
+    /**
+     * Get text segments with word-level highlighting for hovered emoji
+     * Returns array of {text, isHighlighted}
+     */
+    getHighlightedSegments(sentence: Sentence): Array < { text: string, isHighlighted: boolean } > {
+      if(!this.hoveredEmoji) {
+      return [{ text: sentence.text, isHighlighted: false }];
+    }
+
+    // Collect all phrases to highlight for this emoji
+    let phrases: string[] = [];
+
+    // STRATEGY 1: Check if this emoji belongs to a CHARACTER
+    const charactersWithEmoji = this.characters.filter(c => c.emoji === this.hoveredEmoji);
+
+    if (charactersWithEmoji.length > 0) {
+      // This emoji IS a character - use character's word phrases
+      // Combines all phrases from all characters using this emoji (e.g., "Hero" and "Red Hero" both use 🦸)
+      for (const character of charactersWithEmoji) {
+        if (character.wordPhrases && character.wordPhrases.length > 0) {
+          phrases.push(...character.wordPhrases);
+        }
+      }
+    } else {
+      // STRATEGY 2: This emoji is a RECURRING THEME (not promoted to character yet)
+      // Use the sentence's emoji_mappings to find what words it represents
+      if (sentence.emojis.includes(this.hoveredEmoji) && sentence.emojiMappings && this.hoveredEmoji in sentence.emojiMappings) {
+        phrases = sentence.emojiMappings[this.hoveredEmoji] || [];
+      }
+    }
+
+    if (phrases.length === 0) {
+      // No mapping available - don't highlight anything
+      return [{ text: sentence.text, isHighlighted: false }];
+    }
+
+    // Find all phrase occurrences in the text using word boundaries
+    const segments: Array<{ text: string, isHighlighted: boolean }> = [];
+
+    // Build a list of matches with positions
+    const matches: Array<{ start: number, end: number, phrase: string }> = [];
+    for (const phrase of phrases) {
+      // Use word boundary regex to avoid false matches (e.g., "hero" shouldn't match "heroic")
+      const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
+      let match;
+      while ((match = regex.exec(sentence.text)) !== null) {
+        matches.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          phrase: match[0]
+        });
+      }
+    }
+
+    // Sort matches by position and remove overlaps
+    matches.sort((a, b) => a.start - b.start);
+    const filteredMatches: Array<{ start: number, end: number }> = [];
+    for (const match of matches) {
+      const overlaps = filteredMatches.some(existing =>
+        (match.start >= existing.start && match.start < existing.end) ||
+        (match.end > existing.start && match.end <= existing.end)
+      );
+      if (!overlaps) {
+        filteredMatches.push(match);
+      }
+    }
+
+    // Build segments
+    if (filteredMatches.length === 0) {
+      return [{ text: sentence.text, isHighlighted: false }];
+    }
+
+    let lastIndex = 0;
+    for (const match of filteredMatches) {
+      // Add text before match
+      if (match.start > lastIndex) {
+        segments.push({
+          text: sentence.text.substring(lastIndex, match.start),
+          isHighlighted: false
+        });
+      }
+      // Add highlighted match
+      segments.push({
+        text: sentence.text.substring(match.start, match.end),
+        isHighlighted: true
+      });
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    if (lastIndex < sentence.text.length) {
+      segments.push({
+        text: sentence.text.substring(lastIndex),
+        isHighlighted: false
+      });
+    }
+
+    return segments;
   }
+}

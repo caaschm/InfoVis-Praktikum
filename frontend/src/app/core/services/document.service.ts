@@ -49,13 +49,68 @@ export class DocumentService {
     }
 
     /**
+     * Transform backend response (snake_case) to frontend format (camelCase)
+     */
+    private transformDocumentResponse(doc: any): DocumentDetail {
+        // Transform sentences
+        if (doc.sentences) {
+            doc.sentences.forEach((s: any) => {
+                if (!s.emojis) s.emojis = [];
+                // Transform emoji_mappings to emojiMappings (handle both undefined and null)
+                if ('emoji_mappings' in s) {
+                    s.emojiMappings = s.emoji_mappings;
+                    delete s.emoji_mappings;
+                }
+                // Transform character_refs to characterRefs
+                if ('character_refs' in s) {
+                    s.characterRefs = s.character_refs;
+                    delete s.character_refs;
+                }
+                // Transform document_id to documentId
+                if ('document_id' in s) {
+                    s.documentId = s.document_id;
+                    delete s.document_id;
+                }
+            });
+        }
+        // Transform characters
+        if (doc.characters) {
+            doc.characters.forEach((c: any) => {
+                if ('document_id' in c) {
+                    c.documentId = c.document_id;
+                    delete c.document_id;
+                }
+                if ('word_phrases' in c) {
+                    c.wordPhrases = c.word_phrases;
+                    delete c.word_phrases;
+                }
+                if ('created_at' in c) {
+                    c.createdAt = c.created_at;
+                    delete c.created_at;
+                }
+            });
+        }
+        // Transform document fields
+        if ('created_at' in doc) {
+            doc.createdAt = doc.created_at;
+            delete doc.created_at;
+        }
+        if ('updated_at' in doc) {
+            doc.updatedAt = doc.updated_at;
+            delete doc.updated_at;
+        }
+        return doc as DocumentDetail;
+    }
+
+    /**
      * Create a new document from text
      */
     createDocument(title: string, content: string): Observable<DocumentDetail> {
-        return this.apiService.post<DocumentDetail>('/api/documents/', { title, content })
+        return this.apiService.post<any>('/api/documents/', { title, content })
             .pipe(
-                tap(doc => {
-                    this.currentDocumentSubject.next(doc);
+                tap((doc: any) => {
+                    const transformed = this.transformDocumentResponse(doc);
+                    this.currentDocumentSubject.next(transformed);
                 })
             );
     }
@@ -64,9 +119,12 @@ export class DocumentService {
      * Upload and create document from PDF file
      */
     uploadPdfDocument(formData: FormData): Observable<DocumentDetail> {
-        return this.apiService.post<DocumentDetail>('/api/documents/upload-pdf', formData)
+        return this.apiService.post<any>('/api/documents/upload-pdf', formData)
             .pipe(
-                tap(doc => this.currentDocumentSubject.next(doc))
+                tap((doc: any) => {
+                    const transformed = this.transformDocumentResponse(doc);
+                    this.currentDocumentSubject.next(transformed);
+                })
             );
     }
 
@@ -74,14 +132,11 @@ export class DocumentService {
      * Load a document by ID
      */
     loadDocument(id: string): Observable<DocumentDetail> {
-        return this.apiService.get<DocumentDetail>(`/api/documents/${id}`)
+        return this.apiService.get<any>(`/api/documents/${id}`)
             .pipe(
-                tap(doc => {
-                    // Initialize emojis array for compatibility during migration
-                    doc.sentences.forEach(s => {
-                        if (!s.emojis) s.emojis = [];
-                    });
-                    this.currentDocumentSubject.next(doc);
+                tap((doc: any) => {
+                    const transformed = this.transformDocumentResponse(doc);
+                    this.currentDocumentSubject.next(transformed);
                 })
             );
     }
@@ -119,10 +174,11 @@ export class DocumentService {
      * Update document content and re-parse sentences
      */
     updateDocumentContent(documentId: string, content: string): void {
-        this.apiService.patch<DocumentDetail>(`/api/documents/${documentId}`, { content })
+        this.apiService.patch<any>(`/api/documents/${documentId}`, { content })
             .subscribe({
-                next: (updatedDoc) => {
-                    this.currentDocumentSubject.next(updatedDoc);
+                next: (updatedDoc: any) => {
+                    const transformed = this.transformDocumentResponse(updatedDoc);
+                    this.currentDocumentSubject.next(transformed);
                     // Clear sentence selection since sentences have been re-parsed
                     this.selectedSentenceSubject.next(null);
                 },
@@ -175,6 +231,37 @@ export class DocumentService {
      */
     getEmojiDictionary(documentId: string): Observable<EmojiDictionary> {
         return this.apiService.get<EmojiDictionary>(`/api/documents/${documentId}/characters/emoji-dictionary`);
+    }
+
+    /**
+     * Merge two emojis - replace all occurrences of sourceEmoji with targetEmoji
+     */
+    mergeEmojis(documentId: string, sourceEmoji: string, targetEmoji: string): Observable<any> {
+        return this.apiService.post(`/api/documents/${documentId}/merge-emojis`, {
+            source_emoji: sourceEmoji,
+            target_emoji: targetEmoji
+        });
+    }
+
+    /**
+     * Create a new character
+     */
+    createCharacter(documentId: string, character: { name: string; emoji: string; description: string; color: string }): Observable<any> {
+        return this.apiService.post(`/api/documents/${documentId}/characters`, character);
+    }
+
+    /**
+     * Update an existing character
+     */
+    updateCharacter(documentId: string, characterId: string, updates: { name?: string; description?: string; color?: string; emoji?: string }): Observable<any> {
+        return this.apiService.patch(`/api/documents/${documentId}/characters/${characterId}`, updates);
+    }
+
+    /**
+     * Normalize character: convert raw emoji usage to character references
+     */
+    normalizeCharacter(documentId: string, characterId: string): Observable<any> {
+        return this.apiService.post(`/api/documents/${documentId}/characters/${characterId}/normalize`, {});
     }
 
     // Private helper methods

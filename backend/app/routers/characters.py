@@ -68,6 +68,28 @@ def create_character(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Aggregate word phrases from sentence emoji_mappings if not provided
+    word_phrases = character.word_phrases or []
+    if not word_phrases and character.emoji:
+        # Collect all phrases associated with this emoji across all sentences
+        sentences = db.query(models.Sentence).filter(
+            models.Sentence.document_id == document_id
+        ).all()
+        
+        phrases_set = set()
+        for sentence in sentences:
+            if sentence.emoji_mappings:
+                try:
+                    emoji_mappings = json.loads(sentence.emoji_mappings)
+                    if character.emoji in emoji_mappings:
+                        phrases = emoji_mappings[character.emoji]
+                        if isinstance(phrases, list):
+                            phrases_set.update(phrases)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        
+        word_phrases = list(phrases_set)
+    
     # Create character
     db_character = models.Character(
         document_id=document_id,
@@ -75,7 +97,8 @@ def create_character(
         emoji=character.emoji,
         color=character.color,
         aliases=json.dumps(character.aliases or []),
-        description=character.description
+        description=character.description,
+        word_phrases=json.dumps(word_phrases)
     )
     
     db.add(db_character)
@@ -90,6 +113,7 @@ def create_character(
         color=db_character.color,
         aliases=json.loads(db_character.aliases) if db_character.aliases else [],
         description=db_character.description,
+        word_phrases=json.loads(db_character.word_phrases) if db_character.word_phrases and db_character.word_phrases != 'null' else [],
         created_at=db_character.created_at
     )
 
@@ -118,6 +142,7 @@ def list_characters(
             color=c.color,
             aliases=json.loads(c.aliases) if c.aliases else [],
             description=c.description,
+            word_phrases=json.loads(c.word_phrases) if c.word_phrases and c.word_phrases != 'null' else [],
             created_at=c.created_at
         ) for c in characters
     ]
@@ -183,7 +208,7 @@ def get_emoji_dictionary(
     # Build dictionary entries
     entries = []
     
-    # Add character-based emojis (structured)
+    # SECTION 1: Character-based emojis (structured) - ALWAYS include these
     for c in characters:
         meaning = f"Represents {c.name}" + (f": {c.description}" if c.description else "")
         entries.append(schemas.EmojiDictionaryEntry(
@@ -196,15 +221,26 @@ def get_emoji_dictionary(
             sentence_ids=character_sentences.get(c.id, [])
         ))
     
-    # Add raw emojis (unstructured) - analyze meaning from context
-    for emoji, count in raw_emoji_counts.items():
+    # SECTION 2: Frequently used raw emojis (unstructured)
+    # Only include emojis used 2+ times to avoid clutter
+    MIN_USAGE_THRESHOLD = 2
+    MAX_UNASSIGNED_EMOJIS = 10  # Limit to top 10 most frequent
+    
+    # Sort raw emojis by usage count (most frequent first)
+    frequent_emojis = sorted(
+        [(emoji, count) for emoji, count in raw_emoji_counts.items() if count >= MIN_USAGE_THRESHOLD],
+        key=lambda x: x[1],
+        reverse=True
+    )[:MAX_UNASSIGNED_EMOJIS]
+    
+    for emoji, count in frequent_emojis:
         # Analyze contexts to infer meaning
         contexts = raw_emoji_contexts.get(emoji, [])
         meaning = _infer_emoji_meaning(emoji, contexts)
         
         entries.append(schemas.EmojiDictionaryEntry(
             emoji=emoji,
-            character_name=f"Unassigned",
+            character_name=f"Recurring theme",
             character_id=None,
             color="#999999",  # Gray for undefined
             usage_count=count,
@@ -277,6 +313,8 @@ def update_character(
         character.aliases = json.dumps(character_update.aliases)
     if character_update.description is not None:
         character.description = character_update.description
+    if character_update.word_phrases is not None:
+        character.word_phrases = json.dumps(character_update.word_phrases)
     
     db.commit()
     db.refresh(character)
@@ -289,6 +327,7 @@ def update_character(
         color=character.color,
         aliases=json.loads(character.aliases) if character.aliases else [],
         description=character.description,
+        word_phrases=json.loads(character.word_phrases) if character.word_phrases and character.word_phrases != 'null' else [],
         created_at=character.created_at
     )
 
@@ -344,20 +383,24 @@ def normalize_character_in_sentences(
     updated_count = 0
     
     for sentence in sentences:
-        text_lower = sentence.text.lower()
+        # Parse existing data first
+        emojis = json.loads(sentence.emojis) if sentence.emojis else []
+        char_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
         
-        # Check if character is mentioned (name or aliases)
+        # Check TWO conditions:
+        # 1. Character emoji is already in the sentence (from AI generation)
+        # 2. Character name/aliases are mentioned in the text
+        has_emoji = character.emoji in emojis
+        
+        text_lower = sentence.text.lower()
         is_mentioned = (
             character.name.lower() in text_lower or
             any(alias.lower() in text_lower for alias in aliases)
         )
         
-        if not is_mentioned:
+        # If neither condition is met, skip this sentence
+        if not has_emoji and not is_mentioned:
             continue
-        
-        # Parse existing data
-        emojis = json.loads(sentence.emojis) if sentence.emojis else []
-        char_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
         
         # Add character reference if not already present
         if character_id not in char_refs:

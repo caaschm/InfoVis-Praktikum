@@ -2,7 +2,7 @@ import {
   Component,
   OnInit,
   OnDestroy,
-  Input,
+  Input, Output, EventEmitter,
   HostListener,
   ViewChild,
   ElementRef,
@@ -13,6 +13,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
+import { CharacterFormService } from '../../../core/services/character-form.service';
 import { Sentence } from '../../../core/models/document.model';
 // import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
@@ -66,6 +67,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   get activeTab() {
     return this._activeTab;
   }
+  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis'>();
 
   selectedSentence: Sentence | null = null;
   isGenerating = false;
@@ -107,9 +109,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
   private lastAnalyzedTextHash: string | null = null;
 
   constructor(
-    private documentService: DocumentService,
+    public documentService: DocumentService,
     private aiService: AiService,
-    private aiTrackingService: AiTrackingService
+    private characterHighlightService: CharacterHighlightService,
+    private characterFormService: CharacterFormService
   ) { }
 
   // ========== INIT ==========
@@ -157,8 +160,136 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ================= EMOJI LOGIK =================
+  private loadEmojiDictionary(documentId: string): void {
+    this.documentService.getEmojiDictionary(documentId).subscribe({
+      next: (dictionary) => {
+        this.emojiDictionary = dictionary;
+      },
+      error: (err) => console.error('Error loading emoji dictionary:', err)
+    });
+  }
 
+  onEmojiDictionaryHover(entry: any): void {
+    // Highlight all sentences containing this emoji
+    console.log('🖱️ [SIDEBAR] Hovering emoji:', entry.emoji, 'color:', entry.color);
+    this.characterHighlightService.setHoveredEmoji(entry.emoji, entry.color);
+  }
+
+  onEmojiDictionaryLeave(): void {
+    this.characterHighlightService.clearHover();
+  }
+
+  getCharacterEntries(): any[] {
+    if (!this.emojiDictionary) return [];
+    return this.emojiDictionary.entries.filter(e => e.characterId !== null);
+  }
+
+  getRecurringEntries(): any[] {
+    if (!this.emojiDictionary) return [];
+    return this.emojiDictionary.entries.filter(e => e.characterId === null);
+  }
+
+  getEmojiWordPhrases(emoji: string): string[] {
+    // Collect all word phrases for this emoji from all sentences
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return [];
+
+    const phrasesSet = new Set<string>();
+
+    for (const sentence of doc.sentences) {
+      if (sentence.emojiMappings && emoji in sentence.emojiMappings) {
+        const phrases = sentence.emojiMappings[emoji];
+        if (Array.isArray(phrases)) {
+          phrases.forEach(p => phrasesSet.add(p));
+        }
+      }
+    }
+
+    return Array.from(phrasesSet);
+  }
+
+  // Drag and drop to merge emojis
+  private draggedEntry: any = null;
+
+  onDragStart(event: DragEvent, entry: any): void {
+    this.draggedEntry = entry;
+    event.dataTransfer!.effectAllowed = 'move';
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+  }
+
+  onDrop(event: DragEvent, targetEntry: any): void {
+    event.preventDefault();
+
+    if (!this.draggedEntry || this.draggedEntry === targetEntry) {
+      this.draggedEntry = null;
+      return;
+    }
+
+    // Confirm merge
+    const confirm = window.confirm(
+      `Merge ${this.draggedEntry.emoji} into ${targetEntry.emoji}?\n\n` +
+      `All ${this.draggedEntry.usageCount} uses of ${this.draggedEntry.emoji} will be replaced with ${targetEntry.emoji}.`
+    );
+
+    if (confirm) {
+      this.mergeEmojis(this.draggedEntry.emoji, targetEntry.emoji);
+    }
+
+    this.draggedEntry = null;
+  }
+
+  mergeEmojis(sourceEmoji: string, targetEmoji: string): void {
+    const currentDoc = this.documentService.getCurrentDocument();
+    if (!currentDoc) return;
+
+    // Call backend to merge emojis across all sentences
+    this.documentService.mergeEmojis(currentDoc.id, sourceEmoji, targetEmoji).subscribe({
+      next: () => {
+        console.log(`Merged ${sourceEmoji} into ${targetEmoji}`);
+        // Reload dictionary
+        this.loadEmojiDictionary(currentDoc.id);
+      },
+      error: (err) => console.error('Error merging emojis:', err)
+    });
+  }
+
+  promoteToCharacter(entry: any): void {
+    // The character manager is already visible in the same tab (emojis)
+    // Just trigger the character form with pre-filled data
+    this.characterFormService.openCharacterForm({
+      emoji: entry.emoji,
+      suggestedName: this.inferCharacterName(entry.meaning),
+      description: entry.meaning
+    });
+  }
+
+  private inferCharacterName(meaning: string): string {
+    // Try to extract a good default name from the meaning
+    if (meaning.includes('Represents')) {
+      return meaning.split('Represents')[1].split(':')[0].trim();
+    }
+    return 'New Character';
+  }
+
+  private generateRandomColor(): string {
+    const colors = [
+      '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
+      '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#6366f1'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  editCharacter(entry: any): void {
+    // The character manager is already visible in the same tab
+    // Clicking edit will just bring user's attention to the character list above
+    // where they can see and manage the character
+  }
+
+  // Emoji management methods
   addEmoji(emoji: string): void {
     if (!this.selectedSentence) return;
     if (!this.selectedSentence) return;

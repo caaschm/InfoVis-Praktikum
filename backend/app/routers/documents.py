@@ -248,6 +248,7 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         # Parse character references and emojis from JSON
         character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
         emojis = json.loads(sentence.emojis) if sentence.emojis else []
+        emoji_mappings = json.loads(sentence.emoji_mappings) if sentence.emoji_mappings else None
         
         sentence_responses.append(schemas.SentenceBase(
             id=sentence.id,
@@ -255,7 +256,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             index=sentence.index,
             text=sentence.text,
             emojis=emojis,
-            character_refs=character_refs
+            character_refs=character_refs,
+            emoji_mappings=emoji_mappings
         ))
     
     # Get all characters for this document (SINGLE SOURCE OF TRUTH)
@@ -272,6 +274,7 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             color=c.color,
             aliases=json.loads(c.aliases) if c.aliases else [],
             description=c.description,
+            word_phrases=json.loads(c.word_phrases) if c.word_phrases and c.word_phrases != 'null' else [],
             created_at=c.created_at
         ) for c in characters
     ]
@@ -285,3 +288,48 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         sentences=sentence_responses,
         characters=character_responses
     )
+
+
+@router.post("/{document_id}/merge-emojis")
+def merge_emojis(
+    document_id: str,
+    request: schemas.MergeEmojisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Merge two emojis - replace all occurrences of source_emoji with target_emoji
+    across all sentences in the document.
+    """
+    # Verify document exists
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get all sentences in this document
+    sentences = db.query(models.Sentence).filter(
+        models.Sentence.document_id == document_id
+    ).all()
+    
+    updated_count = 0
+    
+    for sentence in sentences:
+        emojis = json.loads(sentence.emojis) if sentence.emojis else []
+        
+        # Replace source emoji with target emoji
+        if request.source_emoji in emojis:
+            # Remove source emoji
+            emojis = [e for e in emojis if e != request.source_emoji]
+            # Add target emoji if not already present
+            if request.target_emoji not in emojis:
+                emojis.append(request.target_emoji)
+            
+            sentence.emojis = json.dumps(emojis)
+            updated_count += 1
+    
+    db.commit()
+    
+    return {
+        "status": "success",
+        "message": f"Merged {request.source_emoji} into {request.target_emoji}",
+        "sentences_updated": updated_count
+    }

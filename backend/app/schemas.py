@@ -38,6 +38,7 @@ class SentenceBase(BaseModel):
     text: str
     emojis: list[str] = Field(default_factory=list)  # Raw emoji strings (unstructured)
     character_refs: list[str] = Field(default_factory=list)  # Character IDs (structured)
+    emoji_mappings: Optional[dict[str, list[str]]] = None  # Maps emoji to words/phrases it represents
 
 
 class DocumentDetail(BaseModel):
@@ -72,6 +73,7 @@ class SentenceResponse(BaseModel):
     text: str
     emojis: list[str]
     character_refs: list[str]
+    emoji_mappings: Optional[dict[str, list[str]]] = None  # Maps emoji to words/phrases it represents
 
 
 # ========== Character Schemas (SINGLE SOURCE OF TRUTH) ==========
@@ -83,6 +85,7 @@ class CharacterCreate(BaseModel):
     color: str = Field(..., pattern=r'^#[0-9A-Fa-f]{6}$')  # Required hex color
     aliases: Optional[list[str]] = Field(default_factory=list)
     description: Optional[str] = None
+    word_phrases: Optional[list[str]] = Field(default_factory=list)  # Words/phrases this emoji represents
 
 
 class CharacterUpdate(BaseModel):
@@ -92,6 +95,7 @@ class CharacterUpdate(BaseModel):
     color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$')
     aliases: Optional[list[str]] = None
     description: Optional[str] = None
+    word_phrases: Optional[list[str]] = None  # Update words/phrases this emoji represents
 
 
 class CharacterResponse(BaseModel):
@@ -105,6 +109,7 @@ class CharacterResponse(BaseModel):
     color: str
     aliases: list[str]
     description: Optional[str] = None
+    word_phrases: list[str]  # Words/phrases this emoji represents
     created_at: datetime
 
 
@@ -112,13 +117,15 @@ class CharacterResponse(BaseModel):
 
 class EmojiDictionaryEntry(BaseModel):
     """Single entry in the emoji dictionary - derived from usage."""
+    model_config = ConfigDict(populate_by_name=True, by_alias=True)
+    
     emoji: str
-    character_name: str
-    character_id: Optional[str] = None  # None for undefined/raw emojis
+    character_name: str = Field(alias='characterName')
+    character_id: Optional[str] = Field(default=None, alias='characterId')
     color: str
-    usage_count: int = 0  # How many times this emoji is used
-    meaning: str = ""  # AI-inferred meaning from context
-    sentence_ids: list[str] = Field(default_factory=list)  # Sentences using this emoji
+    usage_count: int = Field(default=0, alias='usageCount')
+    meaning: str = ""
+    sentence_ids: list[str] = Field(default_factory=list, alias='sentenceIds')
 
 
 class EmojiDictionaryResponse(BaseModel):
@@ -164,6 +171,12 @@ class TextFromCharactersResponse(BaseModel):
     
     sentence_id: Optional[str] = Field(default=None, alias='sentenceId')
     suggested_text: str = Field(alias='suggestedText')
+
+
+class MergeEmojisRequest(BaseModel):
+    """Request to merge two emojis."""
+    source_emoji: str = Field(..., min_length=1)
+    target_emoji: str = Field(..., min_length=1)
 
 
 class SpiderChartAnalysisRequest(BaseModel):

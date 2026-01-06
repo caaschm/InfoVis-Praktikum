@@ -7,7 +7,7 @@
 
         <!-- Right side: Multipurpose panel -->
         <div class="right-panel" *ngIf="sidebarVisible">
-            <app-sidebar [activeTab]="activeTab"></app-sidebar>
+            <app-sidebar [activeTab]="activeTab" (switchTab)="onSwitchTab($event)"></app-sidebar>
         </div>
 
         <!-- Vertical tab buttons strip (far right) -->

@@ -18,13 +18,17 @@ def get_sentence(sentence_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Sentence not found")
     
     character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
+    emojis = json.loads(sentence.emojis) if sentence.emojis else []
+    emoji_mappings = json.loads(sentence.emoji_mappings) if sentence.emoji_mappings else None
     
     return schemas.SentenceResponse(
         id=sentence.id,
         document_id=sentence.document_id,
         index=sentence.index,
         text=sentence.text,
-        character_refs=character_refs
+        emojis=emojis,
+        character_refs=character_refs,
+        emoji_mappings=emoji_mappings
     )
 
 
@@ -71,6 +75,7 @@ def update_sentence(
     
     emojis = json.loads(sentence.emojis) if sentence.emojis else []
     character_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
+    emoji_mappings = json.loads(sentence.emoji_mappings) if sentence.emoji_mappings else None
     
     return schemas.SentenceResponse(
         id=sentence.id,
@@ -78,5 +83,6 @@ def update_sentence(
         index=sentence.index,
         text=sentence.text,
         emojis=emojis,
-        character_refs=character_refs
+        character_refs=character_refs,
+        emoji_mappings=emoji_mappings
     )

@@ -4,15 +4,9 @@
         <button class="sub-tab-btn" [class.active]="activeSubTab === 'sentence'" (click)="activeSubTab = 'sentence'">
             📝 Sentence Emojis
         </button>
-        <button class="sub-tab-btn" [class.active]="activeSubTab === 'words'" (click)="activeSubTab = 'words'">
-            🔤 Word Mappings
-        </button>
         <button class="sub-tab-btn" [class.active]="activeSubTab === 'characters'"
             (click)="activeSubTab = 'characters'">
             👥 Characters
-        </button>
-        <button class="sub-tab-btn" [class.active]="activeSubTab === 'sets'" (click)="activeSubTab = 'sets'">
-            🎨 Emoji Sets
         </button>
     </div>
 
@@ -96,18 +90,8 @@
         </div>
     </div>
 
-    <!-- Word Mappings Content -->
-    <div class="sub-tab-content" *ngIf="activeSubTab === 'words'">
-        <app-word-mapping-manager></app-word-mapping-manager>
-    </div>
-
     <!-- Characters Content -->
     <div class="sub-tab-content" *ngIf="activeSubTab === 'characters'">
         <app-character-manager></app-character-manager>
-    </div>
-
-    <!-- Emoji Sets Content -->
-    <div class="sub-tab-content" *ngIf="activeSubTab === 'sets'">
-        <app-emoji-set-manager></app-emoji-set-manager>
     </div>
 </div>

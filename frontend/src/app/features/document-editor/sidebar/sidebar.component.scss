@@ -1228,6 +1228,28 @@
                 flex-direction: column;
                 gap: 0.75rem;
 
+                .section-header {
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: #6b7280;
+                    margin-top: 0.5rem;
+                    margin-bottom: 0.25rem;
+                    padding-left: 0.5rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+
+                    .hint {
+                        font-size: 0.65rem;
+                        font-weight: 400;
+                        text-transform: none;
+                        color: #9ca3af;
+                        font-style: italic;
+                    }
+                }
+
                 .dictionary-entry {
                     display: flex;
                     align-items: center;
@@ -1239,6 +1261,17 @@
                     border-left: 3px solid;
                     transition: all 0.2s ease;
                     cursor: pointer;
+                    position: relative;
+
+                    &.recurring {
+                        opacity: 0.9;
+                        border-left-color: #999999;
+                        cursor: grab;
+
+                        &:active {
+                            cursor: grabbing;
+                        }
+                    }
 
                     &:hover {
                         background: #f3f4f6;
@@ -1263,17 +1296,112 @@
                             font-size: 0.95rem;
                         }
 
-                        .usage-description {
+                        .character-description {
                             font-size: 0.8rem;
+                            color: #6b7280;
+                        }
+
+                        .theme-description {
+                            font-size: 0.85rem;
                             color: #4b5563;
-                            font-style: italic;
                         }
 
                         .usage-count {
                             font-size: 0.75rem;
                             color: #9ca3af;
                         }
+
+                        .word-associations {
+                            margin-top: 0.5rem;
+                            
+                            .associations-label {
+                                font-size: 0.7rem;
+                                color: #6b7280;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                                margin-bottom: 0.25rem;
+                            }
+
+                            .phrases-chips {
+                                display: flex;
+                                flex-wrap: wrap;
+                                gap: 0.25rem;
+
+                                .phrase-chip {
+                                    display: inline-block;
+                                    padding: 0.125rem 0.375rem;
+                                    background: #f3f4f6;
+                                    border: 1px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 0.7rem;
+                                    color: #374151;
+                                }
+                            }
+                        }
                     }
+
+                    .promote-btn {
+                        flex-shrink: 0;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 1.1rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        opacity: 0;
+
+                        &:hover {
+                            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+                            transform: scale(1.1);
+                            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                        }
+
+                        &:active {
+                            transform: scale(0.95);
+                        }
+                    }
+
+                    .edit-btn {
+                        flex-shrink: 0;
+                        width: 32px;
+                        height: 32px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 1rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        opacity: 0;
+
+                        &:hover {
+                            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                            transform: scale(1.1);
+                            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+                        }
+
+                        &:active {
+                            transform: scale(0.95);
+                        }
+                    }
+                }
+
+                // Show buttons on hover
+                .dictionary-entry.recurring:hover .promote-btn {
+                    opacity: 1;
+                }
+
+                .dictionary-entry.character:hover .edit-btn {
+                    opacity: 1;
                 }
 
                 .no-entries {
