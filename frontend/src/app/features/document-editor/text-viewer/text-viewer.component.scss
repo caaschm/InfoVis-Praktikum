@@ -196,7 +196,8 @@
         }
     }
 
-    .sentence-inline {
+    .sentence-inline,
+    .sentence-wrapper {
         position: relative;
         cursor: pointer;
         transition: background-color 0.2s ease;
@@ -213,8 +214,44 @@
             background-color: rgba(229, 231, 235, 0.3);
         }
 
+        // Highlight overlay layer (positioned behind editable text)
+        .highlight-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
+            font-size: 1.05rem;
+            line-height: 2;
+            color: transparent;
+            z-index: 0;
+
+            .character-highlight {
+                border-radius: 4px;
+                padding: 10px 6px;
+                margin: 3px -6px;
+                transition: all 0.2s ease;
+
+                &.active {
+                    opacity: 0.25;
+                    box-shadow: 0 0 0 2px currentColor;
+                }
+            }
+        }
+
+        // Editable text layer (on top of highlight)
         .sentence-text {
+            position: relative;
             outline: none;
+            display: inline;
+            background: transparent;
+            z-index: 1;
+            color: #24292e;
 
             &:focus {
                 background-color: rgba(251, 191, 36, 0.1);

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
 import { ApiService } from '../../../core/services/api.service';
+import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
 import { Character, DocumentDetail, CharacterCreate } from '../../../core/models/document.model';
 
 @Component({
@@ -43,7 +44,8 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
 
     constructor(
         private documentService: DocumentService,
-        private apiService: ApiService
+        private apiService: ApiService,
+        private characterHighlightService: CharacterHighlightService
     ) { }
 
     ngOnInit(): void {
@@ -135,11 +137,19 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
         }
     }
 
-    private resetForm(): void {
+    resetForm(): void {
         this.newName = '';
         this.newEmoji = '';
         this.newAliases = '';
         this.newDescription = '';
         this.newColor = '#FF5733';
+    }
+
+    onCharacterHover(characterId: string): void {
+        this.characterHighlightService.setHoveredCharacter(characterId);
+    }
+
+    onCharacterLeave(): void {
+        this.characterHighlightService.clearHoveredCharacter();
     }
 }

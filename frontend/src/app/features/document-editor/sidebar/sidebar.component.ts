@@ -217,6 +217,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // Use emojis from response (works for both free and structured generation)
         const emojis = response.emojis || [];
 
+        // Update sentence with suggested emojis
         this.documentService.updateSentenceEmojis(
           this.selectedSentence!.id,
           emojis

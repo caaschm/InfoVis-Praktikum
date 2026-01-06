@@ -10,10 +10,8 @@
                     <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
                 </label>
             </div>
-            <button class="ai-highlight-btn" 
-                    [class.active]="showAiHighlight" 
-                    (click)="toggleAiHighlight()"
-                    title="Highlight AI-generated sentences">
+            <button class="ai-highlight-btn" [class.active]="showAiHighlight" (click)="toggleAiHighlight()"
+                title="Highlight AI-generated sentences">
                 <span class="ai-icon">🤖</span>
             </button>
         </div>
@@ -28,28 +26,39 @@
             <span *ngFor="let sentence of sentences; let isLast = last" class="sentence-inline"
                 [class.selected]="isSelected(sentence.id)"
                 [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
-                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight"
-                (click)="onSentenceClick(sentence)">
+                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight" (click)="onSentenceClick(sentence)">
+                <!-- Background highlight layer (non-interactive) -->
+                <span class="highlight-overlay" aria-hidden="true">
+                    <ng-container *ngFor="let segment of getTextSegments(sentence.text)">
+                        <span *ngIf="segment.character" class="character-highlight"
+                            [class.active]="hoveredCharacterId === segment.character.id"
+                            [style.background-color]="hoveredCharacterId === segment.character.id ? segment.character.color : 'transparent'"
+                            [attr.title]="segment.character.emoji + ' ' + segment.character.name">{{ segment.text
+                            }}</span><ng-container *ngIf="!segment.character">{{ segment.text }}</ng-container>
+                    </ng-container>
+                </span>
+                <!-- Editable text layer (on top) -->
                 <span class="sentence-text" contenteditable="true"
                     (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                     (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                     [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span><span class="emoji-tooltip"
-                    *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>{{ isLast ? '' : ' ' }}
+                    *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>{{ isLast ? ''
+                : ' ' }}
             </span>
         </div>
     </div>
 
     <!-- Emoji-Only View -->
     <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
-         [class.ai-highlight-mode]="showAiHighlight">
+        [class.ai-highlight-mode]="showAiHighlight">
         <div class="emoji-content">
             <span *ngFor="let sentence of sentences; let i = index" class="emoji-sentence"
                 [class.selected]="isSelected(sentence.id)"
                 [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
-                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight"
-                (click)="onSentenceClick(sentence)"
+                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight" (click)="onSentenceClick(sentence)"
                 [attr.title]="sentence.text">
-                <span class="emoji-group" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
+                <span class="emoji-group" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || ''
+                    }}</span>
                 <span class="emoji-group empty" *ngIf="(sentence.emojis.length || 0) === 0">📝</span>
                 <span class="emoji-dot">•</span>
                 <div class="sentence-tooltip">{{ sentence.text }}</div>

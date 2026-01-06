@@ -5,13 +5,15 @@
 ### Backend Consolidation (COMPLETE)
 
 #### Removed/Deprecated
+
 - ❌ `emoji_tags` table - literal emoji storage
 - ❌ `word_emoji_mappings` table - word-to-emoji mappings  
 - ❌ `custom_emoji_sets` table - emoji collections
 - ❌ `character_definitions` table - old character model
 - ❌ `emoji_mappings` router - deprecated endpoints
 
-####  Added/Updated
+#### Added/Updated
+
 - ✅ `characters` table - **SINGLE SOURCE OF TRUTH**
   - `id`, `document_id`, `name`, `emoji`, `color` (required), `aliases`, `description`
 - ✅ `sentences.character_refs` - JSON array of character IDs instead of literal emojis
@@ -19,6 +21,7 @@
 - ✅ `/api/documents/{id}/characters/emoji-dictionary` - Auto-derived emoji dictionary
 
 #### Database Migration
+
 ```bash
 ✅ Migrated 3 existing character definitions
 ✅ Added character_refs column to sentences  
@@ -28,13 +31,15 @@
 ### Frontend Models (COMPLETE)
 
 #### Updated Interfaces
+
 - ✅ `Sentence` - now has `characterRefs: string[]` instead of `emojis: string[]`
 - ✅ `Character` - simplified from `CharacterDefinition`, `color` is required
 - ✅ `DocumentDetail` - only includes `sentences` and `characters`
 - ✅ `EmojiDictionary` - new read-only view of emoji usage
 - ✅ AI interfaces updated to use `Character` objects
 
-####  Removed Interfaces
+#### Removed Interfaces
+
 - ❌ `WordEmojiMapping` and related CRUD interfaces
 - ❌ `CustomEmojiSet` and related CRUD interfaces
 - ❌ Old `EmojiSuggestionRequest/Response`
@@ -81,12 +86,14 @@
 ### Reactive Rendering
 
 **Before (Static):**
+
 ```
 Text: "The hero is brave 👑"
 (emoji stored as literal character in text)
 ```
 
 **After (Semantic):**
+
 ```
 Text: "The hero is brave"
 character_refs: ["hero_id"]
@@ -106,6 +113,7 @@ Character {id: "hero_id", name: "Hero", emoji: "👑", color: "#FF5733"}
    - Add character management methods
 
 2. **Delete deprecated components**
+
    ```
    ❌ word-mapping-manager/
    ❌ emoji-set-manager/
@@ -130,25 +138,25 @@ Character {id: "hero_id", name: "Hero", emoji: "👑", color: "#FF5733"}
 
 ### Medium Priority
 
-6. **Implement highlighting in editor**
+1. **Implement highlighting in editor**
    - Detect character names/aliases in text
    - Apply color highlighting based on character.color
    - Show emoji on hover or inline
 
-7. **Update AI service**
+2. **Update AI service**
    - Remove `generateEmojisFromText` (old literal emoji generation)
-   - Add `suggestCharacters(text, availableCharacters)` 
+   - Add `suggestCharacters(text, availableCharacters)`
    - Update text generation to use character context
 
 ### Low Priority
 
-8. **Emoji dictionary component**
+1. **Emoji dictionary component**
    - Read-only view
    - Fetches from `/api/documents/{id}/characters/emoji-dictionary`
    - Shows: emoji, character name, color swatch, usage count
    - Sortable by usage
 
-9. **Character mention auto-detection**
+2. **Character mention auto-detection**
    - As user types, detect character names/aliases
    - Auto-add to `characterRefs`
    - Visual indicator when character is mentioned
@@ -156,6 +164,7 @@ Character {id: "hero_id", name: "Hero", emoji: "👑", color: "#FF5733"}
 ## 🔧 API Endpoints (Current State)
 
 ### Characters (SINGLE SOURCE)
+
 ```
 POST   /api/documents/{id}/characters          Create character
 GET    /api/documents/{id}/characters          List all characters
@@ -166,17 +175,20 @@ GET    /api/documents/{id}/characters/emoji-dictionary Read-only emoji usage
 ```
 
 ### Sentences
+
 ```
 GET    /api/sentences/{id}      Returns character_refs
 PATCH  /api/sentences/{id}      Updates character_refs
 ```
 
 ### Documents
+
 ```
 GET    /api/documents/{id}      Returns DocumentDetail with characters
 ```
 
 ### Deprecated (To Remove from Frontend)
+
 ```
 ❌ /api/documents/{id}/word-mappings/*
 ❌ /api/documents/{id}/custom-emoji-sets/*
@@ -186,6 +198,7 @@ GET    /api/documents/{id}      Returns DocumentDetail with characters
 ## 🚀 Next Steps
 
 1. **Run Backend**
+
    ```bash
    cd backend
    ./run_backend.sh
