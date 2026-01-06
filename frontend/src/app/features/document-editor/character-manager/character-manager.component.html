@@ -56,10 +56,8 @@
 
     <!-- Characters list -->
     <div class="characters-list" *ngIf="characters.length > 0">
-        <div *ngFor="let character of characters" class="character-card" 
-             [style.border-left-color]="character.color"
-             (mouseenter)="onCharacterHover(character.id)"
-             (mouseleave)="onCharacterLeave()">
+        <div *ngFor="let character of characters" class="character-card" [style.border-left-color]="character.color"
+            (mouseenter)="onCharacterHover(character.id)" (mouseleave)="onCharacterLeave()">
             <div class="character-header">
                 <span class="character-emoji">{{ character.emoji }}</span>
                 <div class="character-info">

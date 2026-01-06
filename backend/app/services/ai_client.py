@@ -114,16 +114,23 @@ async def generate_emojis_for_sentence(text: str, word_mappings: Optional[Dict[s
     if mapped_chars:
         character_context = f"\n\nIMPORTANT - MUST include these emojis:\n" + "\n".join(mapped_chars)
     
-    prompt = f"""Analyze this sentence and suggest 3-5 emojis that capture its meaning.
+    prompt = f"""You are a creative storytelling assistant. Analyze this sentence and suggest 3-5 emojis that best represent it.
 
-🎯 PRIORITY: Characters and nouns (people, creatures, objects) are MOST important!
-Always include emojis for any characters/creatures mentioned.
+RULES:
+1. CHARACTERS FIRST: Any person, creature, or animal mentioned MUST get an emoji (🦁 for lion, 👸 for princess, etc.)
+2. KEY OBJECTS: Important objects in the sentence (🏰 castle, ⚔️ sword, 👑 crown)
+3. EMOTIONS/ACTIONS: Main emotion or action if space allows (😱 scared, ⚔️ fighting, ✨ magic)
+4. Use LITERAL emojis - if text says "lion", use 🦁 not 🐾
+5. Return ONLY the emojis separated by spaces, no text or explanations
 
 Sentence: "{text}"
 {character_context}
 
-Respond with ONLY emojis separated by spaces. No text, no explanations.
-Example: 🦸 ⚔️ 🐉 (hero fighting dragon)"""
+Examples:
+"A brave hero fights a dragon" → 🦸 ⚔️ 🐉
+"The princess lives in a castle" → 👸 🏰
+"A scary lion appears suddenly" → 🦁 😱
+"Magic filled the air" → ✨ 💨"""
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -254,6 +261,12 @@ def _keyword_based_emoji_selection(text: str) -> list[str]:
         emojis.append('👑')
     if any(word in text_lower for word in ['dragon', 'monster', 'beast']):
         emojis.append('🐉')
+    if any(word in text_lower for word in ['lion', 'tiger', 'leopard']):
+        emojis.append('🦁')
+    if any(word in text_lower for word in ['wolf', 'wolves']):
+        emojis.append('🐺')
+    if any(word in text_lower for word in ['bear']):
+        emojis.append('🐻')
     if any(word in text_lower for word in ['castle', 'palace', 'tower']):
         emojis.append('🏰')
     if any(word in text_lower for word in ['book', 'read', 'story', 'tale', 'write']):

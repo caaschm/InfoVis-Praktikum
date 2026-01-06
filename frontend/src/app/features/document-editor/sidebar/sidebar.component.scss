@@ -1236,11 +1236,15 @@
                     background: #f9fafb;
                     border-radius: 8px;
                     border: 1px solid #e5e7eb;
-                    transition: all 0.2s;
+                    border-left: 3px solid;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
 
                     &:hover {
                         background: #f3f4f6;
                         border-color: #d1d5db;
+                        transform: translateX(4px);
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                     }
 
                     .emoji-icon {
@@ -1259,9 +1263,15 @@
                             font-size: 0.95rem;
                         }
 
-                        .usage-count {
+                        .usage-description {
                             font-size: 0.8rem;
-                            color: #6b7280;
+                            color: #4b5563;
+                            font-style: italic;
+                        }
+
+                        .usage-count {
+                            font-size: 0.75rem;
+                            color: #9ca3af;
                         }
                     }
                 }

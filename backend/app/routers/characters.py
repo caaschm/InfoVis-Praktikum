@@ -10,6 +10,47 @@ from app import models, schemas
 router = APIRouter(prefix="/api/documents/{document_id}/characters", tags=["characters"])
 
 
+def _infer_emoji_meaning(emoji: str, contexts: list[str]) -> str:
+    """
+    Infer what an emoji represents based on the contexts where it's used.
+    Uses simple keyword analysis (could be enhanced with real AI later).
+    """
+    if not contexts:
+        return "No usage context available"
+    
+    # Simple heuristic-based analysis
+    # Combine all contexts
+    combined_text = " ".join(contexts).lower()
+    
+    # Common emoji meanings based on typical usage patterns
+    emoji_hints = {
+        "⚡": ["conflict", "tension", "fight", "battle", "sudden", "shock"],
+        "🌟": ["achievement", "success", "magic", "special", "important"],
+        "💔": ["sad", "heartbreak", "loss", "grief", "pain"],
+        "🔥": ["intense", "passion", "anger", "hot", "burning"],
+        "🌊": ["flow", "emotion", "overwhelming", "water", "deep"],
+        "🎭": ["pretend", "act", "fake", "mask", "performance"],
+        "💎": ["valuable", "treasure", "precious", "rare"],
+        "🗡️": ["weapon", "fight", "combat", "war", "battle"],
+        "🏰": ["castle", "fortress", "palace", "royal", "kingdom"],
+        "🌙": ["night", "dark", "dream", "sleep", "mysterious"],
+        "☀️": ["day", "bright", "hope", "warm", "light"],
+        "🌈": ["hope", "promise", "beauty", "after storm", "peace"],
+    }
+    
+    # Check if any hints match
+    if emoji in emoji_hints:
+        for hint in emoji_hints[emoji]:
+            if hint in combined_text:
+                return f"Represents {hint} in the story"
+    
+    # Default: describe based on frequency and context length
+    if len(contexts) == 1:
+        return f"Used in: \"{contexts[0][:50]}...\""
+    else:
+        return f"Used {len(contexts)} times throughout the story"
+
+
 @router.post("/", response_model=schemas.CharacterResponse, status_code=status.HTTP_201_CREATED)
 def create_character(
     document_id: str,
@@ -111,15 +152,21 @@ def get_emoji_dictionary(
         models.Sentence.document_id == document_id
     ).all()
     
-    # Count character references (structured)
+    # Count character references (structured) and track sentences
     usage_counts = {}
+    character_sentences = {}  # Track which sentences use each character
     for sentence in sentences:
         char_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
         for char_id in char_refs:
             usage_counts[char_id] = usage_counts.get(char_id, 0) + 1
+            if char_id not in character_sentences:
+                character_sentences[char_id] = []
+            character_sentences[char_id].append(sentence.id)
     
-    # Count raw emoji usage (unstructured)
+    # Count raw emoji usage (unstructured) and track sentences
     raw_emoji_counts = {}
+    raw_emoji_sentences = {}  # Track which sentences use each raw emoji
+    raw_emoji_contexts = {}  # Track sentence texts for AI analysis
     for sentence in sentences:
         emojis = json.loads(sentence.emojis) if sentence.emojis else []
         for emoji in emojis:
@@ -127,28 +174,42 @@ def get_emoji_dictionary(
             is_character_emoji = any(c.emoji == emoji for c in characters)
             if not is_character_emoji:
                 raw_emoji_counts[emoji] = raw_emoji_counts.get(emoji, 0) + 1
+                if emoji not in raw_emoji_sentences:
+                    raw_emoji_sentences[emoji] = []
+                    raw_emoji_contexts[emoji] = []
+                raw_emoji_sentences[emoji].append(sentence.id)
+                raw_emoji_contexts[emoji].append(sentence.text)
     
     # Build dictionary entries
     entries = []
     
     # Add character-based emojis (structured)
     for c in characters:
+        meaning = f"Represents {c.name}" + (f": {c.description}" if c.description else "")
         entries.append(schemas.EmojiDictionaryEntry(
             emoji=c.emoji,
             character_name=c.name,
             character_id=c.id,
             color=c.color,
-            usage_count=usage_counts.get(c.id, 0)
+            usage_count=usage_counts.get(c.id, 0),
+            meaning=meaning,
+            sentence_ids=character_sentences.get(c.id, [])
         ))
     
-    # Add raw emojis (unstructured) - infer meaning from context
+    # Add raw emojis (unstructured) - analyze meaning from context
     for emoji, count in raw_emoji_counts.items():
+        # Analyze contexts to infer meaning
+        contexts = raw_emoji_contexts.get(emoji, [])
+        meaning = _infer_emoji_meaning(emoji, contexts)
+        
         entries.append(schemas.EmojiDictionaryEntry(
             emoji=emoji,
-            character_name=f"Undefined ({emoji})",  # Placeholder name
-            character_id=None,  # No character definition yet
+            character_name=f"Unassigned",
+            character_id=None,
             color="#999999",  # Gray for undefined
-            usage_count=count
+            usage_count=count,
+            meaning=meaning,
+            sentence_ids=raw_emoji_sentences.get(emoji, [])
         ))
     
     return schemas.EmojiDictionaryResponse(

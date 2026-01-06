@@ -6,14 +6,7 @@ import re
 
 from app.database import get_db
 from app import models, schemas
-from app.services.ai_client import (
-    generate_emojis_for_sentence, 
-    generate_text_from_emojis,
-    get_character_emoji_mappings,
-    clear_character_emoji_mappings,
-    analyze_spider_chart_values,
-    generate_spider_intent,
-)
+from app.services import ai_client
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -53,7 +46,19 @@ async def generate_emojis_freely(
     if not sentence:
         raise HTTPException(status_code=404, detail="Sentence not found")
     
-    # If characters are defined, use character-based suggestion
+    # Get document to access existing characters
+    document = db.query(models.Document).filter(
+        models.Document.id == sentence.document_id
+    ).first()
+    
+    # Load all existing characters for this document
+    all_characters = []
+    if document:
+        all_characters = db.query(models.Character).filter(
+            models.Character.document_id == document.id
+        ).all()
+    
+    # If characters are defined in request, use character-based suggestion
     if request.characters and len(request.characters) > 0:
         return await suggest_characters_for_text(request, db)
     
@@ -67,43 +72,36 @@ async def generate_emojis_freely(
     # Filter out common function words
     meaningful_words = [w for w in words if w not in IGNORE_WORDS]
     
-    # Simple emoji mapping (placeholder for AI)
-    emoji_map = {
-        'princess': '👸',
-        'prince': '🤴',
-        'king': '🤴',
-        'queen': '👸',
-        'dragon': '🐉',
-        'knight': '⚔️',
-        'castle': '🏰',
-        'forest': '🌲',
-        'magic': '✨',
-        'sword': '⚔️',
-        'crown': '👑',
-        'horse': '🐴',
-        'love': '❤️',
-        'happy': '😊',
-        'sad': '😢',
-        'angry': '😠',
-        'surprised': '😲'
-    }
+    # STEP 1: Check if any existing characters are mentioned in this sentence
+    character_refs = []
+    character_word_mappings = {}
     
-    # Generate emoji "characters" for meaningful words
-    suggested_emojis = []
-    for word in meaningful_words[:5]:  # Limit to 5 emojis
-        emoji = emoji_map.get(word, '⭐')  # Default to star
-        if emoji not in suggested_emojis:
-            suggested_emojis.append(emoji)
+    for char in all_characters:
+        char_name_lower = char.name.lower()
+        
+        # Check if character name appears as a whole word in text
+        if re.search(r'\b' + re.escape(char_name_lower) + r'\b', text_lower):
+            character_word_mappings[char_name_lower] = char.emoji
+            if char.id not in character_refs:
+                character_refs.append(char.id)
+    
+    # STEP 2: Use AI to generate emojis for the sentence
+    # Pass character mappings so AI knows to use specific emojis for defined characters
+    suggested_emojis = await ai_client.generate_emojis_for_sentence(
+        text=request.text,
+        word_mappings=character_word_mappings
+    )
     
     # Save emojis to sentence
     sentence.emojis = json.dumps(suggested_emojis)
+    sentence.character_refs = json.dumps(character_refs)
     db.commit()
     
-    # Return raw emojis (no character refs yet)
+    # Return emojis with character refs if any matched
     return schemas.CharacterSuggestionResponse(
         sentence_id=request.sentence_id,
         emojis=suggested_emojis,
-        character_refs=[]
+        character_refs=character_refs
     )
 
 
@@ -118,7 +116,7 @@ async def suggest_characters_for_text(
     - If characters are defined: Uses them for structured generation
     - If no characters: Generates emojis freely based on semantic content
     
-    TODO: Implement AI-powered detection.
+    Uses AI to generate contextual emojis.
     """
     # Verify sentence exists
     sentence = db.query(models.Sentence).filter(
@@ -128,197 +126,43 @@ async def suggest_characters_for_text(
     if not sentence:
         raise HTTPException(status_code=404, detail="Sentence not found")
     
-    # If no characters defined, generate freely
+    # If no characters defined, delegate to generate-emojis endpoint
     if not request.characters or len(request.characters) == 0:
-        # Free generation mode
-        text_lower = request.text.lower()
-        words = re.findall(r'\b\w+\b', text_lower)
-        
-        # Filter out common function words
-        meaningful_words = [w for w in words if w not in IGNORE_WORDS]
-        
-        # Simple emoji mapping (placeholder for AI)
-        emoji_map = {
-            'princess': '👸',
-            'prince': '🤴',
-            'king': '🤴',
-            'queen': '👸',
-            'dragon': '🐉',
-            'knight': '⚔️',
-            'castle': '🏰',
-            'forest': '🌲',
-            'magic': '✨',
-            'sword': '⚔️',
-            'crown': '👑',
-            'horse': '🐴',
-            'love': '❤️',
-            'happy': '😊',
-            'sad': '😢',
-            'angry': '😠',
-            'surprised': '😲'
-        }
-        
-        # Generate emojis for meaningful words
-        suggested_emojis = []
-        for word in meaningful_words[:5]:  # Limit to 5 emojis
-            emoji = emoji_map.get(word, '⭐')  # Default to star
-            if emoji not in suggested_emojis:
-                suggested_emojis.append(emoji)
-        
-        # Save emojis to sentence
-        sentence.emojis = json.dumps(suggested_emojis)
-        sentence.character_refs = json.dumps([])
-        db.commit()
-        
-        return schemas.CharacterSuggestionResponse(
-            sentence_id=request.sentence_id,
-            emojis=suggested_emojis,
-            character_refs=[]
-        )
+        return await generate_emojis_freely(request, db)
     
-    # Character-based generation mode (HYBRID: characters + free emojis)
+    # Character-based generation mode (HYBRID: characters + AI-generated emojis)
     text_lower = request.text.lower()
-    words = re.findall(r'\b\w+\b', text_lower)
-    meaningful_words = [w for w in words if w not in IGNORE_WORDS]
     
     suggested_refs = []
-    suggested_emojis = []
-    matched_words = set()  # Track words already covered by characters
+    character_word_mappings = {}
+    matched_character_names = set()
     
-    # First pass: Match characters
+    # First pass: Match characters by name/aliases
     for character in request.characters:
-        # Check if character name or any alias appears in text
+        # Check if character name appears as whole word in text
         name_lower = character['name'].lower()
-        if name_lower in text_lower:
+        if re.search(r'\b' + re.escape(name_lower) + r'\b', text_lower):
             suggested_refs.append(character['id'])
-            suggested_emojis.append(character['emoji'])
-            matched_words.add(name_lower)
+            character_word_mappings[name_lower] = character['emoji']
+            matched_character_names.add(name_lower)
             continue
         
+        # Check aliases
         for alias in character.get('aliases', []):
             alias_lower = alias.lower()
-            if alias_lower in text_lower:
+            if re.search(r'\b' + re.escape(alias_lower) + r'\b', text_lower):
                 suggested_refs.append(character['id'])
-                suggested_emojis.append(character['emoji'])
-                matched_words.add(alias_lower)
+                character_word_mappings[alias_lower] = character['emoji']
+                matched_character_names.add(name_lower)
                 break
     
-    # Second pass: Generate free emojis for unmatched words
-    emoji_map = {
-        'journey': '🗺️',
-        'embarks': '🚶',
-        'adventure': '⚔️',
-        'quest': '🎯',
-        'princess': '👸',
-        'prince': '🤴',
-        'king': '🤴',
-        'queen': '👸',
-        'dragon': '🐉',
-        'knight': '⚔️',
-        'castle': '🏰',
-        'forest': '🌲',
-        'magic': '✨',
-        'sword': '⚔️',
-        'crown': '👑',
-        'horse': '🐴',
-        'love': '❤️',
-        'happy': '😊',
-        'sad': '😢',
-        'angry': '😠',
-        'surprised': '😲',
-        'tree': '🌳',
-        'mountain': '⛰️',
-        'river': '🌊',
-        'sun': '☀️',
-        'moon': '🌙',
-        'star': '⭐',
-        'fire': '🔥',
-        'water': '💧',
-        'wind': '💨',
-        'earth': '🌍',
-        'village': '🏘️',
-        'town': '🏙️',
-        'city': '🏙️',
-        'home': '🏠',
-        'house': '🏠',
-        'door': '🚪',
-        'window': '🪟',
-        'treasure': '💎',
-        'gold': '🪙',
-        'silver': '🥈',
-        'weapon': '⚔️',
-        'shield': '🛡️',
-        'armor': '🛡️',
-        'battle': '⚔️',
-        'fight': '🥊',
-        'war': '⚔️',
-        'peace': '☮️',
-        'friend': '👫',
-        'enemy': '👿',
-        'hero': '🦸',
-        'villain': '🦹',
-        'witch': '🧙',
-        'wizard': '🧙',
-        'monster': '👹',
-        'beast': '🐻',
-        'bird': '🐦',
-        'fish': '🐟',
-        'dog': '🐕',
-        'cat': '🐈',
-        'food': '🍔',
-        'drink': '🥤',
-        'book': '📖',
-        'letter': '✉️',
-        'message': '💌',
-        'secret': '🤫',
-        'mystery': '🔍',
-        'danger': '⚠️',
-        'warning': '⚠️',
-        'death': '💀',
-        'life': '🌱',
-        'birth': '👶',
-        'child': '👶',
-        'old': '👴',
-        'young': '👦',
-        'beautiful': '✨',
-        'ugly': '👹',
-        'strong': '💪',
-        'weak': '🤕',
-        'brave': '🦁',
-        'afraid': '😨',
-        'dark': '🌑',
-        'light': '💡',
-        'night': '🌃',
-        'day': '🌅',
-        'morning': '🌄',
-        'evening': '🌆'
-    }
+    # Use AI to generate emojis, passing character mappings so AI respects them
+    suggested_emojis = await ai_client.generate_emojis_for_sentence(
+        text=request.text,
+        word_mappings=character_word_mappings
+    )
     
-    for word in meaningful_words:
-        if word not in matched_words and word in emoji_map:
-            emoji = emoji_map[word]
-            if emoji not in suggested_emojis:
-                suggested_emojis.append(emoji)
-    
-    # Fallback: If no emojis generated and there are meaningful words, add a generic emoji
-    if len(suggested_emojis) == 0 and len(meaningful_words) > 0:
-        suggested_emojis.append('⭐')  # Generic placeholder
-    
-    # PRESERVE EXISTING: Merge with existing emojis (non-destructive)
-    existing_emojis = json.loads(sentence.emojis) if sentence.emojis else []
-    existing_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
-    
-    # Merge: Add new emojis to existing ones (no duplicates)
-    for emoji in existing_emojis:
-        if emoji not in suggested_emojis:
-            suggested_emojis.insert(0, emoji)  # Preserve order
-    
-    # Merge: Add new character refs to existing ones
-    for ref in existing_refs:
-        if ref not in suggested_refs:
-            suggested_refs.insert(0, ref)
-    
-    # Save merged results
+    # Save results to sentence
     sentence.emojis = json.dumps(suggested_emojis)
     sentence.character_refs = json.dumps(suggested_refs)
     db.commit()

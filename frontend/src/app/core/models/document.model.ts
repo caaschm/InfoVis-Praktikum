@@ -70,9 +70,11 @@ export interface CharacterUpdate {
 export interface EmojiDictionaryEntry {
     emoji: string;
     characterName: string;
-    characterId: string;
+    characterId: string | null;
     color: string;
     usageCount: number;
+    meaning: string;
+    sentenceIds: string[];
 }
 
 export interface EmojiDictionary {

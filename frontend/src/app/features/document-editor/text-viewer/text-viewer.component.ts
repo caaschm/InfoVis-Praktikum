@@ -18,6 +18,8 @@ export class TextViewerComponent implements OnInit, OnDestroy {
   characters: Character[] = [];
   selectedSentenceId: string | null = null;
   hoveredCharacterId: string | null = null;
+  hoveredSentenceIds: string[] = [];
+  highlightColor: string = '#999999';
   viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
   showAiHighlight: boolean = false; // Toggle for AI highlight mode
   private aiGeneratedSentenceIds = new Set<string>(); // Track AI-generated sentences
@@ -69,6 +71,20 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(characterId => {
         this.hoveredCharacterId = characterId;
+      });
+
+    // Subscribe to hovered sentence IDs for emoji dictionary highlighting
+    this.characterHighlightService.hoveredSentenceIds$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(sentenceIds => {
+        this.hoveredSentenceIds = sentenceIds;
+      });
+
+    // Subscribe to highlight color
+    this.characterHighlightService.highlightColor$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(color => {
+        this.highlightColor = color;
       });
 
     // Subscribe to AI tracking updates
@@ -162,10 +178,12 @@ export class TextViewerComponent implements OnInit, OnDestroy {
    * Find character mentions in a sentence and return segments with character info
    */
   getTextSegments(sentenceText: string): Array<{ text: string, character: Character | null }> {
-    if (!this.characters || this.characters.length === 0) {
+    getTextSegments(sentenceText: string): Array < { text: string, character: Character | null } > {
+      if(!this.characters || this.characters.length === 0) {
       return [{ text: sentenceText, character: null }];
     }
 
+    const segments: Array<{ text: string, character: Character | null }> = [];
     const segments: Array<{ text: string, character: Character | null }> = [];
     let remainingText = sentenceText;
     let lastIndex = 0;
@@ -173,13 +191,17 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     // Build a list of all character matches with their positions
     const matches: Array<{ start: number, end: number, character: Character }> = [];
 
+    const matches: Array<{ start: number, end: number, character: Character }> = [];
+
     for (const character of this.characters) {
       // Check name and all aliases
       const searchTerms = [character.name, ...character.aliases];
 
+
       for (const term of searchTerms) {
         const regex = new RegExp(`\\b${term}\\b`, 'gi');
         let match;
+
 
         while ((match = regex.exec(sentenceText)) !== null) {
           matches.push({
@@ -196,81 +218,87 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     // Remove overlapping matches (keep first occurrence)
     const filteredMatches: Array<{ start: number, end: number, character: Character }> = [];
+    const filteredMatches: Array<{ start: number, end: number, character: Character }> = [];
     for (const match of matches) {
+      const overlaps = filteredMatches.some(existing =>
       const overlaps = filteredMatches.some(existing =>
         (match.start >= existing.start && match.start < existing.end) ||
         (match.end > existing.start && match.end <= existing.end)
       );
-      if (!overlaps) {
-        filteredMatches.push(match);
+        if (!overlaps) {
+          filteredMatches.push(match);
+        }
       }
-    }
 
     // Build segments from matches
     if (filteredMatches.length === 0) {
-      return [{ text: sentenceText, character: null }];
-    }
+        return [{ text: sentenceText, character: null }];
+        return [{ text: sentenceText, character: null }];
+      }
 
-    filteredMatches.forEach((match, index) => {
-      // Add text before match
-      if (match.start > lastIndex) {
+      filteredMatches.forEach((match, index) => {
+        // Add text before match
+        if (match.start > lastIndex) {
+          segments.push({
+            text: sentenceText.substring(lastIndex, match.start),
+            character: null
+          });
+        }
+
+
+        // Add matched text with character
         segments.push({
-          text: sentenceText.substring(lastIndex, match.start),
+          text: sentenceText.substring(match.start, match.end),
+          character: match.character
+        });
+
+
+        lastIndex = match.end;
+      });
+
+      // Add remaining text
+      if (lastIndex < sentenceText.length) {
+        segments.push({
+          text: sentenceText.substring(lastIndex),
           character: null
         });
       }
 
-      // Add matched text with character
-      segments.push({
-        text: sentenceText.substring(match.start, match.end),
-        character: match.character
+      return segments;
+    }
+
+    /**
+     * Check if a sentence contains mentions of a specific character
+     */
+    sentenceHasCharacter(sentence: Sentence, characterId: string | null): boolean {
+      if (!characterId || !this.characters) {
+        return false;
+      }
+
+      const character = this.characters.find(c => c.id === characterId);
+      if (!character) {
+        return false;
+      }
+
+      const searchTerms = [character.name, ...character.aliases];
+      const text = sentence.text.toLowerCase();
+
+
+      return searchTerms.some(term => {
+        const regex = new RegExp(`\\b${term.toLowerCase()}\\b`);
+        return regex.test(text);
       });
-
-      lastIndex = match.end;
-    });
-
-    // Add remaining text
-    if (lastIndex < sentenceText.length) {
-      segments.push({
-        text: sentenceText.substring(lastIndex),
-        character: null
-      });
     }
 
-    return segments;
+    /**
+     * Get the color of the hovered character if sentence contains it
+     */
+    getCharacterColor(sentence: Sentence, characterId: string | null): string {
+      if (!characterId || !this.characters) {
+        return '';
+      }
+
+      const character = this.characters.find(c => c.id === characterId);
+      return character?.color || '';
+    }
   }
-
-  /**
-   * Check if a sentence contains mentions of a specific character
-   */
-  sentenceHasCharacter(sentence: Sentence, characterId: string | null): boolean {
-    if (!characterId || !this.characters) {
-      return false;
-    }
-
-    const character = this.characters.find(c => c.id === characterId);
-    if (!character) {
-      return false;
-    }
-
-    const searchTerms = [character.name, ...character.aliases];
-    const text = sentence.text.toLowerCase();
-
-    return searchTerms.some(term => {
-      const regex = new RegExp(`\\b${term.toLowerCase()}\\b`);
-      return regex.test(text);
-    });
-  }
-
-  /**
-   * Get the color of the hovered character if sentence contains it
-   */
-  getCharacterColor(sentence: Sentence, characterId: string | null): string {
-    if (!characterId || !this.characters) {
-      return '';
-    }
-
-    const character = this.characters.find(c => c.id === characterId);
-    return character?.color || '';
-  }
-}

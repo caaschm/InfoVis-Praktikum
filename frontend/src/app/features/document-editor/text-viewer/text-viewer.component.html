@@ -25,11 +25,18 @@
         <div class="text-content" [class.ai-highlight-mode]="showAiHighlight">
             <span *ngFor="let sentence of sentences; let isLast = last" class="sentence-inline"
                 [class.selected]="isSelected(sentence.id)"
+                [class.hovered-sentence]="hoveredSentenceIds.includes(sentence.id)"
+                [style.background-color]="hoveredSentenceIds.includes(sentence.id) ? (highlightColor + '40') : 'transparent'"
                 [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
                 [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight" (click)="onSentenceClick(sentence)">
                 <!-- Background highlight layer (non-interactive) -->
                 <span class="highlight-overlay" aria-hidden="true">
                     <ng-container *ngFor="let segment of getTextSegments(sentence.text)">
+                        <span *ngIf="segment.character" class="character-highlight"
+                            [class.active]="hoveredCharacterId === segment.character.id"
+                            [style.background-color]="hoveredCharacterId === segment.character.id ? segment.character.color : 'transparent'"
+                            [attr.title]="segment.character.emoji + ' ' + segment.character.name">{{ segment.text
+                            }}</span><ng-container *ngIf="!segment.character">{{ segment.text }}</ng-container>
                         <span *ngIf="segment.character" class="character-highlight"
                             [class.active]="hoveredCharacterId === segment.character.id"
                             [style.background-color]="hoveredCharacterId === segment.character.id ? segment.character.color : 'transparent'"

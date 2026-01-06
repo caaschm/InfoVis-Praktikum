@@ -13,9 +13,10 @@ import { Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
-import { AiTrackingService } from '../../../core/services/ai-tracking.service';
-import { Sentence, EmojiDictionary, DocumentDetail } from '../../../core/models/document.model';
+import { Sentence } from '../../../core/models/document.model';
+// import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
+import { EmojiSetManagerComponent } from '../emoji-set-manager/emoji-set-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
 
@@ -23,8 +24,11 @@ type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
   selector: 'app-sidebar',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
-    CharacterManagerComponent
+    CommonModule,
+    WordMappingManagerComponent,
+    FormsModule
+    CharacterManagerComponent,
+    EmojiSetManagerComponent
   ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
@@ -64,21 +68,18 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   selectedSentence: Sentence | null = null;
-  emojiDictionary: EmojiDictionary | null = null;
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
 
   private destroy$ = new Subject<void>();
 
-  // Character panel
-  showCharacterPanel = true; // Always show by default
-
   // Enhanced emoji feature panels
   showWordMappingPanel = false;
   showCharacterPanel = false;
   showEmojiSetPanel = false;
 
+  // Emoji management
   maxEmojis = 5;
   commonEmojis = [
     '😀', '😊', '😢', '😱', '😡', '😍', '🤔', '😴',
@@ -149,15 +150,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
       .subscribe(({ dimension, current, baseline }) => {
         this.fetchIntentSuggestions(dimension, current, baseline);
       });
-
-    // Subscribe to current document and load emoji dictionary
-    this.documentService.currentDocument$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((doc: DocumentDetail | null) => {
-        if (doc) {
-          this.loadEmojiDictionary(doc.id);
-        }
-      });
   }
 
   ngOnDestroy(): void {
@@ -165,19 +157,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private loadEmojiDictionary(documentId: string): void {
-    this.documentService.getEmojiDictionary(documentId).subscribe({
-      next: (dictionary) => {
-        this.emojiDictionary = dictionary;
-      },
-      error: (err) => console.error('Error loading emoji dictionary:', err)
-    });
-  }
-
   // ================= EMOJI LOGIK =================
 
   addEmoji(emoji: string): void {
-    if (!this.selectedSentence || !this.selectedSentence.emojis) return;
+    if (!this.selectedSentence) return;
+    if (!this.selectedSentence) return;
     if (this.selectedSentence.emojis.length >= this.maxEmojis) return;
 
     const newEmojis = [...this.selectedSentence.emojis, emoji];
@@ -185,14 +169,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   removeEmoji(index: number): void {
-    if (!this.selectedSentence || !this.selectedSentence.emojis) return;
+    if (!this.selectedSentence) return;
 
-    const newEmojis = this.selectedSentence.emojis.filter((_, i: number) => i !== index);
+    const newEmojis = this.selectedSentence.emojis.filter((_, i) => i !== index);
     this.documentService.updateSentenceEmojis(this.selectedSentence.id, newEmojis);
   }
 
   canAddMore(): boolean {
-    return this.selectedSentence && this.selectedSentence.emojis ? this.selectedSentence.emojis.length < this.maxEmojis : false;
+    return this.selectedSentence ? this.selectedSentence.emojis.length < this.maxEmojis : false;
   }
 
   generateEmojis(): void {
@@ -201,82 +185,69 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
-    // Use character array if available (optional - works without characters too)
-    const characters = doc.characters || [];
-
     this.isGenerating = true;
 
-    // Use character suggestion endpoint (works with or without predefined characters)
-    this.aiService.suggestCharacters({
-      documentId: doc.id,
-      sentenceId: this.selectedSentence.id,
-      text: this.selectedSentence.text,
-      characters: characters
-    }).subscribe({
-      next: (response) => {
-        // Use emojis from response (works for both free and structured generation)
-        const emojis = response.emojis || [];
-
-        // Update sentence with suggested emojis
-        this.documentService.updateSentenceEmojis(
-          this.selectedSentence!.id,
-          emojis
-        );
-        this.isGenerating = false;
-
-        // Reload dictionary to update usage counts
-        this.loadEmojiDictionary(doc.id);
-      },
-      error: (err) => {
-        console.error('Error generating character suggestions:', err);
-        this.isGenerating = false;
-      }
-    });
-  }
-
-  generateEmojisForAll(): void {
-    const editableElements = document.querySelectorAll('[contenteditable="true"]');
-    editableElements.forEach(el => {
-      if (el instanceof HTMLElement) el.blur();
-    });
-
-    setTimeout(() => {
-      const doc = this.documentService.getCurrentDocument();
-      if (!doc || !doc.sentences || doc.sentences.length === 0) return;
-
-      // Use character array if available (optional)
-      const characters = doc.characters || [];
-
-      this.isGeneratingEmojisForAll = true;
-      let processedCount = 0;
-      const totalSentences = doc.sentences.length;
-
-      this.processEmojisForAllSentences(doc, characters, processedCount, totalSentences);
-    }, 150);
-  }
-
-  private processEmojisForAllSentences(doc: any, characters: any[], processedCount: number, totalSentences: number): void {
-    // Process each sentence one by one
-    doc.sentences.forEach((sentence: Sentence, index: number) => {
-      this.aiService.suggestCharacters({
+    this.aiService.generateEmojisFromText({
+      this.aiService.generateEmojisFromText({
         documentId: doc.id,
-        sentenceId: sentence.id,
-        text: sentence.text,
-        characters: characters
+        sentenceId: this.selectedSentence.id,
+        text: this.selectedSentence.text
       }).subscribe({
         next: (response) => {
-          // Use emojis from response
-          const emojis = response.emojis || [];
-          this.documentService.updateSentenceEmojis(sentence.id, emojis);
+          // Update sentence with suggested emojis
+          this.documentService.updateSentenceEmojis(
+            this.selectedSentence!.id,
+            response.emojis
+          response.emojis
+          );
+          this.isGenerating = false;
+        },
+        error: (err) => {
+          console.error('Error generating emojis:', err);
+          console.error('Error generating emojis:', err);
+          this.isGenerating = false;
+        }
+      });
+    }
+
+  generateEmojisForAll(): void {
+      const editableElements = document.querySelectorAll('[contenteditable="true"]');
+      editableElements.forEach(el => {
+        if (el instanceof HTMLElement) el.blur();
+      });
+
+      setTimeout(() => {
+        const doc = this.documentService.getCurrentDocument();
+        if(!doc || !doc.sentences || doc.sentences.length === 0) return;
+
+    this.isGenerating = true;
+    let processedCount = 0;
+    const totalSentences = doc.sentences.length;
+
+    this.processEmojisForAllSentences(doc, processedCount, totalSentences);
+  }, 150);
+}
+
+  private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
+  // Process each sentence one by one
+  doc.sentences.forEach((sentence: Sentence, index: number) => {
+    this.aiService.generateEmojisFromText({
+      this.aiService.generateEmojisFromText({
+        documentId: doc.id,
+        sentenceId: sentence.id,
+        text: sentence.text
+      }).subscribe({
+        next: (response) => {
+          // Update sentence with suggested emojis
+          this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
           processedCount++;
           if (processedCount === totalSentences) {
             this.isGenerating = false;
-            // Reload dictionary to update usage counts
-            this.loadEmojiDictionary(doc.id);
           }
         },
         error: (err) => {
-          console.error(`Error generating characters for sentence ${index + 1}:`, err);
+          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
+          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
           processedCount++;
           if (processedCount === totalSentences) {
             this.isGeneratingEmojisForAll = false;
@@ -287,31 +258,20 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   generateTextFromEmojis(): void {
-    if (!this.selectedSentence || !this.selectedSentence.emojis || this.selectedSentence.emojis.length === 0) return;
+    if(!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
+  if(!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
 
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
+  const doc = this.documentService.getCurrentDocument();
+  if(!doc) return;
 
-    // Ensure characters array exists
-    const characters = doc.characters || [];
-    if (characters.length === 0) {
-      console.warn('No characters defined yet.');
-      return;
-    }
+  this.isGenerating = true;
 
-    this.isGenerating = true;
-
-    // Find character IDs from emojis
-    const characterIds = this.selectedSentence.emojis.map(emoji => {
-      const char = characters.find(c => c.emoji === emoji);
-      return char ? char.id : null;
-    }).filter(id => id !== null) as string[];
-
-    this.aiService.generateTextFromCharacters({
+  this.aiService.generateTextFromEmojis({
+    this.aiService.generateTextFromEmojis({
       documentId: doc.id,
       sentenceId: this.selectedSentence.id,
-      characterIds: characterIds,
-      characters: characters
+      emojis: this.selectedSentence.emojis
+      emojis: this.selectedSentence.emojis
     }).subscribe({
       next: (response) => {
         this.lastSuggestion = response.suggestedText;
@@ -325,231 +285,231 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   applySuggestion(): void {
-    if (!this.lastSuggestion || !this.selectedSentence) return;
+    if(!this.lastSuggestion || !this.selectedSentence) return;
 
-    // Mark sentence as AI-generated when applying AI suggestion (by ID and text)
-    this.aiTrackingService.markAsAiGenerated(
-      this.selectedSentence.id,
-      this.lastSuggestion
-    );
+  // Mark sentence as AI-generated when applying AI suggestion (by ID and text)
+  this.aiTrackingService.markAsAiGenerated(
+    this.selectedSentence.id,
+    this.lastSuggestion
+  );
 
-    this.documentService.updateSentenceText(
-      this.selectedSentence.id,
-      this.lastSuggestion
-    );
-    this.lastSuggestion = null;
+  this.documentService.updateSentenceText(
+    this.selectedSentence.id,
+    this.lastSuggestion
+  );
+  this.lastSuggestion = null;
+}
+
+// Enhanced emoji feature panel toggles
+showWordMappings(): void {
+  this.showWordMappingPanel = !this.showWordMappingPanel;
+  if(this.showWordMappingPanel) {
+  this.showCharacterPanel = false;
+  this.showEmojiSetPanel = false;
+}
   }
 
-  // Enhanced emoji feature panel toggles
-  showWordMappings(): void {
-    this.showWordMappingPanel = !this.showWordMappingPanel;
-    if (this.showWordMappingPanel) {
-      this.showCharacterPanel = false;
-      this.showEmojiSetPanel = false;
-    }
+showCharacters(): void {
+  this.showCharacterPanel = !this.showCharacterPanel;
+  if(this.showCharacterPanel) {
+  this.showWordMappingPanel = false;
+  this.showEmojiSetPanel = false;
+}
   }
 
-  showCharacters(): void {
-    this.showCharacterPanel = !this.showCharacterPanel;
-    if (this.showCharacterPanel) {
-      this.showWordMappingPanel = false;
-      this.showEmojiSetPanel = false;
-    }
+showEmojiSets(): void {
+  this.showEmojiSetPanel = !this.showEmojiSetPanel;
+  if(this.showEmojiSetPanel) {
+  this.showWordMappingPanel = false;
+  this.showCharacterPanel = false;
+}
   }
 
-  showEmojiSets(): void {
-    this.showEmojiSetPanel = !this.showEmojiSetPanel;
-    if (this.showEmojiSetPanel) {
-      this.showWordMappingPanel = false;
-      this.showCharacterPanel = false;
+applyPreviewText(): void {
+  if(!this.intentPreview) return;
+
+  // Check if text was already applied
+  if(this.textApplied) {
+  return;
+}
+
+const doc = this.documentService.getCurrentDocument();
+if (!doc) return;
+
+// Get current document content
+const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
+
+// Append the preview text to the document
+const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+
+// Update the document content
+this.documentService.updateDocumentContent(doc.id, newContent);
+
+// Mark as applied
+this.textApplied = true;
+
+// Note: New sentences created from preview text will be marked as AI-generated
+// when the document is updated and sentences are re-parsed.
+// We'll mark them after the document update completes.
+setTimeout(() => {
+  const updatedDoc = this.documentService.getCurrentDocument();
+  if (updatedDoc) {
+    // Mark the last sentence(s) as AI-generated (the newly added preview text)
+    const newSentenceCount = updatedDoc.sentences.length - doc.sentences.length;
+    if (newSentenceCount > 0) {
+      const newSentences = updatedDoc.sentences.slice(-newSentenceCount);
+      newSentences.forEach(sentence => {
+        // Mark by both ID and text so it persists across re-parses
+        this.aiTrackingService.markAsAiGenerated(sentence.id, sentence.text);
+      });
     }
   }
-
-  applyPreviewText(): void {
-    if (!this.intentPreview) return;
-
-    // Check if text was already applied
-    if (this.textApplied) {
-      return;
-    }
-
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
-
-    // Get current document content
-    const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
-
-    // Append the preview text to the document
-    const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
-
-    // Update the document content
-    this.documentService.updateDocumentContent(doc.id, newContent);
-
-    // Mark as applied
-    this.textApplied = true;
-
-    // Note: New sentences created from preview text will be marked as AI-generated
-    // when the document is updated and sentences are re-parsed.
-    // We'll mark them after the document update completes.
-    setTimeout(() => {
-      const updatedDoc = this.documentService.getCurrentDocument();
-      if (updatedDoc) {
-        // Mark the last sentence(s) as AI-generated (the newly added preview text)
-        const newSentenceCount = updatedDoc.sentences.length - doc.sentences.length;
-        if (newSentenceCount > 0) {
-          const newSentences = updatedDoc.sentences.slice(-newSentenceCount);
-          newSentences.forEach(sentence => {
-            // Mark by both ID and text so it persists across re-parses
-            this.aiTrackingService.markAsAiGenerated(sentence.id, sentence.text);
-          });
-        }
-      }
-    }, 500);
+}, 500);
   }
 
   // ========== SPIDER SHAPE ==========
   private valueToPointXY(value: number, angleDeg: number) {
-    const r = (value / 100) * this.maxRadius;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    return {
-      x: this.centerX + r * Math.cos(angleRad),
-      y: this.centerY + r * Math.sin(angleRad)
-    };
-  }
+  const r = (value / 100) * this.maxRadius;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  return {
+    x: this.centerX + r * Math.cos(angleRad),
+    y: this.centerY + r * Math.sin(angleRad)
+  };
+}
 
-  get dramaPoint() { return this.valueToPointXY(this.drama, -90); }
-  get humorPoint() { return this.valueToPointXY(this.humor, 0); }
-  get conflictPoint() { return this.valueToPointXY(this.conflict, 90); }
+  get dramaPoint()   { return this.valueToPointXY(this.drama, -90); }
+  get humorPoint()   { return this.valueToPointXY(this.humor, 0); }
+  get conflictPoint(){ return this.valueToPointXY(this.conflict, 90); }
   get mysteryPoint() { return this.valueToPointXY(this.mystery, 180); }
 
   get spiderPoints(): string {
-    return [
-      this.dramaPoint,
-      this.humorPoint,
-      this.conflictPoint,
-      this.mysteryPoint
-    ].map(p => `${p.x},${p.y}`).join(', ');
-  }
+  return [
+    this.dramaPoint,
+    this.humorPoint,
+    this.conflictPoint,
+    this.mysteryPoint
+  ].map(p => `${p.x},${p.y}`).join(', ');
+}
 
-  // ========== AI ANALYSIS ==========
-  analyzeDocument(): void {
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
+// ========== AI ANALYSIS ==========
+analyzeDocument(): void {
+  const doc = this.documentService.getCurrentDocument();
+  if(!doc) return;
 
-    const fullText = doc.sentences.map(s => s.text).join(' ').trim();
-    if (!fullText) return;
+  const fullText = doc.sentences.map(s => s.text).join(' ').trim();
+  if(!fullText) return;
 
-    this.isAnalyzing = true;
-    this.aiService.analyzeSpiderChart({
-      documentId: doc.id,
-      text: fullText
-    }).subscribe({
-      next: (response) => {
-        this.drama = response.drama;
-        this.humor = response.humor;
-        this.conflict = response.conflict;
-        this.mystery = response.mystery;
+  this.isAnalyzing = true;
+  this.aiService.analyzeSpiderChart({
+    documentId: doc.id,
+    text: fullText
+  }).subscribe({
+    next: (response) => {
+      this.drama = response.drama;
+      this.humor = response.humor;
+      this.conflict = response.conflict;
+      this.mystery = response.mystery;
 
-        this.aiBaseline = { ...response } as Record<Dimension, number>;
-        this.isAnalyzing = false;
+      this.aiBaseline = { ...response } as Record<Dimension, number>;
+      this.isAnalyzing = false;
 
-        const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
-        this.lastAnalyzedTextHash = textHash;
-        this.lastAnalyzedDocumentId = doc.id;
-      },
-      error: () => {
-        this.lastAnalysisError = 'Failed to analyze text';
-        this.isAnalyzing = false;
-      }
-    });
-  }
-
-  // ========== DRAG HANDLE ==========
-  startDrag(handle: Dimension, e: MouseEvent) {
-    e.stopPropagation();
-    this.draggingHandle = handle;
-  }
-
-  @HostListener('window:mouseup')
-  stopDrag() { this.draggingHandle = null; }
-
-  @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
-    if (!this.draggingHandle || !this.spiderSvg) return;
-
-    const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 200;
-    const y = ((event.clientY - rect.top) / rect.height) * 200;
-
-    const dx = x - this.centerX;
-    const dy = y - this.centerY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
-
-    // Wert setzen
-    (this as any)[this.draggingHandle] = value;
-
-    // Intent-Panel triggern
-    this.onSliderChange(this.draggingHandle);
-  }
-
-  // ========== INTENT PANEL LOGIK ==========
-  onSliderChange(dimension: Dimension): void {
-    const current = (this as any)[dimension] as number;
-    const baseline = this.aiBaseline[dimension];
-    const delta = Math.abs(current - baseline);
-
-    if (delta < 5) {
-      this.intentSummary = null;
-      this.intentIdeas = [];
-      this.intentPreview = null;
-      this.intentLoading = false;
-      this.textApplied = false; // Reset when suggestions are cleared
-      return;
+      const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
+      this.lastAnalyzedTextHash = textHash;
+      this.lastAnalyzedDocumentId = doc.id;
+    },
+    error: () => {
+      this.lastAnalysisError = 'Failed to analyze text';
+      this.isAnalyzing = false;
     }
+  });
+}
 
-    this.textApplied = false; // Reset when new suggestions are being fetched
-    this.sliderChangeSubject.next({ dimension, current, baseline });
-  }
+// ========== DRAG HANDLE ==========
+startDrag(handle: Dimension, e: MouseEvent) {
+  e.stopPropagation();
+  this.draggingHandle = handle;
+}
 
-  private fetchIntentSuggestions(
-    dimension: Dimension,
-    current: number,
-    baseline: number
-  ): void {
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
+@HostListener('window:mouseup')
+stopDrag() { this.draggingHandle = null; }
 
-    const text = doc.sentences.map(s => s.text).join(' ').trim();
-    if (!text) return;
+@HostListener('window:mousemove', ['$event'])
+onMouseMove(event: MouseEvent) {
+  if (!this.draggingHandle || !this.spiderSvg) return;
 
-    this.intentLoading = true;
-    this.intentSummary = 'Analyzing intent...';
+  const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 200;
+  const y = ((event.clientY - rect.top) / rect.height) * 200;
+
+  const dx = x - this.centerX;
+  const dy = y - this.centerY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
+
+  // Wert setzen
+  (this as any)[this.draggingHandle] = value;
+
+  // Intent-Panel triggern
+  this.onSliderChange(this.draggingHandle);
+}
+
+// ========== INTENT PANEL LOGIK ==========
+onSliderChange(dimension: Dimension): void {
+  const current = (this as any)[dimension] as number;
+  const baseline = this.aiBaseline[dimension];
+  const delta = Math.abs(current - baseline);
+
+  if(delta < 5) {
+    this.intentSummary = null;
     this.intentIdeas = [];
     this.intentPreview = null;
-    this.textApplied = false; // Reset when new suggestions are generated
-
-    this.aiService.getSpiderIntent({
-      documentId: doc.id,
-      text,
-      dimension,
-      currentValue: current,
-      baselineValue: baseline
-    }).subscribe({
-      next: (res) => {
-        this.intentSummary = res.summary;
-        this.intentIdeas = res.ideas;
-        this.intentPreview = res.preview;
-        this.intentLoading = false;
-      },
-      error: (err) => {
-        console.error('Error fetching intent suggestions:', err);
-        this.intentSummary = 'Unable to generate suggestions at this time.';
-        this.intentIdeas = ['Please try again in a moment.'];
-        this.intentPreview = null;
-        this.intentLoading = false;
-      }
-    });
+    this.intentLoading = false;
+    this.textApplied = false; // Reset when suggestions are cleared
+    return;
   }
+
+    this.textApplied = false; // Reset when new suggestions are being fetched
+  this.sliderChangeSubject.next({ dimension, current, baseline });
+}
+
+  private fetchIntentSuggestions(
+  dimension: Dimension,
+  current: number,
+  baseline: number
+): void {
+  const doc = this.documentService.getCurrentDocument();
+  if(!doc) return;
+
+  const text = doc.sentences.map(s => s.text).join(' ').trim();
+  if(!text) return;
+
+  this.intentLoading = true;
+  this.intentSummary = 'Analyzing intent...';
+  this.intentIdeas = [];
+  this.intentPreview = null;
+  this.textApplied = false; // Reset when new suggestions are generated
+
+  this.aiService.getSpiderIntent({
+    documentId: doc.id,
+    text,
+    dimension,
+    currentValue: current,
+    baselineValue: baseline
+  }).subscribe({
+    next: (res) => {
+      this.intentSummary = res.summary;
+      this.intentIdeas = res.ideas;
+      this.intentPreview = res.preview;
+      this.intentLoading = false;
+    },
+    error: (err) => {
+      console.error('Error fetching intent suggestions:', err);
+      this.intentSummary = 'Unable to generate suggestions at this time.';
+      this.intentIdeas = ['Please try again in a moment.'];
+      this.intentPreview = null;
+      this.intentLoading = false;
+    }
+  });
+}
 }

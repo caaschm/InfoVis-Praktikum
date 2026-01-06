@@ -117,6 +117,8 @@ class EmojiDictionaryEntry(BaseModel):
     character_id: Optional[str] = None  # None for undefined/raw emojis
     color: str
     usage_count: int = 0  # How many times this emoji is used
+    meaning: str = ""  # AI-inferred meaning from context
+    sentence_ids: list[str] = Field(default_factory=list)  # Sentences using this emoji
 
 
 class EmojiDictionaryResponse(BaseModel):

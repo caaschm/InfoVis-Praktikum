@@ -210,6 +210,13 @@
             box-shadow: 0 0 0 3px rgba(255, 237, 179, 0.4);
         }
 
+        &.hovered-sentence {
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+            transition: background-color 0.2s ease;
+        }
+
         &:hover {
             background-color: rgba(229, 231, 235, 0.3);
         }

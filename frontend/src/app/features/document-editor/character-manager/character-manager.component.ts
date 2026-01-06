@@ -146,10 +146,13 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
     }
 
     onCharacterHover(characterId: string): void {
-        this.characterHighlightService.setHoveredCharacter(characterId);
+        const character = this.characters.find(c => c.id === characterId);
+        if (character) {
+            this.characterHighlightService.setHoveredCharacter(characterId, character.color);
+        }
     }
 
     onCharacterLeave(): void {
-        this.characterHighlightService.clearHoveredCharacter();
+        this.characterHighlightService.clearHover();
     }
 }
