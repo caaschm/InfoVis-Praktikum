@@ -77,7 +77,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   storyBeats: Beat[] = [];
   storyArcPath = '';
   arcLoading = false;
-  arcGranularity = 20;
+  arcGranularity = 5; // Anzahl der Punkte im Story Arc
   sentenceClassifications: SentenceClassification[] = [];
 
   @Input()
@@ -1105,7 +1105,10 @@ ngOnDestroy(): void {
   // ========== STORY ARC LOGIC ==========
 
   onBeatClick(b: any): void {
-    if (b.sentence_index == null) return;
+    console.log('Beat clicked', b);
+    if (typeof b.sentence_index !== 'number') {
+      return; // no sentence mapped, therefore nothing to highlight
+    }
     this.selectSentenceByIndex(b.sentence_index);
   }
 
@@ -1142,25 +1145,10 @@ ngOnDestroy(): void {
 
         // Map story arc / beats to sentence indices and story stages
         try {
-          if (res.sentence_classifications && res.sentence_classifications.length > 0) {
-            this.applySentenceClassifications(res.sentence_classifications);
-          } else {
-            // Fallback: infer stages by index/position
-            this.assignSentencesToStages(doc);
-          }
+          this.applySentenceClassifications(res.sentence_classifications ?? []);
         } catch (e) {
           console.error('Error assigning sentences to stages:', e);
         }
-
-        this.storyBeats.forEach(b => {
-          if (b.sentence_index == null && this.currentDocument) {
-            const N = this.currentDocument.sentences.length;
-            // Map Position 0..1 auf Satzindex
-            const idx = Math.round((b.position ?? 0) * (N - 1));
-            b.sentence_index = idx;
-          }
-        });
-
 
         this.arcLoading = false;
         console.log('Fetched story arc:', this.storyArc);
@@ -1195,83 +1183,33 @@ ngOnDestroy(): void {
       return d;
   }
 
-  // Helperfunctions to calculate Beat-Position in SVG (for Template)
-  assignSentencesToStages(doc: any): void {
-    // Reset stage sentence indices
+  applySentenceClassifications(
+    classifications: { index: number; stage: string }[]
+  ): void {
     this.storyStages.forEach(stage => stage.sentenceIndices = []);
-    if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+    if (!classifications.length) return;
 
-    const N = doc.sentences.length;
-
-    // Assign each sentence to a stage based on its normalized index position
-    doc.sentences.forEach((s: Sentence) => {
-      const idx = typeof s.index === 'number' ? s.index : doc.sentences.indexOf(s);
-      const posNormalized = N > 1 ? idx / (N - 1) : 0;
-      const stageIndex = Math.min(this.storyStages.length - 1, Math.floor(posNormalized * this.storyStages.length));
-      this.storyStages[stageIndex].sentenceIndices.push(idx);
-    });
-
-    // Also map AI beats to nearest sentence indices and ensure they are included in stages
-    this.storyBeats.forEach(b => {
-      const beatIdx = Math.round((b.position ?? 0) * (N - 1));
-      const stageIndex = Math.min(this.storyStages.length - 1, Math.floor((beatIdx / Math.max(1, N - 1)) * this.storyStages.length));
-      if (!this.storyStages[stageIndex].sentenceIndices.includes(beatIdx)) {
-        this.storyStages[stageIndex].sentenceIndices.push(beatIdx);
-      }
-    });
-
-    // Sort indices for each stage
-    this.storyStages.forEach(stage => stage.sentenceIndices.sort((a, b) => a - b));
-  }
-
-  applySentenceClassifications(classifications: { index: number; stage: string }[]): void {
-    // Reset
-    this.storyStages.forEach(stage => stage.sentenceIndices = []);
-    if (!classifications || classifications.length === 0) return;
-
-    // Map stage name to stage index in storyStages
     const stageNameToIndex: Record<string, number> = {};
     this.storyStages.forEach((s, i) => stageNameToIndex[s.name] = i);
 
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
     classifications.forEach(c => {
-      const sIdx = stageNameToIndex[c.stage] ?? -1;
-      if (sIdx >= 0) {
-        // Ensure sentence index exists in document
-        const doc = this.documentService.getCurrentDocument();
-        if (!doc) return;
-        const exists = doc.sentences.some(ss => ss.index === c.index);
-        if (exists && !this.storyStages[sIdx].sentenceIndices.includes(c.index)) {
-          this.storyStages[sIdx].sentenceIndices.push(c.index);
-        }
+      const stageIdx = stageNameToIndex[c.stage];
+      if (stageIdx === undefined) return;
+
+      const exists = doc.sentences.some(s => s.index === c.index);
+      if (exists && !this.storyStages[stageIdx].sentenceIndices.includes(c.index)) {
+        this.storyStages[stageIdx].sentenceIndices.push(c.index);
       }
     });
 
-    // Ensure beats (AI key points) are also included (by sentence_index if provided)
-    if (this.storyBeats && this.storyBeats.length > 0) {
-      this.storyBeats.forEach(b => {
-        const si = (b as any).sentence_index ?? null;
-        if (si !== null && typeof si === 'number') {
-          // Find which stage this sentence is already in, if not present try to map by approximate position
-          let found = false;
-          this.storyStages.forEach(stage => {
-            if (stage.sentenceIndices.includes(si)) found = true;
-          });
-          if (!found) {
-            // Map by position (index / N)
-            const doc = this.documentService.getCurrentDocument();
-            if (!doc) return;
-            const N = doc.sentences.length;
-            const pos = si / Math.max(1, N - 1);
-            const stageIndex = Math.min(this.storyStages.length - 1, Math.floor(pos * this.storyStages.length));
-            this.storyStages[stageIndex].sentenceIndices.push(si);
-          }
-        }
-      });
-    }
-
-    // Sort indices for each stage
-    this.storyStages.forEach(stage => stage.sentenceIndices.sort((a, b) => a - b));
+    this.storyStages.forEach(stage =>
+      stage.sentenceIndices.sort((a, b) => a - b)
+    );
   }
+
 
   sentencePreview(index: number, maxLen = 100): string {
     const doc = this.documentService.getCurrentDocument();

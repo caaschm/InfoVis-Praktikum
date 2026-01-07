@@ -272,148 +272,71 @@ async def spider_intent(
         print("❌ Error generating spider intent:", e)
         raise HTTPException(status_code=500, detail="AI intent generation failed.")
 
+import re
+
+def split_into_sentences(text: str) -> list[str]:
+    # sehr solide Heuristik für DE/EN
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s for s in sentences if s]
+
+#TODO @Caro: Test story arc or revert back
 @router.post("/story-arc", response_model=schemas.StoryArcResponse)
-async def compute_story_arc(
-    request: schemas.StoryArcRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Compute a story arc (array of tension values + key beats) for the provided text.
-    Also classify sentences to stages and aggregate stage tension values.
-    """
+async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depends(get_db)):
+    STAGE_X = {
+        "Exposition": 0.0,
+        "Rising Action": 0.25,
+        "Climax": 0.5,
+        "Falling Action": 0.75,
+        "Denouement": 1.0
+    }
+
+    # 1️⃣ Text laden
     text = request.text
     if request.document_id and not text:
-        document = db.query(models.Document).filter(
-            models.Document.id == request.document_id
-        ).first()
+        document = db.query(models.Document).filter(models.Document.id == request.document_id).first()
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
-        # Minimal fallback: use title + body if available
         text = (document.title or "") + "\n\n" + (document.body or "")
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided for story arc analysis")
 
     granularity = request.granularity or 20
-    stages_order = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
 
-    # 1️⃣ Generate story arc & beats via AI
-    try:
-        result = await generate_story_arc(text=text, granularity=granularity)
-        arc_raw = result.get("arc", [0.5]*granularity)
-        beats = result.get("beats", [])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to compute story arc: {e}")
-
-    # 2️⃣ Load sentences if document_id provided
-    sentences = []
-    if request.document_id:
-        sentences = db.query(models.Sentence).filter(
-            models.Sentence.document_id == request.document_id
-        ).order_by(models.Sentence.index).all()
-
-    N = len(sentences)
-
-    # 3️⃣ Map beats to nearest sentences for clickable notes
-    if sentences and beats:
-        for b in beats:
-            pos = float(b.get("position", 0))
-            si = int(round(pos * (N-1))) if N > 0 else 0
-            si = max(0, min(N-1, si))
-            b["sentence_index"] = si
-            b["sentence_id"] = sentences[si].id if N > 0 else None
-            b["note"] = sentences[si].text if N > 0 else ""
-
-        # Ensure positions are monotonically increasing
-        last_pos = 0.0
-        for b in beats:
-            b["position"] = max(last_pos, b["position"])
-            last_pos = b["position"]
-
-    # 4️⃣ Sentence classification
-    sentence_classifications = []
-    if sentences:
-        try:
-            classifications = await generate_sentence_stage_mapping(text, [s.text for s in sentences])
-        except Exception as e:
-            print("❌ Error classifying sentences:", e)
-            classifications = []
-
-        # Build index -> classification map
-        cls_map = {c["index"]: c for c in classifications if "index" in c}
-
-        DEFAULT_STAGE_VALUES = {
-            "Exposition": 0.15,
-            "Rising Action": 0.35,
-            "Climax": 0.9,
-            "Falling Action": 0.4,
-            "Denouement": 0.2
-        }
-
-        SIGNIFICANT_THRESHOLD = 0.01
+    # 2️⃣ AI-Story Arc & Beats
+    result = await generate_story_arc(text=text, granularity=granularity)
+    beats = result.get("beats", [])
+    arc_vals = result.get("arc", [])
 
 
-        sentence_classifications = []
+    all_sentences = split_into_sentences(text)
+    total_sentences = len(all_sentences)
 
-        for i in range(N):
-            if i in cls_map:
-                item = cls_map[i]
-                stage = item["stage"]
-                val = item.get("value")
-                if val is None:
-                    val = DEFAULT_STAGE_VALUES[stage]
-            else:
-                pos = i / max(1, N - 1)
-                if pos < 0.2:
-                    stage = "Exposition"
-                elif pos < 0.55:
-                    stage = "Rising Action"
-                elif pos < 0.7:
-                    stage = "Climax"
-                elif pos < 0.9:
-                    stage = "Falling Action"
-                else:
-                    stage = "Denouement"
-                val = DEFAULT_STAGE_VALUES[stage]
+    print("Alle Sätze:", total_sentences)
 
-        sentence_classifications.append({
-            "index": i,
-            "stage": stage,
-            "value": float(val),
-            "significant": float(val) >= SIGNIFICANT_THRESHOLD
-        })
-    # 5️⃣ Aggregate per-stage tension values
-    from collections import defaultdict
-    sums, counts = defaultdict(float), defaultdict(int)
-    for c in sentence_classifications:
-        sums[c["stage"]] += c["value"]
-        counts[c["stage"]] += 1
+    # 4️⃣ Beats den Sätzen zuordnen (nur wenn sentence_index existiert)
+    for b in beats:
+        if "sentence_index" in b and b["sentence_index"] is not None:
+            idx = b.get("sentence_index")
+            stage_name = b["name"]
 
-    stage_values = []
-    for stage in stages_order:
-        if counts.get(stage, 0) > 0:
-            stage_values.append({"stage": stage, "value": sums[stage]/counts[stage]})
+            b["position"] = (
+                idx / max(1, total_sentences - 1)
+                if idx is not None else STAGE_X[stage_name]
+            )
+            print(f"✅ Beat '{b['name']}' zugeordnet zu Satzindex {idx} (Position: {b['position']:.2f})")
         else:
-            stage_values.append({"stage": stage, "value": 0.0})
+            b["sentence_id"] = None
+            b["note"] = ""
+            b["position"] = STAGE_X[stage_name]
+            print(f"⚠️ Beat '{b['name']}' has no valid sentence index; using default position.")
 
-    # 6️⃣ Ensure arc is consistent: flat if all stage values = 0
-    stage_curve = [
-        v["value"] for v in stage_values
-    ]
-
-    # simple linear interpolation über Stages → Arc
-    arc_vals = []
-    for i in range(granularity):
-        pos = i / max(1, granularity - 1)
-        f = pos * (len(stage_curve) - 1)
-        lo, hi = int(f), min(int(f) + 1, len(stage_curve) - 1)
-        t = f - lo
-        arc_vals.append((1 - t) * stage_curve[lo] + t * stage_curve[hi])
-
+    # 5️⃣ Stage-Values berechnen (optional, für Arc-Linie)
+    stage_values = [{"stage": b["name"], "value": float(b.get("value", 0.0))} for b in beats]
 
     return schemas.StoryArcResponse(
         arc=arc_vals,
         beats=beats,
-        sentence_classifications=sentence_classifications,
+        sentence_classifications=[],  # nicht mehr nötig
         stage_values=stage_values
     )
