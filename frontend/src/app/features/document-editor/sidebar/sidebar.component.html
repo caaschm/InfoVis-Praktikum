@@ -104,7 +104,7 @@
                         (click)="removeEmoji(i)" title="Click to remove">
                         <span class="emoji">{{ emoji }}</span>
                     </div>
-                    <div *ngFor="let _ of [].constructor(maxEmojis - (selectedSentence.emojis?.length || 0))"
+                    <div *ngFor="let _ of [].constructor(maxEmojis - (selectedSentence.emojis.length || 0))"
                         class="emoji-slot empty">
                         <span class="placeholder">+</span>
                     </div>
