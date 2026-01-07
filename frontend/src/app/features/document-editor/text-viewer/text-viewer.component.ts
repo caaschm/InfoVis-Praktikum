@@ -38,22 +38,8 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(doc => {
         if (doc) {
-          const previousSentences = this.sentences;
           this.sentences = doc.sentences;
           this.characters = doc.characters || [];
-
-          // If sentences changed (re-parsed), sync AI status by text matching
-          if (previousSentences.length > 0 &&
-            (previousSentences.length !== doc.sentences.length ||
-              previousSentences.some((s, i) => s.id !== doc.sentences[i]?.id))) {
-            // Document was re-parsed, sync AI status by matching text
-            this.aiTrackingService.syncSentenceIds(
-              doc.sentences.map(s => ({ id: s.id, text: s.text }))
-            );
-          }
-
-          // Sync AI-generated sentence IDs
-          this.aiGeneratedSentenceIds = this.aiTrackingService.getAllAiGeneratedIds();
         }
       });
 
@@ -78,13 +64,6 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(color => {
         this.highlightColor = color;
-      });
-
-    // Subscribe to AI tracking updates
-    this.aiTrackingService.aiGenerated$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(ids => {
-        this.aiGeneratedSentenceIds = ids;
       });
   }
 
@@ -167,34 +146,35 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     this.viewMode = this.viewMode === 'text' ? 'emoji' : 'text';
   }
 
+  toggleAiHighlight(): void {
+    this.showAiHighlight = !this.showAiHighlight;
+  }
+
+  isAiGenerated(sentenceId: string): boolean {
+    return this.aiGeneratedSentenceIds.has(sentenceId);
+  }
+
   /**
    * Find character mentions in a sentence and return segments with character info
    */
   getTextSegments(sentenceText: string): Array<{ text: string, character: Character | null }> {
-    getTextSegments(sentenceText: string): Array < { text: string, character: Character | null } > {
-      if(!this.characters || this.characters.length === 0) {
+    if (!this.characters || this.characters.length === 0) {
       return [{ text: sentenceText, character: null }];
     }
 
     const segments: Array<{ text: string, character: Character | null }> = [];
-    const segments: Array<{ text: string, character: Character | null }> = [];
-    let remainingText = sentenceText;
     let lastIndex = 0;
 
     // Build a list of all character matches with their positions
-    const matches: Array<{ start: number, end: number, character: Character }> = [];
-
     const matches: Array<{ start: number, end: number, character: Character }> = [];
 
     for (const character of this.characters) {
       // Check name and all aliases
       const searchTerms = [character.name, ...character.aliases];
 
-
       for (const term of searchTerms) {
         const regex = new RegExp(`\\b${term}\\b`, 'gi');
         let match;
-
 
         while ((match = regex.exec(sentenceText)) !== null) {
           matches.push({
@@ -211,9 +191,7 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     // Remove overlapping matches (keep first occurrence)
     const filteredMatches: Array<{ start: number, end: number, character: Character }> = [];
-    const filteredMatches: Array<{ start: number, end: number, character: Character }> = [];
     for (const match of matches) {
-      const overlaps = filteredMatches.some(existing =>
       const overlaps = filteredMatches.some(existing =>
         (match.start >= existing.start && match.start < existing.end) ||
         (match.end > existing.start && match.end <= existing.end)
@@ -225,9 +203,8 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     // Build segments from matches
     if (filteredMatches.length === 0) {
-        return [{ text: sentenceText, character: null }];
-        return [{ text: sentenceText, character: null }];
-      }
+      return [{ text: sentenceText, character: null }];
+    }
 
       filteredMatches.forEach((match, index) => {
         // Add text before match
@@ -238,13 +215,11 @@ export class TextViewerComponent implements OnInit, OnDestroy {
           });
         }
 
-
         // Add matched text with character
         segments.push({
           text: sentenceText.substring(match.start, match.end),
           character: match.character
         });
-
 
         lastIndex = match.end;
       });
@@ -291,12 +266,12 @@ export class TextViewerComponent implements OnInit, OnDestroy {
       return sentence.emojis.includes(this.hoveredEmoji);
     }
 
-    /**
-     * Get text segments with word-level highlighting for hovered emoji
-     * Returns array of {text, isHighlighted}
-     */
-    getHighlightedSegments(sentence: Sentence): Array < { text: string, isHighlighted: boolean } > {
-      if(!this.hoveredEmoji) {
+  /**
+   * Get text segments with word-level highlighting for hovered emoji
+   * Returns array of {text, isHighlighted}
+   */
+  getHighlightedSegments(sentence: Sentence): Array<{ text: string, isHighlighted: boolean }> {
+    if (!this.hoveredEmoji) {
       return [{ text: sentence.text, isHighlighted: false }];
     }
 
@@ -325,16 +300,12 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     if (phrases.length === 0) {
       // No mapping available - don't highlight anything
       return [{ text: sentence.text, isHighlighted: false }];
-      return [{ text: sentence.text, isHighlighted: false }];
     }
 
     // Find all phrase occurrences in the text using word boundaries
     const segments: Array<{ text: string, isHighlighted: boolean }> = [];
 
-    const segments: Array<{ text: string, isHighlighted: boolean }> = [];
-
     // Build a list of matches with positions
-    const matches: Array<{ start: number, end: number, phrase: string }> = [];
     const matches: Array<{ start: number, end: number, phrase: string }> = [];
     for (const phrase of phrases) {
       // Use word boundary regex to avoid false matches (e.g., "hero" shouldn't match "heroic")
@@ -353,7 +324,6 @@ export class TextViewerComponent implements OnInit, OnDestroy {
     // Sort matches by position and remove overlaps
     matches.sort((a, b) => a.start - b.start);
     const filteredMatches: Array<{ start: number, end: number }> = [];
-    const filteredMatches: Array<{ start: number, end: number }> = [];
     for (const match of matches) {
       const overlaps = filteredMatches.some(existing =>
         (match.start >= existing.start && match.start < existing.end) ||
@@ -366,7 +336,6 @@ export class TextViewerComponent implements OnInit, OnDestroy {
 
     // Build segments
     if (filteredMatches.length === 0) {
-      return [{ text: sentence.text, isHighlighted: false }];
       return [{ text: sentence.text, isHighlighted: false }];
     }
 

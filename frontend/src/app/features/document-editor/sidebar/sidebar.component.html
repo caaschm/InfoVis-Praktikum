@@ -1,9 +1,88 @@
-<div class="sidebar">
+<div class="sidebar" [ngSwitch]="activeTab">
     <!-- Emojis Tab -->
-    <div class="tab-content" *ngIf="activeTab === 'emojis'">
+    <div class="tab-content" *ngSwitchCase="'emojis'">
+        <!-- ===== GROUP 1: DICTIONARY & CHARACTERS ===== -->
+        <div class="sidebar-group">
+            <h2 class="group-title">👥 Characters & Subjects</h2>
+
+            <!-- Emoji Dictionary (Read-Only) -->
+            <div class="emoji-dictionary" *ngIf="emojiDictionary">
+                <h3>📖 Emoji Dictionary</h3>
+                <p class="helper-text">Hover over entries to highlight them in the text</p>
+
+                <div class="dictionary-entries">
+                    <!-- Characters Section -->
+                    <ng-container *ngIf="getCharacterEntries().length > 0">
+                        <div class="section-header">Characters</div>
+                        <div *ngFor="let entry of getCharacterEntries()" class="dictionary-entry character"
+                            [style.border-left-color]="entry.color" (mouseenter)="onEmojiDictionaryHover(entry)"
+                            (mouseleave)="onEmojiDictionaryLeave()">
+                            <span class="emoji-icon">{{ entry.emoji }}</span>
+                            <div class="entry-info">
+                                <span class="character-name" [style.color]="entry.color">{{ entry.characterName }}</span>
+                                <span class="character-description">{{ entry.meaning }}</span>
+                                <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : '' }}
+                                    in text</span>
+                            </div>
+                            <button class="edit-btn" (click)="editCharacter(entry); $event.stopPropagation()"
+                                title="Edit in Characters & Subjects">
+                                ✏️
+                            </button>
+                        </div>
+                    </ng-container>
+
+                    <!-- Recurring Themes Section -->
+                    <ng-container *ngIf="getRecurringEntries().length > 0">
+                        <div class="section-header">
+                            <span>Recurring Themes</span>
+                            <span class="hint">Drag to merge • Click ➕ to make character</span>
+                        </div>
+                        <div *ngFor="let entry of getRecurringEntries()" class="dictionary-entry recurring"
+                            [style.border-left-color]="entry.color" (mouseenter)="onEmojiDictionaryHover(entry)"
+                            (mouseleave)="onEmojiDictionaryLeave()" draggable="true"
+                            (dragstart)="onDragStart($event, entry)" (dragover)="onDragOver($event)"
+                            (drop)="onDrop($event, entry)">
+                            <span class="emoji-icon">{{ entry.emoji }}</span>
+                            <div class="entry-info">
+                                <span class="theme-description">{{ entry.meaning }}</span>
+                                <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : ''
+                                    }}</span>
+
+                                <!-- Word associations for this emoji -->
+                                <div class="word-associations" *ngIf="getEmojiWordPhrases(entry.emoji) as phrases">
+                                    <div class="associations-label">Represents:</div>
+                                    <div class="phrases-chips">
+                                        <span *ngFor="let phrase of phrases" class="phrase-chip">{{ phrase }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="promote-btn" (click)="promoteToCharacter(entry); $event.stopPropagation()"
+                                title="Create character from this emoji">
+                                ➕
+                            </button>
+                        </div>
+                    </ng-container>
+
+                    <div *ngIf="emojiDictionary.entries.length === 0" class="no-entries">
+                        <p>No emojis used yet. Generate emojis to see them here!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="group-divider"></div>
+
+            <!-- Character Manager -->
+            <div>
+                <app-character-manager></app-character-manager>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Tab -->
+    <div class="tab-content" *ngSwitchCase="'ai'">
         <!-- Generate for all sentences button -->
         <div class="bulk-actions">
-            <h3>✨ Auto-Generate Emojis</h3>
+            <h3>🤖 Auto-Generate Emojis</h3>
             <button class="ai-btn primary bulk" (click)="generateEmojisForAll()" [disabled]="isGenerating">
                 <span class="icon">🤖</span>
                 <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis for All Sentences' }}</span>
@@ -13,79 +92,8 @@
 
         <div class="divider"></div>
 
-        <!-- Character Manager -->
-        <div>
-            <app-character-manager></app-character-manager>
-            <div class="divider"></div>
-        </div>
-
-        <!-- Emoji Dictionary (Read-Only) -->
-        <div class="emoji-dictionary" *ngIf="emojiDictionary">
-            <h3>📖 Emoji Dictionary</h3>
-            <p class="helper-text">Hover over entries to highlight them in the text</p>
-
-            <div class="dictionary-entries">
-                <!-- Characters Section -->
-                <ng-container *ngIf="getCharacterEntries().length > 0">
-                    <div class="section-header">Characters</div>
-                    <div *ngFor="let entry of getCharacterEntries()" class="dictionary-entry character"
-                        [style.border-left-color]="entry.color" (mouseenter)="onEmojiDictionaryHover(entry)"
-                        (mouseleave)="onEmojiDictionaryLeave()">
-                        <span class="emoji-icon">{{ entry.emoji }}</span>
-                        <div class="entry-info">
-                            <span class="character-name" [style.color]="entry.color">{{ entry.characterName }}</span>
-                            <span class="character-description">{{ entry.meaning }}</span>
-                            <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : '' }}
-                                in text</span>
-                        </div>
-                        <button class="edit-btn" (click)="editCharacter(entry); $event.stopPropagation()"
-                            title="Edit in Characters & Subjects">
-                            ✏️
-                        </button>
-                    </div>
-                </ng-container>
-
-                <!-- Recurring Themes Section -->
-                <ng-container *ngIf="getRecurringEntries().length > 0">
-                    <div class="section-header">
-                        <span>Recurring Themes</span>
-                        <span class="hint">Drag to merge • Click ➕ to make character</span>
-                    </div>
-                    <div *ngFor="let entry of getRecurringEntries()" class="dictionary-entry recurring"
-                        [style.border-left-color]="entry.color" (mouseenter)="onEmojiDictionaryHover(entry)"
-                        (mouseleave)="onEmojiDictionaryLeave()" draggable="true"
-                        (dragstart)="onDragStart($event, entry)" (dragover)="onDragOver($event)"
-                        (drop)="onDrop($event, entry)">
-                        <span class="emoji-icon">{{ entry.emoji }}</span>
-                        <div class="entry-info">
-                            <span class="theme-description">{{ entry.meaning }}</span>
-                            <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : ''
-                                }}</span>
-
-                            <!-- Word associations for this emoji -->
-                            <div class="word-associations" *ngIf="getEmojiWordPhrases(entry.emoji) as phrases">
-                                <div class="associations-label">Represents:</div>
-                                <div class="phrases-chips">
-                                    <span *ngFor="let phrase of phrases" class="phrase-chip">{{ phrase }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="promote-btn" (click)="promoteToCharacter(entry); $event.stopPropagation()"
-                            title="Create character from this emoji">
-                            ➕
-                        </button>
-                    </div>
-                </ng-container>
-
-                <div *ngIf="emojiDictionary.entries.length === 0" class="no-entries">
-                    <p>No emojis used yet. Generate emojis to see them here!</p>
-                </div>
-            </div>
-            <div class="divider"></div>
-        </div>
-
         <div *ngIf="selectedSentence">
-            <h3>Emoji Editor</h3>
+            <h3>✏️ Emoji Editor</h3>
 
             <!-- Current emoji slots -->
             <div class="current-emojis">
@@ -119,39 +127,39 @@
             <div class="ai-actions">
                 <h3>AI Suggestions</h3>
 
-                <div class="action-card">
-                    <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
-                        <span class="icon">🧙‍♂️</span>
-                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
-                    </button>
-                    <p class="description">Analyze current sentence and suggest emojis</p>
-                </div>
-
-                <div class="action-card">
-                    <button class="ai-btn primary" (click)="generateTextFromEmojis()"
-                        [disabled]="isGenerating || (selectedSentence.emojis.length || 0) === 0">
-                        <span class="icon">✨</span>
-                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
-                    </button>
-                    <p class="description">Create text matching your emojis</p>
-                </div>
-
-                <!-- Show suggestion if generated -->
-                <div class="suggestion-result" *ngIf="lastSuggestion">
-                    <h4>Suggested Text:</h4>
-                    <p class="suggestion-text">{{ lastSuggestion }}</p>
-                    <button class="apply-btn" (click)="applySuggestion()">Apply</button>
-                </div>
+            <div class="action-card">
+                <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
+                    <span class="icon">🧙‍♂️</span>
+                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
+                </button>
+                <p class="description">Analyze current sentence and suggest emojis</p>
             </div>
+
+            <div class="action-card">
+                <button class="ai-btn primary" (click)="generateTextFromEmojis()"
+                    [disabled]="isGenerating || (selectedSentence.emojis.length || 0) === 0">
+                    <span class="icon">✨</span>
+                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
+                </button>
+                <p class="description">Create text matching your emojis</p>
+            </div>
+
+            <!-- Show suggestion if generated -->
+            <div class="suggestion-result" *ngIf="lastSuggestion">
+                <h4>Suggested Text:</h4>
+                <p class="suggestion-text">{{ lastSuggestion }}</p>
+                <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+            </div>
+        </div>
         </div>
 
         <div class="no-selection" *ngIf="!selectedSentence">
-            <p>Select a sentence to see AI suggestions</p>
+            <p>Select a sentence to edit emojis and see AI suggestions</p>
         </div>
     </div>
 
     <!-- Graph Tab -->
-    <div class="tab-content" *ngIf="activeTab === 'graph'">
+    <div class="tab-content" *ngSwitchCase="'graph'">
         <h3>Story Graph</h3>
 
         <div class="graph-section">
@@ -253,7 +261,7 @@
     </div>
 
     <!-- Characters Tab -->
-    <div class="tab-content" *ngIf="activeTab === 'characters'">
+    <div class="tab-content" *ngSwitchCase="'characters'">
         <h3>Character Sentiment</h3>
 
         <div class="character-list">
@@ -365,7 +373,7 @@
     </div>
 
     <!-- Analysis Tab -->
-    <div class="tab-content" *ngIf="activeTab === 'analysis'">
+    <div class="tab-content" *ngSwitchCase="'analysis'">
         <h3>Story Analysis</h3>
         
         <!-- Spider Chart -->

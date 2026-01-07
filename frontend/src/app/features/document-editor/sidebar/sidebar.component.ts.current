@@ -14,9 +14,10 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { CharacterFormService } from '../../../core/services/character-form.service';
-import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
 import { Sentence } from '../../../core/models/document.model';
+// import { WordMappingManagerComponent } from '../word-mapping-manager/word-mapping-manager.component';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
+import { EmojiSetManagerComponent } from '../emoji-set-manager/emoji-set-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
 
@@ -25,14 +26,16 @@ type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
   standalone: true,
   imports: [
     CommonModule,
+    WordMappingManagerComponent,
     FormsModule,
-    CharacterManagerComponent
+    CharacterManagerComponent,
+    EmojiSetManagerComponent
   ],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' = 'ai';
+  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' = 'emojis';
 
   // ===== INTENT PANEL STATE =====
   intentSummary: string | null = null;
@@ -51,7 +54,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   };
 
   @Input()
-  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai') {
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis') {
     this._activeTab = value;
     if (value === 'analysis' && !this.isAnalyzing) {
       const doc = this.documentService.getCurrentDocument();
@@ -61,13 +64,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
   }
 
-  get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' {
+  get activeTab() {
     return this._activeTab;
   }
-  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai'>();
+  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis'>();
 
   selectedSentence: Sentence | null = null;
-  emojiDictionary: any = null;  // Emoji dictionary data
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
@@ -118,15 +120,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.documentService.selectedSentence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(sentence => this.selectedSentence = sentence);
-
-    // Load emoji dictionary when document changes
-    this.documentService.currentDocument$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(doc => {
-        if (doc) {
-          this.loadEmojiDictionary(doc.id);
-        }
-      });
 
     this.documentService.currentDocument$
       .pipe(
@@ -188,12 +181,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   getCharacterEntries(): any[] {
     if (!this.emojiDictionary) return [];
-    return this.emojiDictionary.entries.filter((e: any) => e.characterId !== null);
+    return this.emojiDictionary.entries.filter(e => e.characterId !== null);
   }
 
   getRecurringEntries(): any[] {
     if (!this.emojiDictionary) return [];
-    return this.emojiDictionary.entries.filter((e: any) => e.characterId === null);
+    return this.emojiDictionary.entries.filter(e => e.characterId === null);
   }
 
   getEmojiWordPhrases(emoji: string): string[] {
@@ -326,46 +319,50 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.isGenerating = true;
 
     this.aiService.generateEmojisFromText({
-      documentId: doc.id,
-      sentenceId: this.selectedSentence.id,
-      text: this.selectedSentence.text
-    }).subscribe({
-      next: (response) => {
-        // Update sentence with suggested emojis
-        this.documentService.updateSentenceEmojis(
-          this.selectedSentence!.id,
+      this.aiService.generateEmojisFromText({
+        documentId: doc.id,
+        sentenceId: this.selectedSentence.id,
+        text: this.selectedSentence.text
+      }).subscribe({
+        next: (response) => {
+          // Update sentence with suggested emojis
+          this.documentService.updateSentenceEmojis(
+            this.selectedSentence!.id,
+            response.emojis
           response.emojis
-        );
-        this.isGenerating = false;
-      },
-      error: (err) => {
-        console.error('Error generating emojis:', err);
+          );
+          this.isGenerating = false;
+        },
+        error: (err) => {
+          console.error('Error generating emojis:', err);
+          console.error('Error generating emojis:', err);
           this.isGenerating = false;
         }
       });
     }
 
   generateEmojisForAll(): void {
-    const editableElements = document.querySelectorAll('[contenteditable="true"]');
-    editableElements.forEach(el => {
-      if (el instanceof HTMLElement) el.blur();
-    });
+      const editableElements = document.querySelectorAll('[contenteditable="true"]');
+      editableElements.forEach(el => {
+        if (el instanceof HTMLElement) el.blur();
+      });
 
-    setTimeout(() => {
-      const doc = this.documentService.getCurrentDocument();
-      if (!doc || !doc.sentences || doc.sentences.length === 0) return;
+      setTimeout(() => {
+        const doc = this.documentService.getCurrentDocument();
+        if(!doc || !doc.sentences || doc.sentences.length === 0) return;
 
-      this.isGenerating = true;
-      let processedCount = 0;
-      const totalSentences = doc.sentences.length;
+    this.isGenerating = true;
+    let processedCount = 0;
+    const totalSentences = doc.sentences.length;
 
-      this.processEmojisForAllSentences(doc, processedCount, totalSentences);
-    }, 150);
-  }
+    this.processEmojisForAllSentences(doc, processedCount, totalSentences);
+  }, 150);
+}
 
   private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
-    // Process each sentence one by one
-    doc.sentences.forEach((sentence: Sentence, index: number) => {
+  // Process each sentence one by one
+  doc.sentences.forEach((sentence: Sentence, index: number) => {
+    this.aiService.generateEmojisFromText({
       this.aiService.generateEmojisFromText({
         documentId: doc.id,
         sentenceId: sentence.id,
@@ -381,6 +378,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error(`Error generating emojis for sentence ${index + 1}:`, err);
+          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
           processedCount++;
           if (processedCount === totalSentences) {
             this.isGeneratingEmojisForAll = false;
@@ -391,16 +389,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   generateTextFromEmojis(): void {
-    if (!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
+    if(!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
+  if(!this.selectedSentence || this.selectedSentence.emojis.length === 0) return;
 
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
+  const doc = this.documentService.getCurrentDocument();
+  if(!doc) return;
 
-    this.isGenerating = true;
+  this.isGenerating = true;
 
+  this.aiService.generateTextFromEmojis({
     this.aiService.generateTextFromEmojis({
       documentId: doc.id,
       sentenceId: this.selectedSentence.id,
+      emojis: this.selectedSentence.emojis
       emojis: this.selectedSentence.emojis
     }).subscribe({
       next: (response) => {
@@ -415,30 +416,36 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   applySuggestion(): void {
-    if (!this.lastSuggestion || !this.selectedSentence) return;
+    if(!this.lastSuggestion || !this.selectedSentence) return;
 
-    this.documentService.updateSentenceText(
-      this.selectedSentence.id,
-      this.lastSuggestion
-    );
+  // Mark sentence as AI-generated when applying AI suggestion (by ID and text)
+  this.aiTrackingService.markAsAiGenerated(
+    this.selectedSentence.id,
+    this.lastSuggestion
+  );
+
+  this.documentService.updateSentenceText(
+    this.selectedSentence.id,
+    this.lastSuggestion
+  );
   this.lastSuggestion = null;
 }
 
-  // Enhanced emoji feature panel toggles
-  showWordMappings(): void {
-    this.showWordMappingPanel = !this.showWordMappingPanel;
-    if (this.showWordMappingPanel) {
-      this.showCharacterPanel = false;
-      this.showEmojiSetPanel = false;
-    }
+// Enhanced emoji feature panel toggles
+showWordMappings(): void {
+  this.showWordMappingPanel = !this.showWordMappingPanel;
+  if(this.showWordMappingPanel) {
+  this.showCharacterPanel = false;
+  this.showEmojiSetPanel = false;
+}
   }
 
-  showCharacters(): void {
-    this.showCharacterPanel = !this.showCharacterPanel;
-    if (this.showCharacterPanel) {
-      this.showWordMappingPanel = false;
-      this.showEmojiSetPanel = false;
-    }
+showCharacters(): void {
+  this.showCharacterPanel = !this.showCharacterPanel;
+  if(this.showCharacterPanel) {
+  this.showWordMappingPanel = false;
+  this.showEmojiSetPanel = false;
+}
   }
 
 showEmojiSets(): void {
@@ -478,7 +485,15 @@ this.textApplied = true;
 setTimeout(() => {
   const updatedDoc = this.documentService.getCurrentDocument();
   if (updatedDoc) {
-    // Preview text applied successfully
+    // Mark the last sentence(s) as AI-generated (the newly added preview text)
+    const newSentenceCount = updatedDoc.sentences.length - doc.sentences.length;
+    if (newSentenceCount > 0) {
+      const newSentences = updatedDoc.sentences.slice(-newSentenceCount);
+      newSentences.forEach(sentence => {
+        // Mark by both ID and text so it persists across re-parses
+        this.aiTrackingService.markAsAiGenerated(sentence.id, sentence.text);
+      });
+    }
   }
 }, 500);
   }

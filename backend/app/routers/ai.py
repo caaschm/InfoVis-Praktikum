@@ -7,6 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
+from app.services.ai_client import generate_spider_intent
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
