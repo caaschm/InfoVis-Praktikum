@@ -196,75 +196,75 @@ export class TextViewerComponent implements OnInit, OnDestroy {
         (match.start >= existing.start && match.start < existing.end) ||
         (match.end > existing.start && match.end <= existing.end)
       );
-        if (!overlaps) {
-          filteredMatches.push(match);
-        }
+      if (!overlaps) {
+        filteredMatches.push(match);
       }
+    }
 
     // Build segments from matches
     if (filteredMatches.length === 0) {
       return [{ text: sentenceText, character: null }];
     }
 
-      filteredMatches.forEach((match, index) => {
-        // Add text before match
-        if (match.start > lastIndex) {
-          segments.push({
-            text: sentenceText.substring(lastIndex, match.start),
-            character: null
-          });
-        }
-
-        // Add matched text with character
+    filteredMatches.forEach((match, index) => {
+      // Add text before match
+      if (match.start > lastIndex) {
         segments.push({
-          text: sentenceText.substring(match.start, match.end),
-          character: match.character
-        });
-
-        lastIndex = match.end;
-      });
-
-      // Add remaining text
-      if (lastIndex < sentenceText.length) {
-        segments.push({
-          text: sentenceText.substring(lastIndex),
+          text: sentenceText.substring(lastIndex, match.start),
           character: null
         });
       }
 
-      return segments;
-    }
+      // Add matched text with character
+      segments.push({
+        text: sentenceText.substring(match.start, match.end),
+        character: match.character
+      });
 
-    /**
-     * Check if a sentence contains mentions of a specific character
-     */
-    sentenceHasCharacter(sentence: Sentence, characterId: string | null): boolean {
-      if (!characterId || !this.characters) {
-        return false;
-      }
+      lastIndex = match.end;
+    });
 
-      const character = this.characters.find(c => c.id === characterId);
-      if (!character) {
-        return false;
-      }
-
-      const searchTerms = [character.name, ...character.aliases];
-      const text = sentence.text.toLowerCase();
-
-
-      return searchTerms.some(term => {
-        const regex = new RegExp(`\\b${term.toLowerCase()}\\b`);
-        return regex.test(text);
+    // Add remaining text
+    if (lastIndex < sentenceText.length) {
+      segments.push({
+        text: sentenceText.substring(lastIndex),
+        character: null
       });
     }
 
-    /**
-     * Check if a sentence contains the hovered emoji
-     */
-    sentenceHasHoveredEmoji(sentence: Sentence): boolean {
-      if (!this.hoveredEmoji) return false;
-      return sentence.emojis.includes(this.hoveredEmoji);
+    return segments;
+  }
+
+  /**
+   * Check if a sentence contains mentions of a specific character
+   */
+  sentenceHasCharacter(sentence: Sentence, characterId: string | null): boolean {
+    if (!characterId || !this.characters) {
+      return false;
     }
+
+    const character = this.characters.find(c => c.id === characterId);
+    if (!character) {
+      return false;
+    }
+
+    const searchTerms = [character.name, ...character.aliases];
+    const text = sentence.text.toLowerCase();
+
+
+    return searchTerms.some(term => {
+      const regex = new RegExp(`\\b${term.toLowerCase()}\\b`);
+      return regex.test(text);
+    });
+  }
+
+  /**
+   * Check if a sentence contains the hovered emoji
+   */
+  sentenceHasHoveredEmoji(sentence: Sentence): boolean {
+    if (!this.hoveredEmoji) return false;
+    return sentence.emojis.includes(this.hoveredEmoji);
+  }
 
   /**
    * Get text segments with word-level highlighting for hovered emoji

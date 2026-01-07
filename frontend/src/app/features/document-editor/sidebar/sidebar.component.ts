@@ -340,10 +340,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error generating emojis:', err);
-          this.isGenerating = false;
-        }
-      });
-    }
+        this.isGenerating = false;
+      }
+    });
+  }
 
   generateEmojisForAll(): void {
     const editableElements = document.querySelectorAll('[contenteditable="true"]');
@@ -421,8 +421,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.selectedSentence.id,
       this.lastSuggestion
     );
-  this.lastSuggestion = null;
-}
+    this.lastSuggestion = null;
+  }
 
   // Enhanced emoji feature panel toggles
   showWordMappings(): void {
@@ -441,191 +441,191 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
   }
 
-showEmojiSets(): void {
-  this.showEmojiSetPanel = !this.showEmojiSetPanel;
-  if(this.showEmojiSetPanel) {
-  this.showWordMappingPanel = false;
-  this.showCharacterPanel = false;
-}
+  showEmojiSets(): void {
+    this.showEmojiSetPanel = !this.showEmojiSetPanel;
+    if (this.showEmojiSetPanel) {
+      this.showWordMappingPanel = false;
+      this.showCharacterPanel = false;
+    }
   }
 
-applyPreviewText(): void {
-  if(!this.intentPreview) return;
+  applyPreviewText(): void {
+    if (!this.intentPreview) return;
 
-  // Check if text was already applied
-  if(this.textApplied) {
-  return;
-}
+    // Check if text was already applied
+    if (this.textApplied) {
+      return;
+    }
 
-const doc = this.documentService.getCurrentDocument();
-if (!doc) return;
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
 
-// Get current document content
-const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
+    // Get current document content
+    const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
 
-// Append the preview text to the document
-const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+    // Append the preview text to the document
+    const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
 
-// Update the document content
-this.documentService.updateDocumentContent(doc.id, newContent);
+    // Update the document content
+    this.documentService.updateDocumentContent(doc.id, newContent);
 
-// Mark as applied
-this.textApplied = true;
+    // Mark as applied
+    this.textApplied = true;
 
-// Note: New sentences created from preview text will be marked as AI-generated
-// when the document is updated and sentences are re-parsed.
-// We'll mark them after the document update completes.
-setTimeout(() => {
-  const updatedDoc = this.documentService.getCurrentDocument();
-  if (updatedDoc) {
-    // Preview text applied successfully
-  }
-}, 500);
+    // Note: New sentences created from preview text will be marked as AI-generated
+    // when the document is updated and sentences are re-parsed.
+    // We'll mark them after the document update completes.
+    setTimeout(() => {
+      const updatedDoc = this.documentService.getCurrentDocument();
+      if (updatedDoc) {
+        // Preview text applied successfully
+      }
+    }, 500);
   }
 
   // ========== SPIDER SHAPE ==========
   private valueToPointXY(value: number, angleDeg: number) {
-  const r = (value / 100) * this.maxRadius;
-  const angleRad = (angleDeg * Math.PI) / 180;
-  return {
-    x: this.centerX + r * Math.cos(angleRad),
-    y: this.centerY + r * Math.sin(angleRad)
-  };
-}
+    const r = (value / 100) * this.maxRadius;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    return {
+      x: this.centerX + r * Math.cos(angleRad),
+      y: this.centerY + r * Math.sin(angleRad)
+    };
+  }
 
-  get dramaPoint()   { return this.valueToPointXY(this.drama, -90); }
-  get humorPoint()   { return this.valueToPointXY(this.humor, 0); }
-  get conflictPoint(){ return this.valueToPointXY(this.conflict, 90); }
+  get dramaPoint() { return this.valueToPointXY(this.drama, -90); }
+  get humorPoint() { return this.valueToPointXY(this.humor, 0); }
+  get conflictPoint() { return this.valueToPointXY(this.conflict, 90); }
   get mysteryPoint() { return this.valueToPointXY(this.mystery, 180); }
 
   get spiderPoints(): string {
-  return [
-    this.dramaPoint,
-    this.humorPoint,
-    this.conflictPoint,
-    this.mysteryPoint
-  ].map(p => `${p.x},${p.y}`).join(', ');
-}
-
-// ========== AI ANALYSIS ==========
-analyzeDocument(): void {
-  const doc = this.documentService.getCurrentDocument();
-  if(!doc) return;
-
-  const fullText = doc.sentences.map(s => s.text).join(' ').trim();
-  if(!fullText) return;
-
-  this.isAnalyzing = true;
-  this.aiService.analyzeSpiderChart({
-    documentId: doc.id,
-    text: fullText
-  }).subscribe({
-    next: (response) => {
-      this.drama = response.drama;
-      this.humor = response.humor;
-      this.conflict = response.conflict;
-      this.mystery = response.mystery;
-
-      this.aiBaseline = { ...response } as Record<Dimension, number>;
-      this.isAnalyzing = false;
-
-      const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
-      this.lastAnalyzedTextHash = textHash;
-      this.lastAnalyzedDocumentId = doc.id;
-    },
-    error: () => {
-      this.lastAnalysisError = 'Failed to analyze text';
-      this.isAnalyzing = false;
-    }
-  });
-}
-
-// ========== DRAG HANDLE ==========
-startDrag(handle: Dimension, e: MouseEvent) {
-  e.stopPropagation();
-  this.draggingHandle = handle;
-}
-
-@HostListener('window:mouseup')
-stopDrag() { this.draggingHandle = null; }
-
-@HostListener('window:mousemove', ['$event'])
-onMouseMove(event: MouseEvent) {
-  if (!this.draggingHandle || !this.spiderSvg) return;
-
-  const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
-  const x = ((event.clientX - rect.left) / rect.width) * 200;
-  const y = ((event.clientY - rect.top) / rect.height) * 200;
-
-  const dx = x - this.centerX;
-  const dy = y - this.centerY;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-
-  const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
-
-  // Wert setzen
-  (this as any)[this.draggingHandle] = value;
-
-  // Intent-Panel triggern
-  this.onSliderChange(this.draggingHandle);
-}
-
-// ========== INTENT PANEL LOGIK ==========
-onSliderChange(dimension: Dimension): void {
-  const current = (this as any)[dimension] as number;
-  const baseline = this.aiBaseline[dimension];
-  const delta = Math.abs(current - baseline);
-
-  if(delta < 5) {
-    this.intentSummary = null;
-    this.intentIdeas = [];
-    this.intentPreview = null;
-    this.intentLoading = false;
-    this.textApplied = false; // Reset when suggestions are cleared
-    return;
+    return [
+      this.dramaPoint,
+      this.humorPoint,
+      this.conflictPoint,
+      this.mysteryPoint
+    ].map(p => `${p.x},${p.y}`).join(', ');
   }
 
-    this.textApplied = false; // Reset when new suggestions are being fetched
-  this.sliderChangeSubject.next({ dimension, current, baseline });
-}
+  // ========== AI ANALYSIS ==========
+  analyzeDocument(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
 
-  private fetchIntentSuggestions(
-  dimension: Dimension,
-  current: number,
-  baseline: number
-): void {
-  const doc = this.documentService.getCurrentDocument();
-  if(!doc) return;
+    const fullText = doc.sentences.map(s => s.text).join(' ').trim();
+    if (!fullText) return;
 
-  const text = doc.sentences.map(s => s.text).join(' ').trim();
-  if(!text) return;
+    this.isAnalyzing = true;
+    this.aiService.analyzeSpiderChart({
+      documentId: doc.id,
+      text: fullText
+    }).subscribe({
+      next: (response) => {
+        this.drama = response.drama;
+        this.humor = response.humor;
+        this.conflict = response.conflict;
+        this.mystery = response.mystery;
 
-  this.intentLoading = true;
-  this.intentSummary = 'Analyzing intent...';
-  this.intentIdeas = [];
-  this.intentPreview = null;
-  this.textApplied = false; // Reset when new suggestions are generated
+        this.aiBaseline = { ...response } as Record<Dimension, number>;
+        this.isAnalyzing = false;
 
-  this.aiService.getSpiderIntent({
-    documentId: doc.id,
-    text,
-    dimension,
-    currentValue: current,
-    baselineValue: baseline
-  }).subscribe({
-    next: (res) => {
-      this.intentSummary = res.summary;
-      this.intentIdeas = res.ideas;
-      this.intentPreview = res.preview;
-      this.intentLoading = false;
-    },
-    error: (err) => {
-      console.error('Error fetching intent suggestions:', err);
-      this.intentSummary = 'Unable to generate suggestions at this time.';
-      this.intentIdeas = ['Please try again in a moment.'];
+        const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
+        this.lastAnalyzedTextHash = textHash;
+        this.lastAnalyzedDocumentId = doc.id;
+      },
+      error: () => {
+        this.lastAnalysisError = 'Failed to analyze text';
+        this.isAnalyzing = false;
+      }
+    });
+  }
+
+  // ========== DRAG HANDLE ==========
+  startDrag(handle: Dimension, e: MouseEvent) {
+    e.stopPropagation();
+    this.draggingHandle = handle;
+  }
+
+  @HostListener('window:mouseup')
+  stopDrag() { this.draggingHandle = null; }
+
+  @HostListener('window:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent) {
+    if (!this.draggingHandle || !this.spiderSvg) return;
+
+    const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 200;
+    const y = ((event.clientY - rect.top) / rect.height) * 200;
+
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
+
+    // Wert setzen
+    (this as any)[this.draggingHandle] = value;
+
+    // Intent-Panel triggern
+    this.onSliderChange(this.draggingHandle);
+  }
+
+  // ========== INTENT PANEL LOGIK ==========
+  onSliderChange(dimension: Dimension): void {
+    const current = (this as any)[dimension] as number;
+    const baseline = this.aiBaseline[dimension];
+    const delta = Math.abs(current - baseline);
+
+    if (delta < 5) {
+      this.intentSummary = null;
+      this.intentIdeas = [];
       this.intentPreview = null;
       this.intentLoading = false;
+      this.textApplied = false; // Reset when suggestions are cleared
+      return;
     }
-  });
-}
+
+    this.textApplied = false; // Reset when new suggestions are being fetched
+    this.sliderChangeSubject.next({ dimension, current, baseline });
+  }
+
+  private fetchIntentSuggestions(
+    dimension: Dimension,
+    current: number,
+    baseline: number
+  ): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
+    const text = doc.sentences.map(s => s.text).join(' ').trim();
+    if (!text) return;
+
+    this.intentLoading = true;
+    this.intentSummary = 'Analyzing intent...';
+    this.intentIdeas = [];
+    this.intentPreview = null;
+    this.textApplied = false; // Reset when new suggestions are generated
+
+    this.aiService.getSpiderIntent({
+      documentId: doc.id,
+      text,
+      dimension,
+      currentValue: current,
+      baselineValue: baseline
+    }).subscribe({
+      next: (res) => {
+        this.intentSummary = res.summary;
+        this.intentIdeas = res.ideas;
+        this.intentPreview = res.preview;
+        this.intentLoading = false;
+      },
+      error: (err) => {
+        console.error('Error fetching intent suggestions:', err);
+        this.intentSummary = 'Unable to generate suggestions at this time.';
+        this.intentIdeas = ['Please try again in a moment.'];
+        this.intentPreview = null;
+        this.intentLoading = false;
+      }
+    });
+  }
 }

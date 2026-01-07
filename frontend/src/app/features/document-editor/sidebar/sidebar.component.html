@@ -19,9 +19,11 @@
                             (mouseleave)="onEmojiDictionaryLeave()">
                             <span class="emoji-icon">{{ entry.emoji }}</span>
                             <div class="entry-info">
-                                <span class="character-name" [style.color]="entry.color">{{ entry.characterName }}</span>
+                                <span class="character-name" [style.color]="entry.color">{{ entry.characterName
+                                    }}</span>
                                 <span class="character-description">{{ entry.meaning }}</span>
-                                <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : '' }}
+                                <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : ''
+                                    }}
                                     in text</span>
                             </div>
                             <button class="edit-btn" (click)="editCharacter(entry); $event.stopPropagation()"
@@ -127,30 +129,30 @@
             <div class="ai-actions">
                 <h3>AI Suggestions</h3>
 
-            <div class="action-card">
-                <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
-                    <span class="icon">🧙‍♂️</span>
-                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
-                </button>
-                <p class="description">Analyze current sentence and suggest emojis</p>
-            </div>
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateEmojis()" [disabled]="isGenerating">
+                        <span class="icon">🧙‍♂️</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis' }}</span>
+                    </button>
+                    <p class="description">Analyze current sentence and suggest emojis</p>
+                </div>
 
-            <div class="action-card">
-                <button class="ai-btn primary" (click)="generateTextFromEmojis()"
-                    [disabled]="isGenerating || (selectedSentence.emojis.length || 0) === 0">
-                    <span class="icon">✨</span>
-                    <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
-                </button>
-                <p class="description">Create text matching your emojis</p>
-            </div>
+                <div class="action-card">
+                    <button class="ai-btn primary" (click)="generateTextFromEmojis()"
+                        [disabled]="isGenerating || (selectedSentence.emojis.length || 0) === 0">
+                        <span class="icon">✨</span>
+                        <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Text' }}</span>
+                    </button>
+                    <p class="description">Create text matching your emojis</p>
+                </div>
 
-            <!-- Show suggestion if generated -->
-            <div class="suggestion-result" *ngIf="lastSuggestion">
-                <h4>Suggested Text:</h4>
-                <p class="suggestion-text">{{ lastSuggestion }}</p>
-                <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+                <!-- Show suggestion if generated -->
+                <div class="suggestion-result" *ngIf="lastSuggestion">
+                    <h4>Suggested Text:</h4>
+                    <p class="suggestion-text">{{ lastSuggestion }}</p>
+                    <button class="apply-btn" (click)="applySuggestion()">Apply</button>
+                </div>
             </div>
-        </div>
         </div>
 
         <div class="no-selection" *ngIf="!selectedSentence">
@@ -375,7 +377,7 @@
     <!-- Analysis Tab -->
     <div class="tab-content" *ngSwitchCase="'analysis'">
         <h3>Story Analysis</h3>
-        
+
         <!-- Spider Chart -->
         <div class="spider-wrapper">
             <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
@@ -385,68 +387,44 @@
                 <circle cx="100" cy="100" r="30" class="spider-grid" />
 
                 <!-- Axes -->
-                <line x1="100" y1="20"  x2="100" y2="180" class="spider-axis" />
-                <line x1="20"  y1="100" x2="180" y2="100" class="spider-axis" />
+                <line x1="100" y1="20" x2="100" y2="180" class="spider-axis" />
+                <line x1="20" y1="100" x2="180" y2="100" class="spider-axis" />
 
                 <!-- Dynamic polygon -->
                 <polygon class="spider-area" [attr.points]="spiderPoints"></polygon>
 
                 <!-- Labels -->
-                <text x="100" y="15"  text-anchor="middle" class="spider-label">Drama</text>
-                <text x="190" y="105" text-anchor="end"    class="spider-label">Humor</text>
+                <text x="100" y="15" text-anchor="middle" class="spider-label">Drama</text>
+                <text x="190" y="105" text-anchor="end" class="spider-label">Humor</text>
                 <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
-                <text x="10"  y="105" text-anchor="start"  class="spider-label">Mystery</text>
+                <text x="10" y="105" text-anchor="start" class="spider-label">Mystery</text>
 
                 <!-- Drag handles -->
-                <circle class="spider-handle"
-                        [attr.cx]="dramaPoint.x"
-                        [attr.cy]="dramaPoint.y"
-                        r="4"
-                        (mousedown)="startDrag('drama', $event)"></circle>
-                <circle class="spider-handle"
-                        [attr.cx]="humorPoint.x"
-                        [attr.cy]="humorPoint.y"
-                        r="4"
-                        (mousedown)="startDrag('humor', $event)"></circle>
-                <circle class="spider-handle"
-                        [attr.cx]="conflictPoint.x"
-                        [attr.cy]="conflictPoint.y"
-                        r="4"
-                        (mousedown)="startDrag('conflict', $event)"></circle>
-                <circle class="spider-handle"
-                        [attr.cx]="mysteryPoint.x"
-                        [attr.cy]="mysteryPoint.y"
-                        r="4"
-                        (mousedown)="startDrag('mystery', $event)"></circle>
+                <circle class="spider-handle" [attr.cx]="dramaPoint.x" [attr.cy]="dramaPoint.y" r="4"
+                    (mousedown)="startDrag('drama', $event)"></circle>
+                <circle class="spider-handle" [attr.cx]="humorPoint.x" [attr.cy]="humorPoint.y" r="4"
+                    (mousedown)="startDrag('humor', $event)"></circle>
+                <circle class="spider-handle" [attr.cx]="conflictPoint.x" [attr.cy]="conflictPoint.y" r="4"
+                    (mousedown)="startDrag('conflict', $event)"></circle>
+                <circle class="spider-handle" [attr.cx]="mysteryPoint.x" [attr.cy]="mysteryPoint.y" r="4"
+                    (mousedown)="startDrag('mystery', $event)"></circle>
 
                 <!-- Value labels beim Draggen -->
-                <text *ngIf="draggingHandle === 'drama'"
-                      [attr.x]="dramaPoint.x"
-                      [attr.y]="dramaPoint.y - 8"
-                      text-anchor="middle"
-                      class="spider-value">
-                  {{ drama }}%
+                <text *ngIf="draggingHandle === 'drama'" [attr.x]="dramaPoint.x" [attr.y]="dramaPoint.y - 8"
+                    text-anchor="middle" class="spider-value">
+                    {{ drama }}%
                 </text>
-                <text *ngIf="draggingHandle === 'humor'"
-                      [attr.x]="humorPoint.x"
-                      [attr.y]="humorPoint.y - 8"
-                      text-anchor="middle"
-                      class="spider-value">
-                  {{ humor }}%
+                <text *ngIf="draggingHandle === 'humor'" [attr.x]="humorPoint.x" [attr.y]="humorPoint.y - 8"
+                    text-anchor="middle" class="spider-value">
+                    {{ humor }}%
                 </text>
-                <text *ngIf="draggingHandle === 'conflict'"
-                      [attr.x]="conflictPoint.x"
-                      [attr.y]="conflictPoint.y - 8"
-                      text-anchor="middle"
-                      class="spider-value">
-                  {{ conflict }}%
+                <text *ngIf="draggingHandle === 'conflict'" [attr.x]="conflictPoint.x" [attr.y]="conflictPoint.y - 8"
+                    text-anchor="middle" class="spider-value">
+                    {{ conflict }}%
                 </text>
-                <text *ngIf="draggingHandle === 'mystery'"
-                      [attr.x]="mysteryPoint.x"
-                      [attr.y]="mysteryPoint.y - 8"
-                      text-anchor="middle"
-                      class="spider-value">
-                  {{ mystery }}%
+                <text *ngIf="draggingHandle === 'mystery'" [attr.x]="mysteryPoint.x" [attr.y]="mysteryPoint.y - 8"
+                    text-anchor="middle" class="spider-value">
+                    {{ mystery }}%
                 </text>
             </svg>
         </div>
@@ -459,14 +437,8 @@
                     <h4>Drama: {{ drama }}%</h4>
                     <div class="slider-wrapper">
                         <div class="slider-fill" [style.width.%]="drama"></div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            [(ngModel)]="drama"
-                            (input)="onSliderChange('drama')"
-                            class="metric-slider"
-                        />
+                        <input type="range" min="0" max="100" [(ngModel)]="drama" (input)="onSliderChange('drama')"
+                            class="metric-slider" />
                     </div>
                 </div>
             </div>
@@ -477,14 +449,8 @@
                     <h4>Humor: {{ humor }}%</h4>
                     <div class="slider-wrapper">
                         <div class="slider-fill" [style.width.%]="humor"></div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            [(ngModel)]="humor"
-                            (input)="onSliderChange('humor')"
-                            class="metric-slider"
-                        />
+                        <input type="range" min="0" max="100" [(ngModel)]="humor" (input)="onSliderChange('humor')"
+                            class="metric-slider" />
                     </div>
                 </div>
             </div>
@@ -495,14 +461,8 @@
                     <h4>Conflict: {{ conflict }}%</h4>
                     <div class="slider-wrapper">
                         <div class="slider-fill" [style.width.%]="conflict"></div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            [(ngModel)]="conflict"
-                            (input)="onSliderChange('conflict')"
-                            class="metric-slider"
-                        />
+                        <input type="range" min="0" max="100" [(ngModel)]="conflict"
+                            (input)="onSliderChange('conflict')" class="metric-slider" />
                     </div>
                 </div>
             </div>
@@ -513,14 +473,8 @@
                     <h4>Mystery: {{ mystery }}%</h4>
                     <div class="slider-wrapper">
                         <div class="slider-fill" [style.width.%]="mystery"></div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            [(ngModel)]="mystery"
-                            (input)="onSliderChange('mystery')"
-                            class="metric-slider"
-                        />
+                        <input type="range" min="0" max="100" [(ngModel)]="mystery" (input)="onSliderChange('mystery')"
+                            class="metric-slider" />
                     </div>
                 </div>
             </div>
@@ -537,7 +491,7 @@
                 <span class="suggestions-icon">💡</span>
                 <h4>Suggestions</h4>
             </div>
-            
+
             <div class="suggestions-list">
                 <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
                     <span class="suggestion-badge">{{ i + 1 }}</span>
@@ -551,10 +505,7 @@
             </div>
 
             <div *ngIf="intentPreview" class="suggestions-actions">
-                <button 
-                    class="apply-text-btn" 
-                    [class.applied]="textApplied"
-                    [disabled]="textApplied"
+                <button class="apply-text-btn" [class.applied]="textApplied" [disabled]="textApplied"
                     (click)="applyPreviewText()">
                     <span class="btn-icon">✨</span>
                     <span class="btn-label">{{ textApplied ? 'Text Applied' : 'Apply Text' }}</span>
@@ -576,4 +527,3 @@
     </div>
 
 </div>
-
