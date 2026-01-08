@@ -1206,14 +1206,24 @@ ngOnDestroy(): void {
   // Beat positions on the story arc SVG
   beatX(pos: number): number { return 20 + Number(pos) * 360; }
   beatY(pos: number): number {
-    // upper/lower limits like in computeArcPath
-    const hTop = 40;
-    const hBottom = 250;
-    // Map position into index in arc and take nearest y
-    const idx = Math.round(Number(pos) * (this.storyArc.length - 1));
-    const v = (this.storyArc[idx] ?? 0.5);
-    return hBottom - v * (hBottom - hTop);
+      const hTop = 40;
+      const hBottom = 250;
+
+      const arc = this.storyArc;
+      if (!arc || arc.length === 0) return hBottom - 0.5 * (hBottom - hTop);
+
+      // exact position in arc array
+      const f = pos * (arc.length - 1);
+      const lo = Math.floor(f);
+      const hi = Math.min(lo + 1, arc.length - 1);
+      const t = f - lo;
+
+      // interpolate linearly between lo and hi
+      const v = (1 - t) * arc[lo] + t * arc[hi];
+
+      return hBottom - v * (hBottom - hTop);
   }
+
 
   // Fallback for beat points
   // Calculate position for sentence points on the arc
