@@ -107,6 +107,22 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
   @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc'>();
 
+
+  get current_Document() {
+    return this.documentService.getCurrentDocument();
+  }
+
+  get total_Sentences(): number {
+    const doc = this.current_Document;
+    return doc?.sentences?.length || 0;
+  }
+
+  get significant_Sentence_Classifications(): SentenceClassification[] {
+    return this.sentenceClassifications
+      ?.filter(c => c.value !== undefined && c.value > 0)   // nur Sätze mit Wert
+      .filter(c => this.current_Document?.sentences?.some(s => s.index === c.index)) ?? [];
+  }
+
   selectedSentence: Sentence | null = null;
   currentDocument: DocumentDetail | null = null;
   chapters: Chapter[] = [];
@@ -1032,9 +1048,9 @@ ngOnDestroy(): void {
    * Check if a chapter has content (is accessible)
    */
   isChapterAccessible(chapter: Chapter): boolean {
-    if (!this.currentDocument) return false;
+    if (!this.current_Document) return false;
     // A chapter is accessible if it has sentences
-    return this.currentDocument.sentences.some(s => s.chapterId === chapter.id);
+    return this.current_Document.sentences.some(s => s.chapterId === chapter.id);
   }
 
   /**
@@ -1062,16 +1078,16 @@ ngOnDestroy(): void {
    * Get sentence count for a chapter
    */
   getChapterSentenceCount(chapterId: string): number {
-    if (!this.currentDocument) return 0;
-    return this.currentDocument.sentences.filter(s => s.chapterId === chapterId).length;
+    if (!this.current_Document) return 0;
+    return this.current_Document.sentences.filter(s => s.chapterId === chapterId).length;
   }
 
   /**
    * Get character count for a chapter
    */
   getChapterCharacterCount(chapterId: string): number {
-    if (!this.currentDocument) return 0;
-    const chapterSentences = this.currentDocument.sentences.filter(s => s.chapterId === chapterId);
+    if (!this.current_Document) return 0;
+    const chapterSentences = this.current_Document.sentences.filter(s => s.chapterId === chapterId);
     return chapterSentences.reduce((total, sentence) => total + sentence.text.length, 0);
   }
 
@@ -1124,43 +1140,47 @@ ngOnDestroy(): void {
 
     // Update sentence count when fetching
     this.previousSentenceCount = doc.sentences?.length || 0;
-
     this.arcLoading = true;
+
     this.aiService.getStoryArc({
       documentId: doc.id,
       text: text,
       granularity: this.arcGranularity
     }).subscribe({
       next: (res) => {
-        // API returns arc in range 0-1
-        this.storyArc = res.arc;
-        this.storyBeats = res.beats || [];
-        this.sentenceClassifications = res.sentence_classifications || [];
-        this.storyArcPath = this.computeArcPath(this.storyArc);
-
-        this.sentenceClassifications = this.sentenceClassifications.map(c => ({
-          ...c,
-          significant: (c.value ?? 0) > 0   // alles mit Spannung > 0 wird als signifikant markiert
+                // Arc und Beats
+        this.storyArc = res.arc || [];
+        this.storyBeats = (res.beats || []).map(b => ({
+          ...b,
+          position: b.position ?? 0
         }));
+
+        // Calculate path for Story Arc
+        this.storyArcPath = this.computeArcPath(this.storyArc);
 
         // Map story arc / beats to sentence indices and story stages
         try {
-          this.applySentenceClassifications(res.sentence_classifications ?? []);
+          this.applySentenceClassificationsFromBeats(this.storyBeats);
+          console.log('Assigned sentences to stages:', this.storyStages);
         } catch (e) {
           console.error('Error assigning sentences to stages:', e);
         }
 
         this.arcLoading = false;
-        console.log('Fetched story arc:', this.storyArc);
+        console.log('Fetched story arc:', {
+          arc: this.storyArc,
+          beats: this.storyBeats
+        });
       },
       error: (err) => {
         console.error('Error fetching story arc:', err);
         this.arcLoading = false;
       }
     });
-    }
-    computeArcPath(arc: number[]): string {
-      if (!arc || arc.length === 0) return '';
+  }
+
+  computeArcPath(arc: number[]): string {
+    if (!arc || arc.length === 0) return '';
       const w = 360; // width inside svg
       const hTop = 40;   // min y
       const hBottom = 250; // max y
@@ -1183,49 +1203,7 @@ ngOnDestroy(): void {
       return d;
   }
 
-  applySentenceClassifications(
-    classifications: { index: number; stage: string }[]
-  ): void {
-    this.storyStages.forEach(stage => stage.sentenceIndices = []);
-    if (!classifications.length) return;
-
-    const stageNameToIndex: Record<string, number> = {};
-    this.storyStages.forEach((s, i) => stageNameToIndex[s.name] = i);
-
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
-
-    classifications.forEach(c => {
-      const stageIdx = stageNameToIndex[c.stage];
-      if (stageIdx === undefined) return;
-
-      const exists = doc.sentences.some(s => s.index === c.index);
-      if (exists && !this.storyStages[stageIdx].sentenceIndices.includes(c.index)) {
-        this.storyStages[stageIdx].sentenceIndices.push(c.index);
-      }
-    });
-
-    this.storyStages.forEach(stage =>
-      stage.sentenceIndices.sort((a, b) => a - b)
-    );
-  }
-
-
-  sentencePreview(index: number, maxLen = 100): string {
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return '';
-    const s = doc.sentences.find(ss => ss.index === index);
-    if (!s) return '';
-    return s.text.length > maxLen ? s.text.substring(0, maxLen) + '...' : s.text;
-  }
-
-  selectSentenceByIndex(index: number): void {
-    const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
-    const s = doc.sentences.find(ss => ss.index === index);
-    if (s) this.documentService.selectSentence(s);
-  }
-
+  // Beat positions on the story arc SVG
   beatX(pos: number): number { return 20 + Number(pos) * 360; }
   beatY(pos: number): number {
     // upper/lower limits like in computeArcPath
@@ -1237,9 +1215,10 @@ ngOnDestroy(): void {
     return hBottom - v * (hBottom - hTop);
   }
 
+  // Fallback for beat points
   // Calculate position for sentence points on the arc
   sentenceX(sentenceIndex: number, totalSentences?: number): number {
-    const total = totalSentences ?? this.totalSentences;
+    const total = totalSentences ?? this.total_Sentences;
     if (total <= 1) return 20;
     const pos = sentenceIndex / (total - 1);
     return 20 + pos * 360;
@@ -1249,42 +1228,79 @@ ngOnDestroy(): void {
     const hTop = 40;
     const hBottom = 250;
 
-    // Finde Klassifizierung für diesen Satz
+    // Find classification for this sentence
     const c = this.sentenceClassifications.find(c => c.index === sentenceIndex);
 
-    // Nur Sätze mit Wert > 0 beeinflussen die Kurve
+    // Only values > 0 effect the arc position
     if (c?.value !== undefined && c.value > 0) {
       return hBottom - c.value * (hBottom - hTop);
     }
 
-    // Fallback: linear über Arc interpolieren
-    const total = this.totalSentences;
+    // Fallback: Interpolate linearly over the arc
+    const total = this.total_Sentences;
     const pos = total > 1 ? sentenceIndex / (total - 1) : 0;
     const idx = Math.round(pos * (this.storyArc.length - 1));
     const v = this.storyArc[idx] ?? 0.0;  // Sätze ohne Wert = 0
     return hBottom - v * (hBottom - hTop);
   }
 
+  // Map beats to sentences and story stages
+  applySentenceClassificationsFromBeats(beats: any[]): void {
+    // reset
+    this.storyStages.forEach(stage => stage.sentenceIndices = []);
 
-  getSentenceText(sentenceIndex: number): string {
+    const stageNameToStage = new Map(
+      this.storyStages.map(s => [s.name, s])
+    );
+
     const doc = this.documentService.getCurrentDocument();
-    if (!doc) return '';
-    const sentence = doc.sentences.find(s => s.index === sentenceIndex);
-    return sentence ? sentence.text : '';
+    if (!doc) return;
+
+    beats.forEach(b => {
+      if (typeof b.sentence_index !== 'number') return;
+
+      const stage = stageNameToStage.get(b.name);
+      if (!stage) return;
+
+      const exists = doc.sentences.some(s => s.index === b.sentence_index);
+      if (!exists) return;
+
+      if (!stage.sentenceIndices.includes(b.sentence_index)) {
+        stage.sentenceIndices.push(b.sentence_index);
+      }
+    });
+
+    // sort for UI sanity
+    this.storyStages.forEach(stage =>
+      stage.sentenceIndices.sort((a, b) => a - b)
+    );
   }
 
-  get current_Document() {
-    return this.documentService.getCurrentDocument();
+  // Used by classification display under the story arc
+  sentencePreview(index: number, maxLen = 100): string {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return '';
+    const s = doc.sentences.find(ss => ss.index === index);
+    if (!s) return '';
+    return s.text.length > maxLen ? s.text.substring(0, maxLen) + '...' : s.text;
   }
 
   get totalSentences(): number {
-    const doc = this.currentDocument;
+    const doc = this.current_Document;
     return doc?.sentences?.length || 0;
   }
 
   get significantSentenceClassifications(): SentenceClassification[] {
     return this.sentenceClassifications
       ?.filter(c => c.value !== undefined && c.value > 0)   // nur Sätze mit Wert
-      .filter(c => this.currentDocument?.sentences?.some(s => s.index === c.index)) ?? [];
+      .filter(c => this.current_Document?.sentences?.some(s => s.index === c.index)) ?? [];
+  }
+
+  // Used by classification display under the story arc
+  selectSentenceByIndex(index: number): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+    const s = doc.sentences.find(ss => ss.index === index);
+    if (s) this.documentService.selectSentence(s);
   }
 }

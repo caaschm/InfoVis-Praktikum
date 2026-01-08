@@ -813,8 +813,10 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
             "ideas": ["Focus on sensory details.", "Show specific character reactions.", "Vary sentence rhythm."],
             "preview": "Service is currently unavailable. Please try again later."
         }
-    
-# TODO @Caro: Check if I can integrate this with generate_sentence_stage_mapping()
+
+# Called by ai.py --> compute_story_arc to generate story arc data for visualization
+# Beats are important for the arc visualization and must always include all five stages
+# Returns dict with "arc": [float values], "beats": [beat dicts]
 async def generate_story_arc(text: str, granularity: int = 10) -> dict:
     api_key = get_api_key()
     STAGES = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]

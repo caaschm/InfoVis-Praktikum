@@ -272,25 +272,64 @@ async def spider_intent(
         print("❌ Error generating spider intent:", e)
         raise HTTPException(status_code=500, detail="AI intent generation failed.")
 
-import re
-
 def split_into_sentences(text: str) -> list[str]:
-    # sehr solide Heuristik für DE/EN
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     return [s for s in sentences if s]
 
-#TODO @Caro: Test story arc or revert back
-@router.post("/story-arc", response_model=schemas.StoryArcResponse)
-async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depends(get_db)):
-    STAGE_X = {
+def assign_beat_positions(beats, total_sentences):
+    """
+    Assign beat positions correctly:
+    - Sentence Beats → real text position but keep stage order
+    - Fallback Beats → Stage Default, side-by-side, within 0..1
+    """
+    STAGE_DEFAULT_POS = {
         "Exposition": 0.0,
         "Rising Action": 0.25,
         "Climax": 0.5,
         "Falling Action": 0.75,
-        "Denouement": 1.0
+        "Denouement": 1.0,
     }
 
-    # 1️⃣ Text laden
+    offset_step = 0.03  # Minimal Offset for overlap avoidance
+
+    # 1. Assign Positions for beats
+    for b in beats:
+        idx = b.get("sentence_index")
+        # If sentence_index exists, calculate position based on sentence order
+        if idx is not None and total_sentences > 1:
+            b["position"] = idx / (total_sentences - 1)
+            b["source"] = "sentence"
+            b["has_sentence"] = True
+        # Fallback to default stage position
+        else:
+            b["position"] = STAGE_DEFAULT_POS[b["name"]]
+            b["source"] = "stage"
+            b["has_sentence"] = False
+            b["sentence_index"] = None
+
+    # 2. Sort all beats by position
+    beats.sort(key=lambda b: b["position"])
+
+    # 3. Adjust Fallback Beat positions to avoid overlaps
+    occupied_positions = []
+    for b in beats:
+        if b["has_sentence"]:
+            occupied_positions.append(b["position"])
+            continue
+
+        # Search for next unoccupied position
+        min_pos = max(occupied_positions) + offset_step if occupied_positions else b["position"]
+        b["position"] = max(b["position"], min_pos)
+
+        # Clamp 0-1
+        b["position"] = min(1.0, b["position"])
+        occupied_positions.append(b["position"])
+
+
+@router.post("/story-arc", response_model=schemas.StoryArcResponse)
+async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depends(get_db)):
+
+    # 1. Load the text from the document
     text = request.text
     if request.document_id and not text:
         document = db.query(models.Document).filter(models.Document.id == request.document_id).first()
@@ -303,40 +342,28 @@ async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depe
 
     granularity = request.granularity or 20
 
-    # 2️⃣ AI-Story Arc & Beats
+    # 2. Generate AI-Story Arc & Beats
     result = await generate_story_arc(text=text, granularity=granularity)
     beats = result.get("beats", [])
     arc_vals = result.get("arc", [])
 
-
     all_sentences = split_into_sentences(text)
     total_sentences = len(all_sentences)
+    print("All Sentences:", total_sentences)
 
-    print("Alle Sätze:", total_sentences)
+    # 3. Assign Beats to Sentences and Positions on the story arc
+    total_sentences = len(all_sentences)
+    assign_beat_positions(beats, total_sentences)
 
-    # 4️⃣ Beats den Sätzen zuordnen (nur wenn sentence_index existiert)
     for b in beats:
-        if "sentence_index" in b and b["sentence_index"] is not None:
-            idx = b.get("sentence_index")
-            stage_name = b["name"]
+        print(f"{b['name']}: position={b['position']:.2f}, sentence_index={b['sentence_index']}")
 
-            b["position"] = (
-                idx / max(1, total_sentences - 1)
-                if idx is not None else STAGE_X[stage_name]
-            )
-            print(f"✅ Beat '{b['name']}' zugeordnet zu Satzindex {idx} (Position: {b['position']:.2f})")
-        else:
-            b["sentence_id"] = None
-            b["note"] = ""
-            b["position"] = STAGE_X[stage_name]
-            print(f"⚠️ Beat '{b['name']}' has no valid sentence index; using default position.")
 
-    # 5️⃣ Stage-Values berechnen (optional, für Arc-Linie)
+    # 4. Calculate Stage-Values
     stage_values = [{"stage": b["name"], "value": float(b.get("value", 0.0))} for b in beats]
 
     return schemas.StoryArcResponse(
         arc=arc_vals,
         beats=beats,
-        sentence_classifications=[],  # nicht mehr nötig
         stage_values=stage_values
     )

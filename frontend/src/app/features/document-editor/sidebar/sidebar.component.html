@@ -686,19 +686,6 @@
             <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
                 <path class="arc-line" [attr.d]="storyArcPath" stroke="#8B5CF6" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
 
-                <!-- Signifikante Satzpunkte -->
-                <g *ngIf="storyArcPath && significantSentenceClassifications.length > 0">
-                <circle *ngFor="let c of significantSentenceClassifications"
-                        [attr.cx]="sentenceX(c.index)"
-                        [attr.cy]="sentenceY(c.index)"
-                        r="4"
-                        class="arc-point sentence-point"
-                        (click)="selectSentenceByIndex(c.index)"
-                        [title]="getSentenceText(c.index)">
-                </circle>
-                </g>
-
-
                 <!-- Fallback: Show sentence points even without classifications -->
                 <!-- <g *ngIf="storyArcPath && totalSentences > 0">
                     <circle *ngFor="let sentence of currentDocument!.sentences"
@@ -717,9 +704,11 @@
                         r="6"
                         class="arc-point beat-marker"
                         [class.clickable]="b.sentence_index != null"
+                        [class.fallback]="b.sentence_index == null"
                         (click)="onBeatClick(b)"
                         [title]="b.note">
                 </circle>
+
 
 
             </svg>

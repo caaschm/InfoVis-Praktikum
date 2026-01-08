@@ -1787,7 +1787,7 @@
   r: 8px;
 }
 
-// Beat markers - larger and more prominent
+// Active beat
 .arc-point.beat-marker {
   fill: #ef4444;
   stroke: #ffffff;
@@ -1797,6 +1797,11 @@
   &:hover {
     r: 7px;
   }
+}
+
+// Fallback beat (no active content)
+.arc-point.beat-marker.fallback {
+  fill: #9ca3af;
 }
 
 .point-label {
@@ -1818,14 +1823,6 @@
 .arc-details h4 {
   margin: 0 0 12px 0;
   font-size: 14px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 20px;
-  color: #999;
-  background: #f9f9f9;
-  border-radius: 6px;
 }
 
 .arc-stage {
