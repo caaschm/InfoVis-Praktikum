@@ -273,7 +273,8 @@ async def spider_intent(
         raise HTTPException(status_code=500, detail="AI intent generation failed.")
 
 def split_into_sentences(text: str) -> list[str]:
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    text = text.replace("\n", " ").strip()
+    sentences = re.split(r'(?<=[.!?])\s+', text)
     return [s for s in sentences if s]
 
 def assign_beat_positions_with_ranges(beats, total_sentences):

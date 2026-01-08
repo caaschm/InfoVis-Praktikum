@@ -827,11 +827,19 @@ async def generate_beats_for_arc(text: str) -> dict:
         for i, stage in enumerate(STAGES)
     ]
 
-    # No API → return flat zero arc with visible stage points
+    # No API key --> return flat zero arc with visible stage points
     if not api_key:
         return {
             "beats": beats
         }
+    
+    # For correct sentence index: Split text into sentences like in ai.py
+    text = text.replace("\n", " ").strip()
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    sentences = [s for s in sentences if s]
+
+    # Create numbered text
+    numbered_text = "\n".join(f"{i}: {s}" for i, s in enumerate(sentences))
 
     prompt = f"""
         Analyze the following text and map it onto a fixed five-stage narrative structure.
@@ -890,9 +898,11 @@ async def generate_beats_for_arc(text: str) -> dict:
         ]
         }}
 
-        Text: {text}
+        Text: {numbered_text}
 
-        Also provide the indices as numbers corresponding to the order of sentences in the text (0-based).
+        - Use the sentence number before each sentence as the sentence_index (0-based).
+        - Do NOT create new sentences or split them differently.
+        - The text is numbered and must be used exactly as provided.
         """
 
     try:
