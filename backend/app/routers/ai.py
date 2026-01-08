@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping
+from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping, generate_beats_for_arc
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -276,56 +276,85 @@ def split_into_sentences(text: str) -> list[str]:
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     return [s for s in sentences if s]
 
-def assign_beat_positions(beats, total_sentences):
-    """
-    Assign beat positions correctly:
-    - Sentence Beats → real text position but keep stage order
-    - Fallback Beats → Stage Default, side-by-side, within 0..1
-    """
-    STAGE_DEFAULT_POS = {
-        "Exposition": 0.0,
-        "Rising Action": 0.25,
-        "Climax": 0.5,
-        "Falling Action": 0.75,
-        "Denouement": 1.0,
+def assign_beat_positions_with_ranges(beats, total_sentences):
+    STAGE_RANGES = {
+        "Exposition": (0.0, 0.19),
+        "Rising Action": (0.2, 0.39),
+        "Climax": (0.4, 0.59),
+        "Falling Action": (0.6, 0.79),
+        "Denouement": (0.8, 1.0),
     }
 
-    offset_step = 0.03  # Minimal Offset for overlap avoidance
+    offset_step = 0.03  # for multiple fallbacks in same stage
 
-    # 1. Assign Positions for beats
     for b in beats:
+        start, end = STAGE_RANGES[b["name"]]
         idx = b.get("sentence_index")
-        # If sentence_index exists, calculate position based on sentence order
+
         if idx is not None and total_sentences > 1:
-            b["position"] = idx / (total_sentences - 1)
-            b["source"] = "sentence"
+            # realtive Position in the stage range
+            pos_in_text = idx / (total_sentences - 1)
+            b["position"] = start + (end - start) * pos_in_text
             b["has_sentence"] = True
-        # Fallback to default stage position
         else:
-            b["position"] = STAGE_DEFAULT_POS[b["name"]]
-            b["source"] = "stage"
+            # no sentence assigned --> place in middle of stage range
+            b["position"] = start + (end - start) / 2
             b["has_sentence"] = False
-            b["sentence_index"] = None
 
-    # 2. Sort all beats by position
-    beats.sort(key=lambda b: b["position"])
-
-    # 3. Adjust Fallback Beat positions to avoid overlaps
-    occupied_positions = []
+    # Adjust positions for multiple fallbacks in same stage
+    stage_groups = {}
     for b in beats:
-        if b["has_sentence"]:
-            occupied_positions.append(b["position"])
+        if not b["has_sentence"]:
+            stage_groups.setdefault(b["name"], []).append(b)
+
+    for group in stage_groups.values():
+        n = len(group)
+        if n == 1:
             continue
-
-        # Search for next unoccupied position
-        min_pos = max(occupied_positions) + offset_step if occupied_positions else b["position"]
-        b["position"] = max(b["position"], min_pos)
-
-        # Clamp 0-1
-        b["position"] = min(1.0, b["position"])
-        occupied_positions.append(b["position"])
+        total_span = offset_step * (n - 1)
+        start_offset = -total_span / 2
+        for i, b in enumerate(group):
+            b["position"] += start_offset + i * offset_step
+            b["position"] = max(0.0, min(1.0, b["position"]))
 
 
+
+def build_arc_from_beats(beats, granularity=20):
+    """
+    Builds the story arc curve using beat positions and values.
+    - Sentence beats are exactly at their positions
+    - Fallback beats with value=0.0
+    """
+    arc = []
+    if not beats:
+        return [0.0] * granularity
+
+    # Sort by position
+    sorted_beats = sorted(beats, key=lambda b: b["position"])
+
+    for i in range(granularity):
+        pos = i / max(1, granularity - 1)
+
+        # Find left and right beats for interpolation
+        for j in range(len(sorted_beats) - 1):
+            left = sorted_beats[j]
+            right = sorted_beats[j + 1]
+            if left["position"] <= pos <= right["position"]:
+                span = right["position"] - left["position"]
+                t = (pos - left["position"]) / span if span > 0 else 0
+                value = (1 - t) * left["value"] + t * right["value"]
+                arc.append(value)
+                break
+        else:
+            # pos is before first beat or after last beat
+            if pos < sorted_beats[0]["position"]:
+                arc.append(sorted_beats[0]["value"])
+            else:
+                arc.append(sorted_beats[-1]["value"])
+
+    return arc
+
+# TODO: Fix sentenceid assignment, beat and highlighted sentence in text do not match
 @router.post("/story-arc", response_model=schemas.StoryArcResponse)
 async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depends(get_db)):
 
@@ -343,24 +372,26 @@ async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depe
     granularity = request.granularity or 20
 
     # 2. Generate AI-Story Arc & Beats
-    result = await generate_story_arc(text=text, granularity=granularity)
+    result = await generate_beats_for_arc(text=text)
     beats = result.get("beats", [])
-    arc_vals = result.get("arc", [])
 
     all_sentences = split_into_sentences(text)
     total_sentences = len(all_sentences)
     print("All Sentences:", total_sentences)
 
-    # 3. Assign Beats to Sentences and Positions on the story arc
-    total_sentences = len(all_sentences)
-    assign_beat_positions(beats, total_sentences)
+    # 3. Assign Beats to Sentences and Positions on the story arc and generate the Arc
+    # 3.1 Assign Beats to Sentences and Positions
+    assign_beat_positions_with_ranges(beats, total_sentences)
 
-    for b in beats:
-        print(f"{b['name']}: position={b['position']:.2f}, sentence_index={b['sentence_index']}")
+    # 3.2 Build Arc using the final positions
+    arc_vals = build_arc_from_beats(beats, granularity)
 
-
-    # 4. Calculate Stage-Values
+    # 4. Stage-Values
     stage_values = [{"stage": b["name"], "value": float(b.get("value", 0.0))} for b in beats]
+    print("Stage Values:", stage_values)
+    print("Beat positions & values:")
+    for b in beats:
+        print(f"{b['name']}: position={b['position']:.2f}, value={b['value']}, sentence_index={b['sentence_index']}")
 
     return schemas.StoryArcResponse(
         arc=arc_vals,

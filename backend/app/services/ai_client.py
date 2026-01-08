@@ -814,10 +814,10 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
             "preview": "Service is currently unavailable. Please try again later."
         }
 
-# Called by ai.py --> compute_story_arc to generate story arc data for visualization
+# Called by ai.py --> compute_story_arc to generate beat data for visualization of the story arc
 # Beats are important for the arc visualization and must always include all five stages
-# Returns dict with "arc": [float values], "beats": [beat dicts]
-async def generate_story_arc(text: str, granularity: int = 10) -> dict:
+# Returns dict with "beats": [beat dicts]
+async def generate_beats_for_arc(text: str) -> dict:
     api_key = get_api_key()
     STAGES = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
 
@@ -830,7 +830,6 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
     # No API → return flat zero arc with visible stage points
     if not api_key:
         return {
-            "arc": [0.0] * granularity,
             "beats": beats
         }
 
@@ -916,7 +915,7 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
         response_data = res.json()
         if "choices" in response_data and len(response_data["choices"]) > 0:
             content = response_data["choices"][0]["message"]["content"]
-            # Entferne mögliche ```json Blöcke
+            # Delete possible ```json Blocks
             content = re.sub(r'```json\s*', '', content)
             content = re.sub(r'```\s*', '', content).strip()
             # Parse JSON
@@ -936,156 +935,10 @@ async def generate_story_arc(text: str, granularity: int = 10) -> dict:
                     beats[i]["sentence_index"] = b.get("sentence_index")
                     break
 
-        # Build arc by interpolating beat values
-        stage_curve = [b["value"] for b in beats]
-        arc = []
-        for i in range(granularity):
-            pos = i / max(1, granularity - 1)
-            f = pos * (len(stage_curve) - 1)
-            lo, hi = int(f), min(int(f) + 1, len(stage_curve) - 1)
-            t = f - lo
-            arc.append((1 - t) * stage_curve[lo] + t * stage_curve[hi])
-
-        return {"arc": arc, "beats": beats}
+        return {"beats": beats}
 
     except Exception as e:
         print("❌ Story arc error:", e)
         return {
-            "arc": [0.0] * granularity,
             "beats": beats
         }
-
-
-
-# # Called by ai.py --> compute_story_arc
-# # TODO @Caro: not every sentence needs a stage/value, only if they significantly matter to a stage
-# async def generate_sentence_stage_mapping(text: str, sentences: list[str]) -> list[dict]:
-#     """
-#     Classify each sentence into one of five story stages and provide a numeric "value" (0.0-1.0) that represents the narrative tension for that sentence.
-    
-#     Return list of dicts: [{"index": <int>, "stage": "Exposition"|..., "value": 0.0..1.0 }, ...]
-#     """
-
-#     api_key = get_api_key()
-#     print("🔑 OPENROUTER_API_KEY present?", bool(api_key))
-#     STAGES = ["Exposition", "Rising Action", "Climax", "Falling Action", "Denouement"]
-
-#     # Minimal fallback if no API key
-#     if not api_key:
-#         N = len(sentences)
-#         res = []
-#         # default typical tension per stage
-#         default_vals = {
-#             "Exposition": 0.2,
-#             "Rising Action": 0.55,
-#             "Climax": 0.9,
-#             "Falling Action": 0.5,
-#             "Denouement": 0.15
-#         }
-#         for i in range(N):
-#             pos = i / max(1, N - 1)
-#             if pos < 0.2:
-#                 stage = "Exposition"
-#             elif pos < 0.55:
-#                 stage = "Rising Action"
-#             elif pos < 0.7:
-#                 stage = "Climax"
-#             elif pos < 0.9:
-#                 stage = "Falling Action"
-#             else:
-#                 stage = "Denouement"
-#             res.append({"index": i, "stage": stage, "value": default_vals[stage]})
-#         return res
-#     print("res:", res)
-
-#     prompt = f"""
-#     You are given a short story, devided into a list of sentences. For each sentence, assign it to one of the following five story stages: {', '.join(STAGES)}.
-#     Also provide a numeric "value" between 0.0 and 1.0 representing the narrative tension of that sentence (0.0 = no tension, 1.0 = peak tension).
-
-#     Respond with a single JSON array where each element is an object {{"index": <sentence index>, "stage": "<stage>", "value": <0.0-1.0>}}. Use the exact stage names above. Do not include extra text or commentary.
-
-#     Sentences:
-#     """
-
-#     for i, s in enumerate(sentences):
-#         prompt += f"\n[{i}] {s}\n"
-
-#     try:
-#         async with httpx.AsyncClient(timeout=60.0) as client:
-#             res = await client.post(
-#                 OPENROUTER_API_URL,
-#                 headers={
-#                     "Authorization": f"Bearer {api_key}",
-#                     "Content-Type": "application/json",
-#                     "HTTP-Referer": "http://localhost:4200",
-#                     "X-Title": "Story Writing Assistant"
-#                 },
-#                 json={
-#                     "model": MODEL_NAME,
-#                     "messages": [{"role": "user", "content": prompt}],
-#                     "temperature": 0.2,
-#                     "max_tokens": 600,
-#                 },
-#             )
-
-#         if res.status_code != 200:
-#             print(f"❌ Error response: {res.text}")
-#             raise Exception(f"API returned status {res.status_code}")
-
-#         content = res.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-#         content = re.sub(r'```json\s*', '', content)
-#         content = re.sub(r'```\s*', '', content).strip()
-
-#         try:
-#             parsed = json.loads(content)
-#         except json.JSONDecodeError:
-#             m = re.search(r'(\[[\s\S]*\])', content)
-#             if m:
-#                 parsed = json.loads(m.group(1))
-#             else:
-#                 raise
-
-#         out = []
-#         for item in parsed:
-#             idx = int(item.get("index", -1))
-#             stage = str(item.get("stage", "")).strip()
-#             # tolerate different keys for numeric value
-#             val = item.get("value") if item.get("value") is not None else item.get("tension") if item.get("tension") is not None else item.get("score")
-#             try:
-#                 fval = float(val) if val is not None else None
-#                 if fval is not None:
-#                     fval = max(0.0, min(1.0, fval))
-#             except Exception:
-#                 fval = None
-
-#             if idx >= 0 and stage in STAGES:
-#                 entry = {"index": idx, "stage": stage}
-#                 if fval is not None:
-#                     entry["value"] = fval
-#                 out.append(entry)
-#         return out
-#     except Exception as e:
-#         print(f"❌ Error generating sentence stage mapping: {e}")
-#         N = len(sentences)
-#         res = []
-#         default_vals = {
-#             "Exposition": 0.2,
-#             "Rising Action": 0.55,
-#             "Climax": 0.9,
-#             "Falling Action": 0.5,
-#             "Denouement": 0.15
-#         }
-#         for i in range(N):
-#             pos = i / max(1, N - 1)
-#             if pos < 0.2:
-#                 stage = "Exposition"
-#             elif pos < 0.55:
-#                 stage = "Rising Action"
-#             elif pos < 0.7:
-#                 stage = "Climax"
-#             elif pos < 0.9:
-#                 stage = "Falling Action"
-#             else:
-#                 stage = "Denouement"
-#             res.append({"index": i, "stage": stage, "value": default_vals[stage]})
-#         return res
