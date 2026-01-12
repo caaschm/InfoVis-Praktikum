@@ -117,13 +117,17 @@
 
     .text-editor-container {
         display: flex;
-        gap: 1rem;
+        gap: 0; // Remove gap to align line numbers with content
         border-radius: 8px;
         background: #fafbfc;
         border: 1px solid #e1e4e8;
         min-height: 500px;
+        max-height: calc(100vh - 250px); // Make container scrollable
         transition: border-color 0.2s ease;
-        overflow: visible;
+        overflow: hidden; // Hide overflow on container
+        position: relative;
+        // Performance optimization
+        contain: layout style paint; // Isolate rendering for better performance
 
         &:hover {
             border-color: #c1c8d1;
@@ -138,25 +142,41 @@
     .line-numbers {
         background: #f6f8fa;
         border-right: 1px solid #e1e4e8;
-        padding: 1.5rem 0.75rem; // Das passt zum Padding von .text-content
+        padding: 0 0.75rem 1.5rem 0.75rem; // Match text-content padding: 0 top, 1.5rem bottom
         display: flex;
         flex-direction: column;
         min-width: 50px;
         user-select: none;
+        overflow-y: auto; // Scrollable but scrollbar hidden
+        overflow-x: hidden;
+        flex-shrink: 0; // Prevent line numbers from shrinking
+        position: relative;
+        // Hide scrollbar but keep scrolling functionality
+        scrollbar-width: none; // Firefox
+        -ms-overflow-style: none; // IE and Edge
+        // Performance optimizations for smooth scrolling
+        will-change: scroll-position;
+        transform: translateZ(0); // Enable hardware acceleration
+        -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+
+        &::-webkit-scrollbar {
+            display: none; // Chrome, Safari, Opera
+        }
 
         .line-number {
-           line-height: 2; 
+            line-height: 2; // Must match text-content line-height exactly (2)
             font-size: 0.9rem;
             color: #6a737d;
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            
-            // Wir erzwingen die Höhe basierend auf der Text-Schriftgröße (1.05rem * 2)
-            height: 2.1rem; 
-            margin: 0;
-            padding: 0;
+            gap: 0.4rem;
+            height: 2em; // Fixed height: 2em matches line-height: 2 (each line is 2em tall)
+            min-height: 2em; // Ensure consistent height
+            max-height: 2em; // Prevent any expansion
+            padding-right: 0.75rem; // Match padding from container
+            box-sizing: border-box; // Include padding in height calculation
 
             .line-number-text {
                 display: inline-block;
@@ -172,12 +192,23 @@
 
     .text-content {
         flex: 1;
-        padding: 1.5rem;
+        padding: 0 1.5rem 1.5rem 1.5rem; // No top padding to align with line numbers
         line-height: 2;
         font-size: 1.05rem;
         color: #24292e;
         cursor: text;
         font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
+        overflow-y: auto; // Single scrollbar on the right
+        overflow-x: hidden;
+        // Remove scroll-behavior: smooth for better performance with touchpad/mouse
+        // Native scrolling is smoother than CSS smooth scrolling
+        // Scrollbar styling
+        scrollbar-width: thin;
+        scrollbar-color: #c1c8d1 #f6f8fa;
+        // Performance optimizations for smooth scrolling
+        will-change: scroll-position;
+        transform: translateZ(0); // Enable hardware acceleration
+        -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
 
         &.ai-highlight-mode {
             .sentence-inline {
@@ -433,14 +464,160 @@
             }
         }
     }
+
+    // Chapter styles
+    .chapter-filter {
+        display: flex;
+        align-items: center;
+        margin-right: 1rem;
+
+        .chapter-select {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+
+            &:hover {
+                border-color: #3b82f6;
+            }
+
+            &:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+>>>>>>> fix-chapter-isolation-sentence-detection
+    .add-chapter-btn {
+        padding: 0.5rem 1rem;
+        margin-right: 1rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
+    }
+
+    .chapter-section {
+        margin-bottom: 3rem; // Increased spacing for better visual separation in "All Chapters" view
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        position: relative;
+
+        // Add visual separation in "All Chapters" view
+        &:not(:last-child) {
+            &::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: linear-gradient(to right, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
+            }
+        }
+
+        &.unassigned {
+            opacity: 0.7;
+        }
+
+        .chapter-title-wrapper {
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            position: relative; // Changed from sticky to prevent scroll jumps
+            background: transparent;
+            z-index: 10;
+            padding-top: 1.5rem; // Add top padding to account for container padding
+            margin-top: 0; // Reset margin to prevent extra spacing
+
+            .chapter-title-display {
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: #1f2937;
+                cursor: text;
+                padding: 0.5rem;
+                border-radius: 4px;
+                transition: background-color 0.2s ease;
+
+                &:hover {
+                    background-color: rgba(59, 130, 246, 0.05);
+                }
+            }
+
+            .chapter-title-input {
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: #1f2937;
+                border: 2px solid #3b82f6;
+                border-radius: 4px;
+                padding: 0.5rem;
+                width: 100%;
+                background: white;
+                outline: none;
+
+                &:focus {
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                }
+            }
+        }
+
+        .chapter-sentences {
+            padding-left: 1rem;
+        }
+    }
+
+    .chapter-placeholder {
+        display: inline-block;
+        color: #9ca3af;
+        font-style: italic;
+        padding: 0.5rem;
+        border-radius: 4px;
+        cursor: text;
+        min-width: 200px;
+        outline: none;
+        transition: all 0.2s ease;
+
+        &:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+            color: #6b7280;
+        }
+
+        &:focus {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #374151;
+            font-style: normal;
+        }
+
+        &:empty:before {
+            content: 'Start typing here...';
+            color: #9ca3af;
+            font-style: italic;
+        }
+    }
 }
+
 /* Zebra-Modus für den Text-Viewer */
 :host-context(body.zebra-mode) {
     .text-content {
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
         .line-number {
-        // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
-        height: 2.1rem; 
+            // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
+            height: 2.1rem; 
         }
         .sentence-inline, .sentence-wrapper {
             display: block; 
@@ -485,7 +662,6 @@
             line-height: 2.2 !important;
         }
     }
-
 
     // Optional: Falls auch die Emojis im Emoji-Viewer mitwachsen sollen
     .emoji-content {

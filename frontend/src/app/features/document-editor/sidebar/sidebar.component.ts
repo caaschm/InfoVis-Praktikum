@@ -15,7 +15,8 @@ import { DocumentService } from '../../../core/services/document.service';
 import { AiService } from '../../../core/services/ai.service';
 import { CharacterFormService } from '../../../core/services/character-form.service';
 import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
-import { Sentence } from '../../../core/models/document.model';
+import { ChapterStateService } from '../../../core/services/chapter-state.service';
+import { Sentence, Chapter, DocumentDetail } from '../../../core/models/document.model';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
@@ -32,7 +33,7 @@ type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
   styleUrl: './sidebar.component.scss',
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' = 'ai';
+  private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' = 'ai';
 
   // ===== INTENT PANEL STATE =====
   intentSummary: string | null = null;
@@ -51,7 +52,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   };
 
   @Input()
-  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai') {
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc') {
     this._activeTab = value;
     if (value === 'analysis' && !this.isAnalyzing) {
       const doc = this.documentService.getCurrentDocument();
@@ -61,12 +62,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
   }
 
-  get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' {
+  get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' {
     return this._activeTab;
   }
-  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai'>();
+  @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc'>();
 
   selectedSentence: Sentence | null = null;
+  currentDocument: DocumentDetail | null = null;
+  chapters: Chapter[] = [];
   emojiDictionary: any = null;  // Emoji dictionary data
   isGenerating = false;
   isGeneratingEmojisForAll = false;
@@ -110,7 +113,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     public documentService: DocumentService,
     private aiService: AiService,
     private characterHighlightService: CharacterHighlightService,
-    private characterFormService: CharacterFormService
+    private characterFormService: CharacterFormService,
+    private chapterStateService: ChapterStateService
   ) { }
 
   // ========== INIT ==========
@@ -124,6 +128,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(doc => {
         if (doc) {
+          this.currentDocument = doc;
+          this.chapters = (doc.chapters || []).sort((a, b) => a.index - b.index);
           this.loadEmojiDictionary(doc.id);
         }
       });
@@ -134,13 +140,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
         debounceTime(2000),
         distinctUntilChanged((prev, curr) => {
           if (!prev || !curr) return prev === curr;
+          // Compare only active chapter's content
+          const activeChapterId = this.chapterStateService.getActiveChapterId();
+          if (activeChapterId) {
+            const prevActive = prev.sentences.filter(s => s.chapterId === activeChapterId).map(s => s.text).join(' ');
+            const currActive = curr.sentences.filter(s => s.chapterId === activeChapterId).map(s => s.text).join(' ');
+            return prevActive === currActive;
+          }
+          // Fallback: compare all content
           return prev.sentences.map(s => s.text).join(' ') ===
             curr.sentences.map(s => s.text).join(' ');
         })
       )
       .subscribe(doc => {
         if (doc && this.activeTab === 'analysis' && !this.isAnalyzing) {
-          const currentText = doc.sentences.map(s => s.text).join(' ').trim();
+          // Check active chapter's content
+          const activeChapterId = this.chapterStateService.getActiveChapterId();
+          let currentText: string;
+          
+          if (activeChapterId) {
+            const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+            currentText = activeChapterSentences.map(s => s.text).join(' ').trim();
+          } else {
+            currentText = doc.sentences.map(s => s.text).join(' ').trim();
+          }
+          
           if (currentText) {
             const textHash = `${currentText.length}_${currentText.substring(0, 50)}`;
             if (textHash !== this.lastAnalyzedTextHash) {
@@ -323,6 +347,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
+    // CRITICAL: Only generate emojis for sentences in the active chapter
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    if (activeChapterId && this.selectedSentence.chapterId !== activeChapterId) {
+      console.warn('Cannot generate emojis: sentence does not belong to active chapter');
+      return;
+    }
+
     this.isGenerating = true;
 
     this.aiService.generateEmojisFromText({
@@ -331,11 +362,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
       text: this.selectedSentence.text
     }).subscribe({
       next: (response) => {
-        // Update sentence with suggested emojis
-        this.documentService.updateSentenceEmojis(
-          this.selectedSentence!.id,
-          response.emojis
-        );
+        // Only update if sentence still belongs to active chapter
+        const updatedDoc = this.documentService.getCurrentDocument();
+        if (updatedDoc) {
+          const updatedSentence = updatedDoc.sentences.find(s => s.id === this.selectedSentence!.id);
+          if (updatedSentence && (!activeChapterId || updatedSentence.chapterId === activeChapterId)) {
+            this.documentService.updateSentenceEmojis(
+              this.selectedSentence!.id,
+              response.emojis
+            );
+          }
+        }
         this.isGenerating = false;
       },
       error: (err) => {
@@ -355,25 +392,49 @@ export class SidebarComponent implements OnInit, OnDestroy {
       const doc = this.documentService.getCurrentDocument();
       if (!doc || !doc.sentences || doc.sentences.length === 0) return;
 
+      // CRITICAL: Only generate emojis for sentences in the active chapter
+      const activeChapterId = this.chapterStateService.getActiveChapterId();
+      let sentencesToProcess: Sentence[];
+      
+      if (activeChapterId) {
+        // Only process sentences in the active chapter
+        sentencesToProcess = doc.sentences.filter(s => s.chapterId === activeChapterId);
+      } else {
+        // If no active chapter, process all sentences (backward compatibility)
+        sentencesToProcess = doc.sentences;
+      }
+
+      if (sentencesToProcess.length === 0) {
+        console.warn('No sentences to process in active chapter');
+        return;
+      }
+
       this.isGenerating = true;
       let processedCount = 0;
-      const totalSentences = doc.sentences.length;
+      const totalSentences = sentencesToProcess.length;
 
-      this.processEmojisForAllSentences(doc, processedCount, totalSentences);
+      this.processEmojisForAllSentences(doc, sentencesToProcess, processedCount, totalSentences);
     }, 150);
   }
 
-  private processEmojisForAllSentences(doc: any, processedCount: number, totalSentences: number): void {
+  private processEmojisForAllSentences(doc: any, sentences: Sentence[], processedCount: number, totalSentences: number): void {
     // Process each sentence one by one
-    doc.sentences.forEach((sentence: Sentence, index: number) => {
+    sentences.forEach((sentence: Sentence, index: number) => {
       this.aiService.generateEmojisFromText({
         documentId: doc.id,
         sentenceId: sentence.id,
         text: sentence.text
       }).subscribe({
         next: (response) => {
-          // Update sentence with suggested emojis
-          this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
+          // Only update if sentence still belongs to active chapter
+          const activeChapterId = this.chapterStateService.getActiveChapterId();
+          const updatedDoc = this.documentService.getCurrentDocument();
+          if (updatedDoc) {
+            const updatedSentence = updatedDoc.sentences.find(s => s.id === sentence.id);
+            if (updatedSentence && (!activeChapterId || updatedSentence.chapterId === activeChapterId)) {
+              this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
+            }
+          }
           processedCount++;
           if (processedCount === totalSentences) {
             this.isGenerating = false;
@@ -460,14 +521,66 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
-    // Get current document content
-    const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
-
-    // Append the preview text to the document
-    const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
-
-    // Update the document content
-    this.documentService.updateDocumentContent(doc.id, newContent);
+    // CRITICAL: Only update the active chapter's content
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    
+    if (activeChapterId) {
+      // Get active chapter's sentences (sorted by index)
+      const activeChapterSentences = doc.sentences
+        .filter(s => s.chapterId === activeChapterId)
+        .sort((a, b) => a.index - b.index);
+      
+      // Try to get cursor position for cursor-based insertion
+      const cursorState = this.chapterStateService.getCursor(activeChapterId);
+      let newChapterContent: string;
+      
+      if (cursorState && cursorState.sentenceId && cursorState.offset !== undefined) {
+        // Insert at cursor position
+        const cursorSentence = activeChapterSentences.find(s => s.id === cursorState.sentenceId);
+        if (cursorSentence) {
+          const sentenceText = cursorSentence.text;
+          const beforeCursor = sentenceText.substring(0, cursorState.offset);
+          const afterCursor = sentenceText.substring(cursorState.offset);
+          
+          // Insert the preview text at cursor position
+          const updatedSentence = `${beforeCursor}${this.intentPreview}${afterCursor}`;
+          
+          // Reconstruct chapter content with updated sentence
+          const chapterParts: string[] = [];
+          for (const sentence of activeChapterSentences) {
+            if (sentence.id === cursorState.sentenceId) {
+              chapterParts.push(updatedSentence);
+            } else {
+              chapterParts.push(sentence.text);
+            }
+          }
+          newChapterContent = chapterParts.join(' ').trim();
+        } else {
+          // Cursor sentence not found, fall back to appending
+          const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
+          newChapterContent = activeChapterContent 
+            ? `${activeChapterContent} ${this.intentPreview}` 
+            : this.intentPreview;
+        }
+      } else {
+        // No cursor position available, append to end
+        const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
+        newChapterContent = activeChapterContent 
+          ? `${activeChapterContent} ${this.intentPreview}` 
+          : this.intentPreview;
+      }
+      
+      // Update chapter history
+      this.chapterStateService.addHistoryEntry(activeChapterId, newChapterContent);
+      
+      // CRITICAL: Update only active chapter's content, preserving others
+      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent);
+    } else {
+      // Fallback: if no active chapter, update all content (backward compatibility)
+      const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
+      const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+      this.documentService.updateDocumentContent(doc.id, newContent);
+    }
 
     // Mark as applied
     this.textApplied = true;
@@ -512,13 +625,25 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
-    const fullText = doc.sentences.map(s => s.text).join(' ').trim();
-    if (!fullText) return;
+    // CRITICAL: Analyze only the active chapter's content
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    let textToAnalyze: string;
+    
+    if (activeChapterId) {
+      // Analyze only active chapter
+      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+      textToAnalyze = activeChapterSentences.map(s => s.text).join(' ').trim();
+    } else {
+      // Fallback: analyze all content if no active chapter (backward compatibility)
+      textToAnalyze = doc.sentences.map(s => s.text).join(' ').trim();
+    }
+    
+    if (!textToAnalyze) return;
 
     this.isAnalyzing = true;
     this.aiService.analyzeSpiderChart({
       documentId: doc.id,
-      text: fullText
+      text: textToAnalyze
     }).subscribe({
       next: (response) => {
         this.drama = response.drama;
@@ -529,7 +654,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.aiBaseline = { ...response } as Record<Dimension, number>;
         this.isAnalyzing = false;
 
-        const textHash = `${fullText.length}_${fullText.substring(0, 50)}`;
+        const textHash = `${textToAnalyze.length}_${textToAnalyze.substring(0, 50)}`;
         this.lastAnalyzedTextHash = textHash;
         this.lastAnalyzedDocumentId = doc.id;
       },
@@ -597,7 +722,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
-    const text = doc.sentences.map(s => s.text).join(' ').trim();
+    // CRITICAL: Use only active chapter's content for intent suggestions
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    let text: string;
+    
+    if (activeChapterId) {
+      // Use only active chapter
+      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+      text = activeChapterSentences.map(s => s.text).join(' ').trim();
+    } else {
+      // Fallback: use all content if no active chapter (backward compatibility)
+      text = doc.sentences.map(s => s.text).join(' ').trim();
+    }
+    
     if (!text) return;
 
     this.intentLoading = true;
@@ -627,5 +764,96 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.intentLoading = false;
       }
     });
+  }
+
+  // ========== TABLE OF CONTENTS ==========
+  
+  /**
+   * Navigate to a specific chapter
+   */
+  navigateToChapter(chapterId: string): void {
+    // Emit event to parent to switch to text viewer and select chapter
+    // We'll use a custom event or service to communicate with text-viewer
+    // For now, we'll use a simple approach: emit an event that document-editor can handle
+    this.switchTab.emit('toc'); // Keep ToC open, but we need to communicate with text-viewer
+    
+    // Use a ViewChild or service to access text-viewer component
+    // For now, we'll use a custom event approach
+    // The text-viewer component should listen for chapter navigation events
+    window.dispatchEvent(new CustomEvent('navigateToChapter', { detail: { chapterId } }));
+  }
+
+  /**
+   * Check if a chapter has content (is accessible)
+   */
+  isChapterAccessible(chapter: Chapter): boolean {
+    if (!this.currentDocument) return false;
+    // A chapter is accessible if it has sentences
+    return this.currentDocument.sentences.some(s => s.chapterId === chapter.id);
+  }
+
+  /**
+   * Get chapter number from title (e.g., "01 Title" -> "Chapter 1")
+   */
+  getChapterNumber(chapter: Chapter): string {
+    const match = chapter.title.match(/^(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      return `Chapter ${num}`;
+    }
+    // Fallback: use index + 1
+    return `Chapter ${chapter.index + 1}`;
+  }
+
+  /**
+   * Get chapter title without number (e.g., "01 Title" -> "Title")
+   */
+  getChapterTitle(chapter: Chapter): string {
+    const match = chapter.title.match(/^\d+\s+(.+)$/);
+    return match ? match[1] : chapter.title;
+  }
+
+  /**
+   * Get sentence count for a chapter
+   */
+  getChapterSentenceCount(chapterId: string): number {
+    if (!this.currentDocument) return 0;
+    return this.currentDocument.sentences.filter(s => s.chapterId === chapterId).length;
+  }
+
+  /**
+   * Get character count for a chapter
+   */
+  getChapterCharacterCount(chapterId: string): number {
+    if (!this.currentDocument) return 0;
+    const chapterSentences = this.currentDocument.sentences.filter(s => s.chapterId === chapterId);
+    return chapterSentences.reduce((total, sentence) => total + sentence.text.length, 0);
+  }
+
+  /**
+   * Format character count for display (e.g., "1,234" or "2.5K")
+   */
+  formatCharacterCount(count: number): string {
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 10000) {
+      return (count / 1000).toFixed(1) + 'K';
+    } else {
+      return Math.round(count / 1000) + 'K';
+    }
+  }
+
+  /**
+   * Estimate page count from character count (assuming ~2500 chars per page)
+   */
+  estimatePageCount(characterCount: number): number {
+    return Math.max(1, Math.round(characterCount / 2500));
+  }
+
+  /**
+   * Track by function for chapter ngFor
+   */
+  trackByChapterId(index: number, chapter: Chapter): string {
+    return chapter.id;
   }
 }

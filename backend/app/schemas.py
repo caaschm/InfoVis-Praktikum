@@ -34,11 +34,34 @@ class SentenceBase(BaseModel):
     
     id: str
     document_id: str
+    chapter_id: Optional[str] = None  # Optional chapter assignment
     index: int
     text: str
     emojis: list[str] = Field(default_factory=list)  # Raw emoji strings (unstructured)
     character_refs: list[str] = Field(default_factory=list)  # Character IDs (structured)
     emoji_mappings: Optional[dict[str, list[str]]] = None  # Maps emoji to words/phrases it represents
+
+
+class ChapterBase(BaseModel):
+    """Base chapter schema."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    document_id: str
+    title: str
+    index: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChapterCreate(BaseModel):
+    """Schema for creating a new chapter."""
+    title: Optional[str] = None  # If not provided, will auto-generate "01 Title", "02 Title", etc.
+
+
+class ChapterUpdate(BaseModel):
+    """Schema for updating a chapter."""
+    title: Optional[str] = None
 
 
 class DocumentDetail(BaseModel):
@@ -52,6 +75,7 @@ class DocumentDetail(BaseModel):
     updated_at: datetime
     sentences: list[SentenceBase] = []
     characters: list['CharacterResponse'] = []
+    chapters: list[ChapterBase] = []
 
 
 # ========== Sentence Schemas ==========

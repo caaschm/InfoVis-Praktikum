@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import init_db
-from app.routers import documents, sentences, ai, characters
+from app.routers import documents, sentences, ai, characters, chapters
 from app.schemas import HealthResponse
 
 # Create FastAPI app
@@ -35,6 +35,7 @@ app.include_router(documents.router)
 app.include_router(sentences.router)
 app.include_router(ai.router)
 app.include_router(characters.router)
+app.include_router(chapters.router)
 
 
 @app.on_event("startup")
