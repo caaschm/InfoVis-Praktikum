@@ -138,24 +138,25 @@
     .line-numbers {
         background: #f6f8fa;
         border-right: 1px solid #e1e4e8;
-        padding: 1.5rem 0.75rem;
+        padding: 1.5rem 0.75rem; // Das passt zum Padding von .text-content
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
         min-width: 50px;
         user-select: none;
 
         .line-number {
-            line-height: 2;
+           line-height: 2; 
             font-size: 0.9rem;
             color: #6a737d;
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 0.4rem;
-            height: auto;
-            min-height: 1.8em;
+            
+            // Wir erzwingen die Höhe basierend auf der Text-Schriftgröße (1.05rem * 2)
+            height: 2.1rem; 
+            margin: 0;
+            padding: 0;
 
             .line-number-text {
                 display: inline-block;
@@ -437,6 +438,10 @@
 :host-context(body.zebra-mode) {
     .text-content {
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
+        .line-number {
+        // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
+        height: 2.1rem; 
+        }
         .sentence-inline, .sentence-wrapper {
             display: block; 
             width: 100%;
@@ -464,15 +469,23 @@
 
 /* Große Schriftart Modus */
 :host-context(body.large-font-mode) {
+    .line-numbers {
+        .line-number {
+            // Neue Höhe berechnen: Schriftgröße 1.35rem * Line-Height 2.2 = ~2.97rem
+            height: 2.97rem !important;
+            font-size: 1.1rem; // Auch die Nummern etwas größer machen
+        }
+    }
     .text-content {
         font-size: 1.35rem !important; // Erhöht die Lesbarkeit deutlich
         line-height: 2.2 !important;  // Mehr Zeilenabstand für bessere Orientierung
         
-        .sentence-text, .highlight-overlay {
+        .sentence-text, .sentence-wrapper, .highlight-overlay {
             font-size: 1.35rem !important;
             line-height: 2.2 !important;
         }
     }
+
 
     // Optional: Falls auch die Emojis im Emoji-Viewer mitwachsen sollen
     .emoji-content {
