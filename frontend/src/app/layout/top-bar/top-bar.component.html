@@ -21,7 +21,7 @@
                 </button>
 
                 <div class="dropdown-menu" *ngIf="showSettingsDropdown">
-                    <div class="dropdown-header">accessibility</div>
+                    <div class="dropdown-header">Accessibility</div>
                     <div class="dropdown-item">
                         <span>Color Corrected: Deuteranomaly</span>
                         <label class="switch">
@@ -31,6 +31,25 @@
                             <span class="slider round"></span>
                         </label>
                     </div>
-                    <div class="dropdown-item">Platzhalter</div>
+                    <div class="dropdown-item">
+                        <span>Line Highlighting</span>
+                        <label class="switch">
+                            <input type="checkbox" 
+                                    [checked]="isZebraMode" 
+                                    (change)="toggleZebraMode()">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="dropdown-item">
+                        <span>Large Font Size</span>
+                        <label class="switch">
+                            <input type="checkbox" 
+                                [checked]="isLargeFont" 
+                                (change)="toggleLargeFont()">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
                 </div>
             </div> </div> </div> </header>
+
+            

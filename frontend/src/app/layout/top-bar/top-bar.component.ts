@@ -15,6 +15,8 @@ export class TopBarComponent implements OnInit {
   private historyStack: string[] = [];
   showSettingsDropdown = false;
   isColorBlindMode = false;
+  isZebraMode = false;
+  isLargeFont = false;
 
   constructor(
     private documentService: DocumentService,
@@ -45,6 +47,24 @@ export class TopBarComponent implements OnInit {
     // Optional: Menü nach Auswahl schließen
     // this.showSettingsDropdown = false; 
   }
+
+  toggleZebraMode() {
+    this.isZebraMode = !this.isZebraMode;
+    if (this.isZebraMode) {
+        document.body.classList.add('zebra-mode');
+    } else {
+        document.body.classList.remove('zebra-mode');
+    }
+  }
+  
+  toggleLargeFont() {
+    this.isLargeFont = !this.isLargeFont;
+    if (this.isLargeFont) {
+        document.body.classList.add('large-font-mode');
+    } else {
+        document.body.classList.remove('large-font-mode');
+    }
+  } 
 
   get canUndo(): boolean {
     return this.historyStack.length > 1;

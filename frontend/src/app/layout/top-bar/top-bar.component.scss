@@ -87,6 +87,77 @@
         }
     }
 
+    /* Einheitliche Größe für alle Switches im Dropdown */
+    .dropdown-menu {
+        .dropdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            gap: 15px; // Abstand zwischen Text und Schalter
+
+            span {
+                font-size: 0.9rem;
+                color: #374151;
+                flex: 1;
+            }
+
+            .switch {
+                position: relative;
+                display: inline-block;
+                // FESTE MASSE HIER:
+                width: 40px !important; 
+                height: 20px !important;
+                flex-shrink: 0; // Verhindert, dass der Switch gequetscht wird
+
+                input {
+                    opacity: 0;
+                    width: 0;
+                    height: 0;
+                }
+
+                .slider {
+                    position: absolute;
+                    cursor: pointer;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: #d1d5db;
+                    transition: .3s;
+                    
+                    &.round {
+                        border-radius: 20px;
+                        
+                        &:before {
+                            border-radius: 50%;
+                        }
+                    }
+
+                    &:before {
+                        position: absolute;
+                        content: "";
+                        height: 16px; // Etwas kleiner als die 20px Höhe
+                        width: 16px;
+                        left: 2px;
+                        bottom: 2px;
+                        background-color: white;
+                        transition: .3s;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    }
+                }
+
+                input:checked + .slider {
+                    background-color: #3b82f6; // Dein Blau-Ton
+                }
+
+                input:checked + .slider:before {
+                    transform: translateX(20px); // Schiebt den Punkt exakt ans Ende
+                }
+            }
+        }
+    }
+
     /* DER SCHIEBEREGLER (SWITCH) */
     .switch {
         position: relative;

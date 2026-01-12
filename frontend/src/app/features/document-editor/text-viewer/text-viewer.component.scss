@@ -433,3 +433,49 @@
         }
     }
 }
+/* Zebra-Modus für den Text-Viewer */
+:host-context(body.zebra-mode) {
+    .text-content {
+        // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
+        .sentence-inline, .sentence-wrapper {
+            display: block; 
+            width: 100%;
+            padding-left: 5px;
+            transition: background-color 0.2s ease;
+
+            &:nth-child(even) {
+                background-color: rgba(0, 0, 0, 0.04) !important; // Dezentes Grau
+            }
+            
+            &:hover {
+                background-color: rgba(59, 130, 246, 0.05) !important; // Leichter Blaustich beim Drüberfahren
+            }
+        }
+    }
+
+    // Optional: Auch für die Emoji-Ansicht (falls gewünscht)
+    .emoji-content {
+        .emoji-sentence:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.04) !important;
+            border-radius: 4px;
+        }
+    }
+}
+
+/* Große Schriftart Modus */
+:host-context(body.large-font-mode) {
+    .text-content {
+        font-size: 1.35rem !important; // Erhöht die Lesbarkeit deutlich
+        line-height: 2.2 !important;  // Mehr Zeilenabstand für bessere Orientierung
+        
+        .sentence-text, .highlight-overlay {
+            font-size: 1.35rem !important;
+            line-height: 2.2 !important;
+        }
+    }
+
+    // Optional: Falls auch die Emojis im Emoji-Viewer mitwachsen sollen
+    .emoji-content {
+        font-size: 2.5rem !important;
+    }
+}
