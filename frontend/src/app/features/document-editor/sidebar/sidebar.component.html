@@ -526,4 +526,51 @@
         </div>
     </div>
 
+    <!-- Table of Contents Tab -->
+    <div class="tab-content" *ngSwitchCase="'toc'">
+        <div class="sidebar-group">
+            <h2 class="group-title">📑 Table of Contents</h2>
+            
+            <div class="toc-summary" *ngIf="chapters.length > 0">
+                <p class="summary-text">
+                    <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this story
+                </p>
+            </div>
+
+            <div class="toc-list book-style" *ngIf="chapters.length > 0">
+                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" 
+                     class="toc-entry"
+                     [class.clickable]="isChapterAccessible(chapter)"
+                     [class.unclickable]="!isChapterAccessible(chapter)"
+                     (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
+                    <div class="toc-entry-left">
+                        <div class="chapter-number">{{ getChapterNumber(chapter) }}</div>
+                        <div class="chapter-title-wrapper">
+                            <div class="chapter-title">{{ getChapterTitle(chapter) }}</div>
+                            <div class="chapter-status" *ngIf="!isChapterAccessible(chapter)" title="No content yet">
+                                <span class="status-badge">Locked</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="toc-entry-right">
+                        <div class="chapter-meta" *ngIf="isChapterAccessible(chapter)">
+                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }} pg</span>
+                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id)) }} chars</span>
+                        </div>
+                        <div class="chapter-dots"></div>
+                        <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="toc-empty" *ngIf="chapters.length === 0">
+                <div class="empty-state">
+                    <span class="empty-icon">📖</span>
+                    <p class="empty-title">No chapters yet</p>
+                    <p class="empty-description">Create your first chapter to get started!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>

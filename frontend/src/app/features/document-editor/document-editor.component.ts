@@ -19,7 +19,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
 
   // Sidebar management
   sidebarVisible = true;
-  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' = 'ai'; constructor(public documentService: DocumentService) { }
+  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' = 'ai'; constructor(public documentService: DocumentService) { }
 
   ngOnInit(): void {
     // Subscribe to current document
@@ -58,7 +58,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai'): void {
+  toggleTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc'): void {
     if (this.activeTab === tab && this.sidebarVisible) {
       // Clicking same tab hides sidebar
       this.sidebarVisible = false;
@@ -69,7 +69,7 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  onSwitchTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai'): void {
+  onSwitchTab(tab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc'): void {
     // Handle tab switch request from child components (e.g., sidebar)
     this.activeTab = tab;
     this.sidebarVisible = true;

@@ -18,6 +18,7 @@ export interface Document {
 export interface Sentence {
     id: string;
     documentId: string;
+    chapterId?: string | null;  // Optional chapter assignment
     index: number;
     text: string;
     characterRefs: string[];  // Array of character IDs
@@ -25,9 +26,19 @@ export interface Sentence {
     emojiMappings?: { [emoji: string]: string[] };  // Maps emoji to phrases it represents
 }
 
+export interface Chapter {
+    id: string;
+    documentId: string;
+    title: string;
+    index: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface DocumentDetail extends Document {
     sentences: Sentence[];
     characters: Character[];  // SINGLE SOURCE OF TRUTH
+    chapters: Chapter[];
 }
 
 export interface DocumentMetadata {

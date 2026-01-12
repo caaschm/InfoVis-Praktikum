@@ -23,6 +23,8 @@ class Document(Base):
 
     # Relationship to sentences
     sentences = relationship("Sentence", back_populates="document", cascade="all, delete-orphan")
+    # Relationship to chapters
+    chapters = relationship("Chapter", back_populates="document", cascade="all, delete-orphan", order_by="Chapter.index")
 
 
 class Sentence(Base):
@@ -39,6 +41,7 @@ class Sentence(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    chapter_id = Column(String, ForeignKey("chapters.id"), nullable=True)  # Optional chapter assignment
     index = Column(Integer, nullable=False)  # Order within document
     text = Column(Text, nullable=False)
     emojis = Column(Text, nullable=True)  # JSON array of raw emoji strings (unstructured)
@@ -47,6 +50,23 @@ class Sentence(Base):
 
     # Relationships
     document = relationship("Document", back_populates="sentences")
+    chapter = relationship("Chapter", back_populates="sentences")
+
+
+class Chapter(Base):
+    """Chapter model - represents a chapter within a document."""
+    __tablename__ = "chapters"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    title = Column(String, nullable=False)  # Chapter title (e.g., "01 Title", "02 Title")
+    index = Column(Integer, nullable=False)  # Order within document
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    document = relationship("Document", back_populates="chapters")
+    sentences = relationship("Sentence", back_populates="chapter", cascade="all, delete-orphan")
 
 
 class Character(Base):

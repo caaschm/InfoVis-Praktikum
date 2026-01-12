@@ -173,39 +173,91 @@ def update_document_content(
     # Update content
     document.content = content_update.content
     
-    # Get existing sentences with their emojis and character_refs
+    # Get existing sentences with their emojis, character_refs, and chapter assignments
     existing_sentences = db.query(models.Sentence).filter(
         models.Sentence.document_id == document_id
-    ).all()
+    ).order_by(models.Sentence.index).all()
     
-    # Create a map of sentence text to emojis and character_refs
-    sentence_data_map = {}
+    # Create a map of sentence text to preserved data (emojis, character_refs, chapter_id)
+    # Use a list to handle multiple sentences with same text but different chapters
+    sentence_data_list = []
     for sent in existing_sentences:
         # Parse JSON arrays from database
         emojis = json.loads(sent.emojis) if sent.emojis else []
         character_refs = json.loads(sent.character_refs) if sent.character_refs else []
-        sentence_data_map[sent.text.strip()] = {
+        sentence_data_list.append({
+            'text': sent.text.strip(),
             'emojis': emojis,
-            'character_refs': character_refs
-        }
+            'character_refs': character_refs,
+            'chapter_id': sent.chapter_id,
+            'index': sent.index
+        })
     
     # Delete existing sentences
     db.query(models.Sentence).filter(models.Sentence.document_id == document_id).delete()
     
     # Split new content into sentences
-    sentences = split_into_sentences(content_update.content)
+    new_sentences = split_into_sentences(content_update.content)
     
-    # Create new sentence records, preserving emojis and character_refs where text matches
-    for index, sentence_text in enumerate(sentences):
-        # Restore data if this sentence text existed before
-        preserved_data = sentence_data_map.get(sentence_text.strip(), {})
+    # Get chapters ordered by index to help with chapter assignment
+    chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document_id
+    ).order_by(models.Chapter.index).all()
+    
+    # Create new sentence records, preserving emojis, character_refs, and chapter_id where text matches
+    used_sentence_indices = set()
+    assigned_chapters = []  # Track chapter assignments for new sentences to infer from context
+    
+    for index, sentence_text in enumerate(new_sentences):
+        sentence_text_stripped = sentence_text.strip()
+        
+        # Try to find matching sentence by text and position
+        preserved_data = None
+        
+        # First, try exact match by text and index
+        if index < len(sentence_data_list):
+            candidate = sentence_data_list[index]
+            if candidate['text'] == sentence_text_stripped:
+                preserved_data = candidate
+                used_sentence_indices.add(index)
+        
+        # If no match, try to find by text only (but prefer unused ones)
+        if not preserved_data:
+            for i, candidate in enumerate(sentence_data_list):
+                if candidate['text'] == sentence_text_stripped and i not in used_sentence_indices:
+                    preserved_data = candidate
+                    used_sentence_indices.add(i)
+                    break
+        
+        # Determine chapter_id
+        chapter_id = None
+        if preserved_data:
+            # Use preserved chapter_id from matching sentence
+            chapter_id = preserved_data.get('chapter_id')
+        else:
+            # For new sentences, infer chapter from nearby assigned sentences in the NEW list
+            # Look at previous sentences that were already processed and assigned
+            if index > 0 and len(assigned_chapters) > 0:
+                # Use the chapter of the most recent previous sentence
+                chapter_id = assigned_chapters[-1]
+            elif chapters:
+                # Fallback: assign to first chapter if exists
+                chapter_id = chapters[0].id
+        
+        # Track assigned chapter for context inference (for next iteration)
+        if chapter_id:
+            assigned_chapters.append(chapter_id)
+            # Keep only last 10 for context
+            if len(assigned_chapters) > 10:
+                assigned_chapters = assigned_chapters[-10:]
         
         db_sentence = models.Sentence(
             document_id=document.id,
             index=index,
             text=sentence_text,
-            emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data.get('emojis') else None,
-            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data.get('character_refs') else None
+            chapter_id=chapter_id,
+            emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
+            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None
         )
         db.add(db_sentence)
     
@@ -253,6 +305,7 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         sentence_responses.append(schemas.SentenceBase(
             id=sentence.id,
             document_id=sentence.document_id,
+            chapter_id=sentence.chapter_id,
             index=sentence.index,
             text=sentence.text,
             emojis=emojis,
@@ -279,6 +332,22 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         ) for c in characters
     ]
     
+    # Get all chapters for this document
+    chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document.id
+    ).order_by(models.Chapter.index).all()
+    
+    chapter_responses = [
+        schemas.ChapterBase(
+            id=ch.id,
+            document_id=ch.document_id,
+            title=ch.title,
+            index=ch.index,
+            created_at=ch.created_at,
+            updated_at=ch.updated_at
+        ) for ch in chapters
+    ]
+    
     return schemas.DocumentDetail(
         id=document.id,
         title=document.title,
@@ -286,7 +355,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
         created_at=document.created_at,
         updated_at=document.updated_at,
         sentences=sentence_responses,
-        characters=character_responses
+        characters=character_responses,
+        chapters=chapter_responses
     )
 
 

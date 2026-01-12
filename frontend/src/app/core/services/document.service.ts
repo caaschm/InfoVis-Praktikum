@@ -4,7 +4,7 @@
  */
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import {
     Document,
@@ -12,7 +12,8 @@ import {
     DocumentMetadata,
     Sentence,
     SentenceUpdate,
-    EmojiDictionary
+    EmojiDictionary,
+    Chapter
 } from '../models/document.model';
 
 @Injectable({
@@ -71,6 +72,11 @@ export class DocumentService {
                     s.documentId = s.document_id;
                     delete s.document_id;
                 }
+                // Transform chapter_id to chapterId
+                if ('chapter_id' in s) {
+                    s.chapterId = s.chapter_id;
+                    delete s.chapter_id;
+                }
             });
         }
         // Transform characters
@@ -87,6 +93,23 @@ export class DocumentService {
                 if ('created_at' in c) {
                     c.createdAt = c.created_at;
                     delete c.created_at;
+                }
+            });
+        }
+        // Transform chapters
+        if (doc.chapters) {
+            doc.chapters.forEach((ch: any) => {
+                if ('document_id' in ch) {
+                    ch.documentId = ch.document_id;
+                    delete ch.document_id;
+                }
+                if ('created_at' in ch) {
+                    ch.createdAt = ch.created_at;
+                    delete ch.created_at;
+                }
+                if ('updated_at' in ch) {
+                    ch.updatedAt = ch.updated_at;
+                    delete ch.updated_at;
                 }
             });
         }
@@ -172,6 +195,7 @@ export class DocumentService {
 
     /**
      * Update document content and re-parse sentences
+     * Uses the provided content directly (backend will preserve chapter assignments)
      */
     updateDocumentContent(documentId: string, content: string): void {
         this.apiService.patch<any>(`/api/documents/${documentId}`, { content })
@@ -184,6 +208,49 @@ export class DocumentService {
                 },
                 error: (err) => console.error('Error updating document content:', err)
             });
+    }
+
+    /**
+     * Update a specific chapter's content (preserves other chapters)
+     */
+    updateChapterContent(documentId: string, chapterId: string, chapterContent: string): void {
+        const currentDoc = this.currentDocumentSubject.value;
+        if (!currentDoc) return;
+        
+        // Get all chapters in order
+        const chapters = [...(currentDoc.chapters || [])].sort((a, b) => a.index - b.index);
+        
+        // Reconstruct full document content by combining all chapters
+        const allChapterContents: string[] = [];
+        
+        for (const chapter of chapters) {
+            if (chapter.id === chapterId) {
+                // Use the new content for the updated chapter
+                allChapterContents.push(chapterContent);
+            } else {
+                // Preserve other chapters' content
+                const chapterSentences = currentDoc.sentences
+                    .filter(s => s.chapterId === chapter.id)
+                    .sort((a, b) => a.index - b.index)
+                    .map(s => s.text);
+                allChapterContents.push(chapterSentences.join(' ').trim());
+            }
+        }
+        
+        // Add unassigned sentences
+        const unassignedSentences = currentDoc.sentences
+            .filter(s => !s.chapterId)
+            .sort((a, b) => a.index - b.index)
+            .map(s => s.text);
+        if (unassignedSentences.length > 0) {
+            allChapterContents.push(unassignedSentences.join(' ').trim());
+        }
+        
+        // Combine all chapters
+        const fullContent = allChapterContents.filter(c => c).join(' ').trim();
+        
+        // Update document with reconstructed content
+        this.updateDocumentContent(documentId, fullContent);
     }
 
     /**
@@ -293,5 +360,50 @@ export class DocumentService {
     private handleSentenceUpdated(sentence: Sentence): void {
         // Sync with backend response
         this.updateLocalSentence(sentence.id, sentence);
+    }
+
+    /**
+     * Create a new chapter
+     */
+    createChapter(documentId: string, title?: string): Observable<Chapter> {
+        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { title })
+            .pipe(
+                switchMap((chapterResponse: any) => {
+                    // Transform chapter response (snake_case to camelCase)
+                    const chapter: Chapter = {
+                        id: chapterResponse.id,
+                        documentId: chapterResponse.document_id || chapterResponse.documentId,
+                        title: chapterResponse.title,
+                        index: chapterResponse.index,
+                        createdAt: chapterResponse.created_at || chapterResponse.createdAt,
+                        updatedAt: chapterResponse.updated_at || chapterResponse.updatedAt
+                    };
+                    
+                    // Reload document to get updated chapters and sentences, then return the chapter
+                    return this.loadDocument(documentId).pipe(
+                        map((): Chapter => chapter)
+                    );
+                })
+            );
+    }
+
+    /**
+     * Update a chapter title
+     */
+    updateChapter(documentId: string, chapterId: string, title: string): Observable<Chapter> {
+        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, { title })
+            .pipe(
+                tap(() => {
+                    // Reload document to get updated chapters
+                    this.loadDocument(documentId).subscribe();
+                })
+            );
+    }
+
+    /**
+     * Get all chapters for a document
+     */
+    getChapters(documentId: string): Observable<Chapter[]> {
+        return this.apiService.get<Chapter[]>(`/api/documents/${documentId}/chapters/`);
     }
 }

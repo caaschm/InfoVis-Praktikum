@@ -1651,4 +1651,226 @@
             }
         }
     }
+
+    // ========== TABLE OF CONTENTS ==========
+    .toc-summary {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+
+        .summary-text {
+            margin: 0;
+            color: #6b7280;
+            font-size: 0.95rem;
+            line-height: 1.5;
+
+            strong {
+                color: #1f2937;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .toc-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+        &.book-style {
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+        }
+    }
+
+    .toc-entry {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 0.875rem 1rem;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        transition: all 0.2s ease;
+        cursor: default;
+        position: relative;
+        min-height: 3.5rem;
+
+        &.clickable {
+            cursor: pointer;
+            border-color: #d1d5db;
+
+            &:hover {
+                background: #f9fafb;
+                border-color: #3b82f6;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+                transform: translateX(2px);
+
+                .chapter-arrow {
+                    opacity: 1;
+                    transform: translateX(4px);
+                }
+
+                .chapter-dots {
+                    opacity: 0.3;
+                }
+            }
+
+            &:active {
+                transform: translateX(0);
+                box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+            }
+        }
+
+        &.unclickable {
+            opacity: 0.65;
+            background: #fafbfc;
+            border-color: #e5e7eb;
+            border-style: dashed;
+
+            .chapter-title {
+                color: #9ca3af;
+            }
+        }
+
+        .toc-entry-left {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .toc-entry-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        .chapter-number {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 0.125rem;
+        }
+
+        .chapter-title-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .chapter-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #1f2937;
+            line-height: 1.5;
+            word-wrap: break-word;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .chapter-status {
+            display: inline-flex;
+            align-items: center;
+
+            .status-badge {
+                font-size: 0.7rem;
+                font-weight: 500;
+                color: #9ca3af;
+                background: #f3f4f6;
+                padding: 0.125rem 0.5rem;
+                border-radius: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+        }
+
+        .chapter-dots {
+            flex: 1;
+            min-width: 20px;
+            max-width: 60px;
+            height: 1px;
+            background: repeating-linear-gradient(
+                to right,
+                #d1d5db 0px,
+                #d1d5db 2px,
+                transparent 2px,
+                transparent 4px
+            );
+            opacity: 0.4;
+            transition: opacity 0.2s ease;
+            margin: 0 0.5rem;
+        }
+
+        .chapter-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.125rem;
+            text-align: right;
+        }
+
+        .page-count {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #374151;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+            white-space: nowrap;
+        }
+
+        .char-count {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
+            white-space: nowrap;
+        }
+
+        .chapter-arrow {
+            font-size: 1rem;
+            color: #3b82f6;
+            opacity: 0;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 0.25rem;
+        }
+    }
+
+    .toc-empty {
+        padding: 3rem 1rem;
+        text-align: center;
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+
+            .empty-icon {
+                font-size: 3rem;
+                opacity: 0.3;
+            }
+
+            .empty-title {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: #374151;
+            }
+
+            .empty-description {
+                margin: 0;
+                font-size: 0.9rem;
+                color: #6b7280;
+                max-width: 250px;
+            }
+        }
+    }
 }

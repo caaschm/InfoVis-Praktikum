@@ -32,6 +32,10 @@
                 (click)="toggleTab('analysis')" (dblclick)="hideSidebar()" title="Analysis (Double-click to hide)">
                 <span class="icon">🎭</span>
             </button>
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'toc'"
+                (click)="toggleTab('toc')" (dblclick)="hideSidebar()" title="Table of Contents (Double-click to hide)">
+                <span class="icon">📑</span>
+            </button>
 
         </div>
     </div>

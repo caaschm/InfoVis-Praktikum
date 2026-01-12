@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core'; // OnInit hier ergänzt
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Location } from '@angular/common'; 
 import { DocumentService } from '../../core/services/document.service';
-import { CommonModule } from '@angular/common'; // Wichtig für *ngIf im Template
+import { ChapterStateService } from '../../core/services/chapter-state.service';
+import { CommonModule } from '@angular/common';
+import { takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-top-bar',
@@ -10,14 +13,16 @@ import { CommonModule } from '@angular/common'; // Wichtig für *ngIf im Templat
   templateUrl: './top-bar.component.html',
   styleUrl: './top-bar.component.scss'
 })
-export class TopBarComponent implements OnInit {
+export class TopBarComponent implements OnInit, OnDestroy {
   appTitle = 'Plottery';
-  private historyStack: string[] = [];
+  private historyStack: string[] = []; // Kept for backward compatibility, but per-chapter undo is primary
   showSettingsDropdown = false;
   isColorBlindMode = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private documentService: DocumentService,
+    private chapterStateService: ChapterStateService,
     private location: Location 
   ) { }
 
@@ -47,16 +52,41 @@ export class TopBarComponent implements OnInit {
   }
 
   get canUndo(): boolean {
+    // Check per-chapter undo first (primary method)
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    if (activeChapterId) {
+      return this.chapterStateService.canUndo(activeChapterId);
+    }
+    // Fallback to global history for backward compatibility
     return this.historyStack.length > 1;
   }
 
   goBack(): void {
-    const currentDoc = this.documentService.getCurrentDocument(); 
-    if (this.historyStack.length > 1 && currentDoc) {
+    const currentDoc = this.documentService.getCurrentDocument();
+    if (!currentDoc) return;
+    
+    // Use per-chapter undo (primary method)
+    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    if (activeChapterId) {
+      const previousContent = this.chapterStateService.undo(activeChapterId);
+      if (previousContent !== null) {
+        // CRITICAL: Update only the active chapter's content, preserving others
+        this.documentService.updateChapterContent(currentDoc.id, activeChapterId, previousContent);
+        return;
+      }
+    }
+    
+    // Fallback to global history for backward compatibility
+    if (this.historyStack.length > 1) {
       this.historyStack.pop(); 
       const previousContent = this.historyStack[this.historyStack.length - 1];
       this.documentService.updateDocumentContent(currentDoc.id, previousContent); 
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   // ... (onFileSelected, readTextFile, readPdfFile bleiben gleich) ...
