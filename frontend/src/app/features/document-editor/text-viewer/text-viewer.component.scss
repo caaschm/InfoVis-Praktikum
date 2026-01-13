@@ -488,7 +488,10 @@
                 outline: none;
                 border-color: #3b82f6;
                 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
->>>>>>> fix-chapter-isolation-sentence-detection
+            }
+        }
+    }
+
     .add-chapter-btn {
         padding: 0.5rem 1rem;
         margin-right: 1rem;
@@ -617,10 +620,10 @@
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
         .line-number {
             // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
-            height: 2.1rem; 
+            height: 2.1rem;
         }
         .sentence-inline, .sentence-wrapper {
-            display: block; 
+            display: block;
             width: 100%;
             padding-left: 5px;
             transition: background-color 0.2s ease;
@@ -628,7 +631,7 @@
             &:nth-child(even) {
                 background-color: rgba(0, 0, 0, 0.04) !important; // Dezentes Grau
             }
-            
+
             &:hover {
                 background-color: rgba(59, 130, 246, 0.05) !important; // Leichter Blaustich beim Drüberfahren
             }
@@ -656,7 +659,7 @@
     .text-content {
         font-size: 1.35rem !important; // Erhöht die Lesbarkeit deutlich
         line-height: 2.2 !important;  // Mehr Zeilenabstand für bessere Orientierung
-        
+
         .sentence-text, .sentence-wrapper, .highlight-overlay {
             font-size: 1.35rem !important;
             line-height: 2.2 !important;
