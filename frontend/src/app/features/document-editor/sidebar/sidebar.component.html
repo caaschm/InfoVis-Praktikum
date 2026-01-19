@@ -499,13 +499,22 @@
                 </div>
             </div>
 
-            <div *ngIf="intentPreview" class="suggestions-example">
-                <div class="example-label">EXAMPLE:</div>
-                <div class="example-text">{{ intentPreview }}</div>
+            <!-- Suggested Sentence Block -->
+            <div class="suggested-sentence-block suggestion-item">
+                <span class="suggestion-badge icon-badge">📝</span>
+                <div class="suggestion-content">
+                    <span class="suggestion-label">Suggested Sentence</span>
+                    <span class="suggestion-text" *ngIf="intentPreview">{{ intentPreview }}</span>
+                    <span class="suggestion-text placeholder" *ngIf="!intentPreview && intentLoading">Generating
+                        suggestion...</span>
+                    <span class="suggestion-text placeholder" *ngIf="!intentPreview && !intentLoading">No suggestion
+                        generated. Try adjusting the slider again.</span>
+                </div>
             </div>
 
-            <div *ngIf="intentPreview" class="suggestions-actions">
-                <button class="apply-text-btn" [class.applied]="textApplied" [disabled]="textApplied"
+            <!-- Apply Button -->
+            <div class="suggestions-actions">
+                <button class="apply-text-btn" [class.applied]="textApplied" [disabled]="textApplied || !intentPreview"
                     (click)="applyPreviewText()">
                     <span class="btn-icon">✨</span>
                     <span class="btn-label">{{ textApplied ? 'Text Applied' : 'Apply Text' }}</span>
@@ -530,7 +539,7 @@
     <div class="tab-content" *ngSwitchCase="'toc'">
         <div class="sidebar-group">
             <h2 class="group-title">📑 Table of Contents</h2>
-            
+
             <div class="toc-summary" *ngIf="chapters.length > 0">
                 <p class="summary-text">
                     <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this story
@@ -538,11 +547,9 @@
             </div>
 
             <div class="toc-list book-style" *ngIf="chapters.length > 0">
-                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" 
-                     class="toc-entry"
-                     [class.clickable]="isChapterAccessible(chapter)"
-                     [class.unclickable]="!isChapterAccessible(chapter)"
-                     (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
+                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" class="toc-entry"
+                    [class.clickable]="isChapterAccessible(chapter)" [class.unclickable]="!isChapterAccessible(chapter)"
+                    (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
                     <div class="toc-entry-left">
                         <div class="chapter-number">{{ getChapterNumber(chapter) }}</div>
                         <div class="chapter-title-wrapper">
@@ -554,8 +561,10 @@
                     </div>
                     <div class="toc-entry-right">
                         <div class="chapter-meta" *ngIf="isChapterAccessible(chapter)">
-                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }} pg</span>
-                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id)) }} chars</span>
+                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }}
+                                pg</span>
+                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id)) }}
+                                chars</span>
                         </div>
                         <div class="chapter-dots"></div>
                         <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>

@@ -609,44 +609,114 @@ Current story text:
 \"\"\"{text}\"\"\"
 
 
-Respond ONLY in JSON:
+Respond ONLY in valid JSON format. Do not add any conversational text before or after the JSON.
 {{
   "summary": "...",
   "ideas": ["...", "...", "..."],
   "preview": "..."
 }}
+
+IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflecting the requested change. It cannot be empty.
 """
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            res = await client.post(
-                OPENROUTER_API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:4200",
-                    "X-Title": "Story Writing Assistant"
-                },
-                json={
-                    "model": MODEL_NAME,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.6,
-                    "max_tokens": 300,
-                },
-            )
+        # Try primary model, then fallback to backup
+        models_to_try = [
+            "google/gemini-2.0-flash-exp:free",
+            "google/gemini-2.0-flash-thinking-exp:free", 
+            "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "huggingfaceh4/zephyr-7b-beta:free"
+        ]
+        
+        last_exception = None
+        
+        for model in models_to_try:
+            print(f"🔄 Attempting generation with model: {model}")
+            try:
+                async with httpx.AsyncClient(timeout=45.0) as client:
+                    res = await client.post(
+                        OPENROUTER_API_URL,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "http://localhost:4200",
+                            "X-Title": "Story Writing Assistant"
+                        },
+                        json={
+                            "model": model,
+                            "messages": [
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.7,
+                            "max_tokens": 300,
+                        },
+                    )
 
-        if res.status_code != 200:
-            print(f"❌ Error response: {res.text}")
-            raise Exception(f"API returned status {res.status_code}")
+                if res.status_code == 200:
+                    raw = res.json()["choices"][0]["message"]["content"].strip()
+                    print(f"✅ Success with {model}")
+                    break # Success!
+                else:
+                    print(f"⚠️ Failed with {model}: Status {res.status_code}")
+                    last_exception = Exception(f"Status {res.status_code}: {res.text}")
+                    continue # Try next model
+            except Exception as e:
+                print(f"⚠️ Error with {model}: {e}")
+                last_exception = e
+                continue
+        
+        if 'raw' not in locals():
+            print("⚠️ All AI models failed. Using local heuristic fallback.")
+            # Local fallback based on dimension and value
+            fallback_sentences = {
+                "drama": [
+                    "The silence stretched on, heavy with unsaid words and lingering regret.",
+                    "Tears welled in her eyes as the realization of what she had lost finally hit home.",
+                    "It was a moment that would change everything, a turning point from which there was no return."
+                ],
+                "humor": [
+                    "He tripped over his own feet, sending the tray of drinks flying in a spectacular arc.",
+                    "She couldn't help but giggle at the absurdity of the situation.",
+                    "It was the kind of mistake that would be funny in ten years, but right now, it was just chaotic."
+                ],
+                "conflict": [
+                    "Their voices rose in anger, echoing off the stone walls of the chamber.",
+                    "Steel met steel with a deafening clang as the duel began in earnest.",
+                    "There could be no peace between them now, not after what had been said."
+                ],
+                "mystery": [
+                    "Included in the shadows, something watched and waited for the perfect moment to strike.",
+                    "The note was unsigned, but the handwriting felt disturbingly familiar.",
+                    "A cold draft swept through the room, extinguishing the candles one by one."
+                ]
+            }
+            
+            import random
+            dim_key = dimension.lower()
+            fallback_preview = random.choice(fallback_sentences.get(dim_key, ["The story took an unexpected turn."]))
+            
+            return {
+                "summary": "AI unavailable. Showing heuristic suggestion.",
+                "ideas": ["Adjust the slider again to try AI.", "Check your internet connection.", "Try a different dimension."],
+                "preview": fallback_preview
+            }
 
-        raw = res.json()["choices"][0]["message"]["content"].strip()
+        # raw is already set in the loop
 
-        # Remove markdown fences if present
-        cleaned = re.sub(r"```json|```", "", raw).strip()
+        print(f"DEBUG: Raw AI Intent Response: {raw}")
 
-        return json.loads(cleaned)
+        # Robust JSON extraction: look for the first '{' and the last '}'
+        try:
+            json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if json_match:
+                cleaned = json_match.group(0)
+            else:
+                cleaned = raw  # Fallback to raw if no braces found (unlikely to work but worth a try)
+            
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON Decode Error: {e} | Cleaned Text: {cleaned}")
+            raise e
 
     except Exception as e:
         print(f"❌ Error generating spider intent: {type(e).__name__}: {e}")
@@ -654,5 +724,5 @@ Respond ONLY in JSON:
         return {
             "summary": "The AI could not generate a specific suggestion.",
             "ideas": ["Try adjusting emotional tone.", "Modify character choices.", "Change pacing or tension."],
-            "preview": ""
+            "preview": "Suggestion generation failed. Please try adjusting the slider again."
         }

@@ -41,7 +41,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   intentPreview: string | null = null;
   intentLoading = false;
   textApplied = false;
-  private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number }>();
+  private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number; requestId: number }>();
+  private requestCounter = 0;
 
   // ===== BASELINE VALUES NACH AI-ANALYSE =====
   aiBaseline: Record<Dimension, number> = {
@@ -157,14 +158,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
           // Check active chapter's content
           const activeChapterId = this.chapterStateService.getActiveChapterId();
           let currentText: string;
-          
+
           if (activeChapterId) {
             const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
             currentText = activeChapterSentences.map(s => s.text).join(' ').trim();
           } else {
             currentText = doc.sentences.map(s => s.text).join(' ').trim();
           }
-          
+
           if (currentText) {
             const textHash = `${currentText.length}_${currentText.substring(0, 50)}`;
             if (textHash !== this.lastAnalyzedTextHash) {
@@ -175,11 +176,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
         }
       });
 
-    // Slider-Änderungen debouncen
+    // Slider-Änderungen debouncen - IMMER neue Anfrage senden für neue Sätze
+    // Kein distinctUntilChanged - jeder Slider-Zug generiert einen neuen Satz
     this.sliderChangeSubject
       .pipe(
         takeUntil(this.destroy$),
         debounceTime(500)
+        // REMOVED distinctUntilChanged - we want a NEW request every time the slider moves
       )
       .subscribe(({ dimension, current, baseline }) => {
         this.fetchIntentSuggestions(dimension, current, baseline);
@@ -395,7 +398,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // CRITICAL: Only generate emojis for sentences in the active chapter
       const activeChapterId = this.chapterStateService.getActiveChapterId();
       let sentencesToProcess: Sentence[];
-      
+
       if (activeChapterId) {
         // Only process sentences in the active chapter
         sentencesToProcess = doc.sentences.filter(s => s.chapterId === activeChapterId);
@@ -523,17 +526,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     // CRITICAL: Only update the active chapter's content
     const activeChapterId = this.chapterStateService.getActiveChapterId();
-    
+
     if (activeChapterId) {
       // Get active chapter's sentences (sorted by index)
       const activeChapterSentences = doc.sentences
         .filter(s => s.chapterId === activeChapterId)
         .sort((a, b) => a.index - b.index);
-      
+
       // Try to get cursor position for cursor-based insertion
       const cursorState = this.chapterStateService.getCursor(activeChapterId);
       let newChapterContent: string;
-      
+
       if (cursorState && cursorState.sentenceId && cursorState.offset !== undefined) {
         // Insert at cursor position
         const cursorSentence = activeChapterSentences.find(s => s.id === cursorState.sentenceId);
@@ -541,10 +544,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
           const sentenceText = cursorSentence.text;
           const beforeCursor = sentenceText.substring(0, cursorState.offset);
           const afterCursor = sentenceText.substring(cursorState.offset);
-          
+
           // Insert the preview text at cursor position
           const updatedSentence = `${beforeCursor}${this.intentPreview}${afterCursor}`;
-          
+
           // Reconstruct chapter content with updated sentence
           const chapterParts: string[] = [];
           for (const sentence of activeChapterSentences) {
@@ -558,42 +561,34 @@ export class SidebarComponent implements OnInit, OnDestroy {
         } else {
           // Cursor sentence not found, fall back to appending
           const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-          newChapterContent = activeChapterContent 
-            ? `${activeChapterContent} ${this.intentPreview}` 
+          newChapterContent = activeChapterContent
+            ? `${activeChapterContent} ${this.intentPreview}`
             : this.intentPreview;
         }
       } else {
         // No cursor position available, append to end
         const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-        newChapterContent = activeChapterContent 
-          ? `${activeChapterContent} ${this.intentPreview}` 
+        newChapterContent = activeChapterContent
+          ? `${activeChapterContent} ${this.intentPreview}`
           : this.intentPreview;
       }
-      
+
       // Update chapter history
       this.chapterStateService.addHistoryEntry(activeChapterId, newChapterContent);
-      
+
       // CRITICAL: Update only active chapter's content, preserving others
+      // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent);
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
       const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+      // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       this.documentService.updateDocumentContent(doc.id, newContent);
     }
 
     // Mark as applied
     this.textApplied = true;
-
-    // Note: New sentences created from preview text will be marked as AI-generated
-    // when the document is updated and sentences are re-parsed.
-    // We'll mark them after the document update completes.
-    setTimeout(() => {
-      const updatedDoc = this.documentService.getCurrentDocument();
-      if (updatedDoc) {
-        // Preview text applied successfully
-      }
-    }, 500);
   }
 
   // ========== SPIDER SHAPE ==========
@@ -628,7 +623,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // CRITICAL: Analyze only the active chapter's content
     const activeChapterId = this.chapterStateService.getActiveChapterId();
     let textToAnalyze: string;
-    
+
     if (activeChapterId) {
       // Analyze only active chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
@@ -637,7 +632,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Fallback: analyze all content if no active chapter (backward compatibility)
       textToAnalyze = doc.sentences.map(s => s.text).join(' ').trim();
     }
-    
+
     if (!textToAnalyze) return;
 
     this.isAnalyzing = true;
@@ -711,7 +706,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     this.textApplied = false; // Reset when new suggestions are being fetched
-    this.sliderChangeSubject.next({ dimension, current, baseline });
+    this.requestCounter++; // Increment counter to force new request even with same values
+    this.sliderChangeSubject.next({ dimension, current, baseline, requestId: this.requestCounter });
   }
 
   private fetchIntentSuggestions(
@@ -725,7 +721,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // CRITICAL: Use only active chapter's content for intent suggestions
     const activeChapterId = this.chapterStateService.getActiveChapterId();
     let text: string;
-    
+
     if (activeChapterId) {
       // Use only active chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
@@ -734,12 +730,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Fallback: use all content if no active chapter (backward compatibility)
       text = doc.sentences.map(s => s.text).join(' ').trim();
     }
-    
+
     if (!text) return;
 
     this.intentLoading = true;
     this.intentSummary = 'Analyzing intent...';
     this.intentIdeas = [];
+    const previousPreview = this.intentPreview;
     this.intentPreview = null;
     this.textApplied = false; // Reset when new suggestions are generated
 
@@ -755,6 +752,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.intentIdeas = res.ideas;
         this.intentPreview = res.preview;
         this.intentLoading = false;
+
+        // Auto-apply logic removed as per user request.
+        // User must click "Apply Text" button to insert the suggestion.
       },
       error: (err) => {
         console.error('Error fetching intent suggestions:', err);
@@ -767,7 +767,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   // ========== TABLE OF CONTENTS ==========
-  
+
   /**
    * Navigate to a specific chapter
    */
@@ -776,7 +776,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // We'll use a custom event or service to communicate with text-viewer
     // For now, we'll use a simple approach: emit an event that document-editor can handle
     this.switchTab.emit('toc'); // Keep ToC open, but we need to communicate with text-viewer
-    
+
     // Use a ViewChild or service to access text-viewer component
     // For now, we'll use a custom event approach
     // The text-viewer component should listen for chapter navigation events
