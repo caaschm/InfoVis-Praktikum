@@ -1787,19 +1787,35 @@
   r: 8px;
 }
 
-// Active beat
-.arc-point.beat-marker {
+// Active beat (value > 0)
+.arc-point.beat-marker.beat-active {
   fill: #ef4444;
   stroke: #ffffff;
   stroke-width: 2;
   r: 5px;
+  cursor: pointer;
   
   &:hover {
     r: 7px;
   }
 }
 
-// Fallback beat (no active content)
+// Inactive beat (value = 0) - grey, fixed position, not draggable
+.arc-point.beat-marker.beat-inactive {
+  fill: #9ca3af;
+  stroke: #ffffff;
+  stroke-width: 2;
+  r: 5px;
+  cursor: default;
+  opacity: 0.6;
+  
+  &:hover {
+    r: 5px; // Don't enlarge on hover
+    opacity: 0.8;
+  }
+}
+
+// Fallback beat (no active content) - legacy support
 .arc-point.beat-marker.fallback {
   fill: #9ca3af;
 }

@@ -17,7 +17,7 @@ def get_api_key() -> str:
     return os.getenv("OPENROUTER_API_KEY", "")
 
 # Use Mistral's Devstral model - optimized for code and creative tasks
-MODEL_NAME = "mistralai/devstral-small-2505"
+MODEL_NAME = "xiaomi/mimo-v2-flash:free"
 
 
 def _extract_character_names(text: str) -> list[str]:
@@ -952,3 +952,91 @@ async def generate_beats_for_arc(text: str) -> dict:
         return {
             "beats": beats
         }
+
+
+async def reformulate_sentence_for_tension(text: str, tension_value: float) -> str:
+    """
+    Reformulate a sentence to match a specific tension value (0.0 to 1.0).
+    
+    Args:
+        text: The original sentence text
+        tension_value: Target tension value (0.0 = low tension, 1.0 = high tension)
+        
+    Returns:
+        Reformulated sentence text matching the target tension
+    """
+    api_key = get_api_key()
+    
+    if not api_key:
+        return text  # Return original if no API key
+    
+    # Convert tension value to descriptive terms
+    if tension_value < 0.2:
+        tension_desc = "very low tension, calm, peaceful"
+    elif tension_value < 0.4:
+        tension_desc = "low tension, relaxed, gentle"
+    elif tension_value < 0.6:
+        tension_desc = "moderate tension, balanced, steady"
+    elif tension_value < 0.8:
+        tension_desc = "high tension, intense, dramatic"
+    else:
+        tension_desc = "very high tension, extreme, climactic"
+    
+    tension_percent = int(tension_value * 100)
+    
+    prompt = f"""Rewrite the following sentence to match a tension level of {tension_percent}% ({tension_desc}).
+
+The tension value represents narrative intensity:
+- Low (0-40%): Calm, peaceful, relaxed, gentle moments
+- Moderate (40-60%): Balanced, steady, normal pacing
+- High (60-80%): Intense, dramatic, suspenseful moments
+- Very High (80-100%): Extreme, climactic, peak tension moments
+
+Original sentence: "{text}"
+
+Rewrite the sentence to match {tension_percent}% tension while:
+1. Keeping the same core meaning and story content
+2. Adjusting word choice, sentence structure, and pacing to match the tension level
+3. Maintaining natural, readable prose
+4. Preserving character names and key plot elements
+
+Respond with ONLY the rewritten sentence. No explanations, no quotes, just the sentence itself."""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 150
+                }
+            )
+            
+            if response.status_code != 200:
+                print(f"❌ Error response: {response.text}")
+                return text
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            
+            # Remove quotes if present
+            content = content.strip('"').strip("'").strip()
+            
+            return content if content else text
+            
+    except Exception as e:
+        print(f"❌ Error reformulating sentence: {type(e).__name__}: {e}")
+        return text

@@ -252,9 +252,9 @@ export interface SpiderChartIntentResponse {
 // -------------------------------------- Story Arc Models --------------------------------------
 export interface Beat {
   name: string;
-  position: number; // 0..1
+  position: number; // 0..1 (x)
+  value: number;    // 0..1 (y / tension)
   note?: string;
-  sentence_id?: string;
   sentence_index?: number;
 }
 
@@ -269,4 +269,16 @@ export interface StoryArcResponse {
   arc: number[]; // Werte 0..1
   beats: Beat[];
   sentence_classifications?: SentenceClassification[];
+}
+
+export interface ReformulateSentenceRequest {
+  documentId: string;
+  sentenceId: string;
+  text: string;
+  tensionValue: number; // 0..1
+}
+
+export interface ReformulateSentenceResponse {
+  sentenceId: string;
+  reformulatedText: string;
 }

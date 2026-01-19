@@ -12,7 +12,9 @@ import {
     TextFromCharactersResponse,
     SpiderChartAnalysisRequest,
     SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse,
-    StoryArcResponse
+    StoryArcResponse,
+    ReformulateSentenceRequest,
+    ReformulateSentenceResponse
 } from '../models/document.model';
 
 export interface SpiderIntentRequest {
@@ -96,5 +98,12 @@ export class AiService {
     getStoryArc(payload: { documentId?: number | string; text?: string; granularity?: number }) {
         return this.apiService.post<StoryArcResponse>('/api/ai/story-arc', payload);
     }
+
+  reformulateSentenceForTension(request: ReformulateSentenceRequest): Observable<ReformulateSentenceResponse> {
+    return this.apiService.post<ReformulateSentenceResponse>(
+      '/api/ai/reformulate-sentence-tension',
+      request
+    );
+  }
 
 }

@@ -683,7 +683,7 @@
         <h3>Story Arc</h3>
         <div class="story-arc-container">
 
-            <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
+            <svg #arcSvg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
                 <path class="arc-line" [attr.d]="storyArcPath" stroke="#8B5CF6" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
 
                 <!-- Fallback: Show sentence points even without classifications -->
@@ -698,15 +698,18 @@
                 </g> -->
 
                 <!-- Beats -->
-                <circle *ngFor="let b of storyBeats"
-                        [attr.cx]="beatX(b.position)"
-                        [attr.cy]="beatY(b.position)"
-                        r="6"
-                        class="arc-point beat-marker"
-                        [class.clickable]="b.sentence_index != null"
-                        [class.fallback]="b.sentence_index == null"
-                        (click)="onBeatClick(b)"
-                        [title]="b.note">
+                <circle
+                *ngFor="let b of storyBeats"
+                [attr.cx]="beatX(b.position)"
+                [attr.cy]="beatYFromValue(b.value)"
+                r="6"
+                [class.arc-point]="true"
+                [class.beat-marker]="true"
+                [class.beat-inactive]="b.value === 0"
+                [class.beat-active]="b.value > 0"
+                (mousedown)="startBeatDrag(b, $event)"
+                (mouseover)="onBeatHover(b)"
+                [title]="getBeatTitle(b)">
                 </circle>
 
 

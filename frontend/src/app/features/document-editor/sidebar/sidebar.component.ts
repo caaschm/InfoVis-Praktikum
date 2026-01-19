@@ -31,9 +31,9 @@ interface ChapterAnalysis {
 
 interface Beat {
   name: string;
-  position: number; // 0..1
+  position: number; // 0..1 (x)
+  value: number;    // 0..1 (y / tension)
   note?: string;
-  sentence_id?: string;
   sentence_index?: number;
 }
 
@@ -160,6 +160,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   @ViewChild('spiderSvg') spiderSvg?: ElementRef<SVGSVGElement>;
   draggingHandle: Dimension | null = null;
 
+  @ViewChild('arcSvg') arcSvg?: ElementRef<SVGSVGElement>;
+  draggingBeat: Beat | null = null;
+  private beatChangeSubject = new Subject<{ beat: Beat; oldValue: number; newValue: number }>();
 
   isAnalyzing = false;
   lastAnalysisError: string | null = null;
@@ -321,6 +324,15 @@ ngOnInit(): void {
       )
       .subscribe(({ dimension, current, baseline }) => {
         this.fetchIntentSuggestions(dimension, current, baseline);
+      });
+        // Beat tension changes debounced
+    this.beatChangeSubject
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(800)
+      )
+      .subscribe(({ beat, oldValue, newValue }) => {
+        this.reformulateSentenceForTension(beat, newValue);
       });
   }
 
@@ -936,8 +948,35 @@ ngOnDestroy(): void {
   @HostListener('window:mouseup')
   stopDrag() { this.draggingHandle = null; }
 
+  startBeatDrag(beat: Beat, e: MouseEvent): void {
+    // Don't allow dragging beats with value=0 (they should stay fixed at 0)
+    // Only AI can set these beats to non-zero values
+    if (beat.value === 0) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Dragging beat:', beat.name);
+
+    this.draggingBeat = beat;
+  }
+
+  @HostListener('window:mouseup')
+    stopBeatDrag(): void {
+      this.draggingBeat = null;
+    }
+
   @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
+  onGlobalMouseMove(event: MouseEvent) {
+    if (this.draggingHandle) {
+      this.onSpiderMouseMove(event);
+    } else if (this.draggingBeat) {
+      this.onBeatMouseMove(event);
+    }
+  }
+
+  onSpiderMouseMove(event: MouseEvent) {
     if (!this.draggingHandle || !this.spiderSvg) return;
 
     const rect = this.spiderSvg.nativeElement.getBoundingClientRect();
@@ -955,6 +994,71 @@ ngOnDestroy(): void {
 
     // Intent-Panel triggern
     this.onSliderChange(this.draggingHandle);
+  }
+
+  onBeatMouseMove(event: MouseEvent): void {
+    if (!this.draggingBeat || !this.arcSvg) return;
+
+    // Don't allow dragging beats with value=0 (they should stay fixed at 0)
+    // Only AI can set these beats to non-zero values
+    if (this.draggingBeat.value === 0) {
+      return;
+    }
+
+    const rect = this.arcSvg.nativeElement.getBoundingClientRect();
+    
+    // Only update Y (value/tension), keep X (position) fixed
+    const yNorm = (event.clientY - rect.top) / rect.height;
+    
+    // Store old value for comparison
+    const oldValue = this.draggingBeat.value;
+    
+    // Update only Value (Y), position stays fixed
+    // Prevent setting to exactly 0 via dragging (only AI can set to 0)
+    const newValue = Math.min(1, Math.max(0.001, 1 - yNorm)); // y=0 top, 1 bottom invertiert, min 0.001
+    this.draggingBeat.value = newValue;
+
+    // Arc neu berechnen
+    this.recomputeArcFromBeats();
+    
+    // Trigger AI reformulation if value changed significantly
+    if (Math.abs(oldValue - this.draggingBeat.value) > 0.01) {
+      this.beatChangeSubject.next({
+        beat: this.draggingBeat,
+        oldValue: oldValue,
+        newValue: this.draggingBeat.value
+      });
+    }
+  }
+
+
+  recomputeArcFromBeats(): void {
+    if (this.storyBeats.length < 2) return;
+
+    const samples = 50;
+    const arc: number[] = [];
+    const beats = [...this.storyBeats].sort((a, b) => a.position - b.position);
+
+    for (let i = 0; i < samples; i++) {
+      const x = i / (samples - 1);
+
+      const right = beats.find(b => b.position >= x);
+      const left = [...beats].reverse().find(b => b.position <= x) ?? beats[0];
+
+      if (!left && right) { arc.push(right.value); continue; }
+      if (!right && left) { arc.push(left.value); continue; }
+      if (!left || !right || right.position === left.position) {
+        arc.push(left?.value ?? 0);
+        continue;
+      }
+
+      const t = (x - left.position) / (right.position - left.position);
+      const v = (1 - t) * left.value + t * right.value;
+      arc.push(v);
+    }
+
+    this.storyArc = arc;
+    this.storyArcPath = this.computeArcPath(this.storyArc);
   }
 
   // ========== INTENT PANEL LOGIK ==========
@@ -1120,12 +1224,18 @@ ngOnDestroy(): void {
 
   // ========== STORY ARC LOGIC ==========
 
-  onBeatClick(b: any): void {
-    console.log('Beat clicked', b);
+  onBeatHover(b: any): void {
+    console.log('Beat hovered', b);
     if (typeof b.sentence_index !== 'number') {
       return; // no sentence mapped, therefore nothing to highlight
     }
     this.selectSentenceByIndex(b.sentence_index);
+  }
+
+  private sentenceIndexToPosition(sentenceIndex: number | null): number {
+    const total = this.totalSentences;
+    if (sentenceIndex === null || total <= 1) return 0;
+    return sentenceIndex / (total - 1);
   }
 
   fetchStoryArc(): void {
@@ -1138,7 +1248,7 @@ ngOnDestroy(): void {
     console.log('Document text:', text);
     if (!text) return;
 
-    // Update sentence count when fetching
+    // Update sentence count
     this.previousSentenceCount = doc.sentences?.length || 0;
     this.arcLoading = true;
 
@@ -1148,12 +1258,36 @@ ngOnDestroy(): void {
       granularity: this.arcGranularity
     }).subscribe({
       next: (res) => {
-                // Arc und Beats
+        // Arc
         this.storyArc = res.arc || [];
-        this.storyBeats = (res.beats || []).map(b => ({
-          ...b,
-          position: b.position ?? 0
-        }));
+
+        // Beats
+        this.storyBeats = (res.beats || []).map(b => {
+          const pos = b.position ?? this.sentenceIndexToPosition(b.sentence_index ?? null);
+
+          // Use the exact value from the backend - don't interpolate if value is 0
+          // Beats with value=0 should stay at 0 (only AI can set them)
+          let val = b.value;
+          if (val === undefined) {
+            // Only interpolate if value is truly undefined (not set by AI)
+            if (this.storyArc?.length) {
+              const f = pos * (this.storyArc.length - 1);
+              const lo = Math.floor(f);
+              const hi = Math.min(lo + 1, this.storyArc.length - 1);
+              const t = f - lo;
+              val = (1 - t) * this.storyArc[lo] + t * this.storyArc[hi];
+            } else {
+              val = 0;
+            }
+          }
+          // If value is explicitly 0, keep it at 0 (don't interpolate)
+
+          return {
+            ...b,
+            position: pos,
+            value: val ?? 0
+          };
+        });
 
         // Calculate path for Story Arc
         this.storyArcPath = this.computeArcPath(this.storyArc);
@@ -1180,50 +1314,82 @@ ngOnDestroy(): void {
   }
 
   computeArcPath(arc: number[]): string {
-    if (!arc || arc.length === 0) return '';
-      const w = 360; // width inside svg
-      const hTop = 40;   // min y
-      const hBottom = 250; // max y
-      const points = arc.map((v, i) => {
-        const x = 20 + (i / (arc.length - 1)) * w;
-        const y = hBottom - v * (hBottom - hTop);
-        return { x, y };
-      });
-      // build smooth path (quadratic between points)
-      let d = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1];
-        const cur = points[i];
-        const cx = (prev.x + cur.x) / 2;
-        const cy = (prev.y + cur.y) / 2;
-        d += ` Q ${prev.x} ${prev.y} ${cx} ${cy}`;
+    if (!this.storyBeats || this.storyBeats.length === 0) return '';
+
+    // Sort beats by position
+    const sortedBeats = [...this.storyBeats].sort((a, b) => a.position - b.position);
+
+    if (sortedBeats.length === 0) return '';
+    if (sortedBeats.length === 1) {
+      // Single beat - just a point
+      const beat = sortedBeats[0];
+      return `M ${this.beatX(beat.position)} ${this.beatYFromValue(beat.value)} L ${this.beatX(beat.position)} ${this.beatYFromValue(beat.value)}`;
+    }
+
+    // Start with the first beat
+    const firstBeat = sortedBeats[0];
+    let d = `M ${this.beatX(firstBeat.position)} ${this.beatYFromValue(firstBeat.value)}`;
+
+    // For each subsequent beat, create a smooth curve that passes exactly through it
+    for (let i = 1; i < sortedBeats.length; i++) {
+      const prevBeat = sortedBeats[i - 1];
+      const currentBeat = sortedBeats[i];
+      const nextBeat = i < sortedBeats.length - 1 ? sortedBeats[i + 1] : null;
+
+      const x0 = this.beatX(prevBeat.position);
+      const y0 = this.beatYFromValue(prevBeat.value);
+      const x1 = this.beatX(currentBeat.position);
+      const y1 = this.beatYFromValue(currentBeat.value);
+
+      // Calculate control points for smooth cubic bezier curve
+      // The curve must pass exactly through (x1, y1)
+      let cp1X: number, cp1Y: number, cp2X: number, cp2Y: number;
+
+      if (nextBeat) {
+        // We have a next beat - calculate smooth control points
+        const x2 = this.beatX(nextBeat.position);
+        const y2 = this.beatYFromValue(nextBeat.value);
+
+        // Calculate direction vectors
+        const dx1 = x1 - x0;
+        const dy1 = y1 - y0;
+        const dx2 = x2 - x1;
+        const dy2 = y2 - y1;
+
+        // Control points positioned to create smooth transitions
+        // Use 1/3 of the distance for natural curves
+        const t = 0.33;
+        cp1X = x0 + dx1 * t;
+        cp1Y = y0 + dy1 * t;
+        cp2X = x1 - dx2 * t;
+        cp2Y = y1 - dy2 * t;
+      } else {
+        // Last beat - use simpler control points
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        cp1X = x0 + dx * 0.33;
+        cp1Y = y0 + dy * 0.33;
+        cp2X = x1 - dx * 0.33;
+        cp2Y = y1 - dy * 0.33;
       }
-      const last = points[points.length - 1];
-      d += ` T ${last.x} ${last.y}`;
-      return d;
+
+      // Use cubic bezier curve C (cp1) (cp2) (end)
+      // This ensures the curve passes exactly through (x1, y1) at t=1
+      d += ` C ${cp1X} ${cp1Y} ${cp2X} ${cp2Y} ${x1} ${y1}`;
+    }
+
+    return d;
   }
+
 
   // Beat positions on the story arc SVG
   beatX(pos: number): number { return 20 + Number(pos) * 360; }
-  beatY(pos: number): number {
-      const hTop = 40;
-      const hBottom = 250;
-
-      const arc = this.storyArc;
-      if (!arc || arc.length === 0) return hBottom - 0.5 * (hBottom - hTop);
-
-      // exact position in arc array
-      const f = pos * (arc.length - 1);
-      const lo = Math.floor(f);
-      const hi = Math.min(lo + 1, arc.length - 1);
-      const t = f - lo;
-
-      // interpolate linearly between lo and hi
-      const v = (1 - t) * arc[lo] + t * arc[hi];
-
-      return hBottom - v * (hBottom - hTop);
+  
+  beatYFromValue(value: number): number {
+    const hTop = 40;
+    const hBottom = 250;
+    return hBottom - value * (hBottom - hTop);
   }
-
 
   // Fallback for beat points
   // Calculate position for sentence points on the arc
@@ -1312,5 +1478,42 @@ ngOnDestroy(): void {
     if (!doc) return;
     const s = doc.sentences.find(ss => ss.index === index);
     if (s) this.documentService.selectSentence(s);
+  }
+
+  // Get beat title for tooltip
+  getBeatTitle(beat: Beat): string {
+    const tensionPercent = Math.round(beat.value * 100);
+    if (beat.note) {
+      return `${beat.name} (${tensionPercent}% tension): ${beat.note}`;
+    }
+    return `${beat.name} (${tensionPercent}% tension)`;
+  }
+
+  // Reformulate sentence based on new tension value
+  reformulateSentenceForTension(beat: Beat, tensionValue: number): void {
+    if (typeof beat.sentence_index !== 'number') return;
+    
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+    
+    const sentence = doc.sentences.find(s => s.index === beat.sentence_index);
+    if (!sentence) return;
+
+    this.aiService.reformulateSentenceForTension({
+      documentId: doc.id,
+      sentenceId: sentence.id,
+      text: sentence.text,
+      tensionValue: tensionValue
+    }).subscribe({
+      next: (response: { sentenceId: string; reformulatedText: string }) => {
+        // Update the sentence text with the reformulated version
+        this.documentService.updateSentenceText(sentence.id, response.reformulatedText);
+        // Update the beat's note to reflect the change
+        beat.note = response.reformulatedText.substring(0, 50) + (response.reformulatedText.length > 50 ? '...' : '');
+      },
+      error: (err: any) => {
+        console.error('Error reformulating sentence:', err);
+      }
+    });
   }
 }

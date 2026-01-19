@@ -248,6 +248,7 @@ class SpiderChartIntentResponse(BaseModel):
 class Beat(BaseModel):
     name: str
     position: float
+    value: float  # Tension value (0.0 to 1.0) - y-coordinate on the arc
     note: Optional[str] = None
     sentence_id: Optional[str] = None
     sentence_index: Optional[int] = None
@@ -271,6 +272,24 @@ class StoryArcResponse(BaseModel):
     beats: List[Beat] = []
     sentence_classifications: List[SentenceClassification] = []
     stage_values: List[StageValue] = []
+
+
+class ReformulateSentenceRequest(BaseModel):
+    """Request to reformulate a sentence based on tension value."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    sentence_id: str = Field(alias='sentenceId')
+    text: str
+    tension_value: float = Field(alias='tensionValue', ge=0.0, le=1.0)
+
+
+class ReformulateSentenceResponse(BaseModel):
+    """Response with reformulated sentence."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    sentence_id: str = Field(alias='sentenceId')
+    reformulated_text: str = Field(alias='reformulatedText')
 
 
 # ========== Health Check ==========

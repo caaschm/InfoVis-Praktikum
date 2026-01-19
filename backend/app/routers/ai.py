@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping, generate_beats_for_arc
+from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping, generate_beats_for_arc, reformulate_sentence_for_tension
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -390,12 +390,61 @@ async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depe
     # 4. Stage-Values
     stage_values = [{"stage": b["name"], "value": float(b.get("value", 0.0))} for b in beats]
     print("Stage Values:", stage_values)
-    print("Beat positions & values:")
+    print("=== BEATS (source of truth) ===")
     for b in beats:
-        print(f"{b['name']}: position={b['position']:.2f}, value={b['value']}, sentence_index={b['sentence_index']}")
+        print(
+            f"{b['name']:15} "
+            f"x={b['position']:.3f} "
+            f"y={b['value']:.3f} "
+            f"{b['note']:15} "
+            f"sentence={b.get('sentence_index')}"
+        )
 
     return schemas.StoryArcResponse(
         arc=arc_vals,
         beats=beats,
         stage_values=stage_values
+    )
+
+
+@router.post("/reformulate-sentence-tension", response_model=schemas.ReformulateSentenceResponse)
+async def reformulate_sentence_tension(
+    request: schemas.ReformulateSentenceRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Reformulate a sentence to match a specific tension value (0.0 to 1.0).
+    The tension value represents narrative intensity on the story arc.
+    """
+    # Verify sentence exists
+    sentence = db.query(models.Sentence).filter(
+        models.Sentence.id == request.sentence_id
+    ).first()
+    
+    if not sentence:
+        raise HTTPException(status_code=404, detail="Sentence not found")
+    
+    # Verify document exists
+    document = db.query(models.Document).filter(
+        models.Document.id == request.document_id
+    ).first()
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Reformulate sentence using AI service
+    try:
+        reformulated_text = await reformulate_sentence_for_tension(
+            text=request.text,
+            tension_value=request.tension_value
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reformulate sentence: {str(e)}"
+        )
+    
+    return schemas.ReformulateSentenceResponse(
+        sentence_id=request.sentence_id,
+        reformulated_text=reformulated_text
     )
