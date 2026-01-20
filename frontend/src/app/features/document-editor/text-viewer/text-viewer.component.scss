@@ -1,8 +1,8 @@
 .text-viewer {
     /* 1. Definieren einer globalen Zeilenhöhe für dieses Modul */
-    --line-height-base: 2rem; 
+    --line-height-base: 2rem;
     --font-size-base: 1.0rem;
-    --lh: 32px; 
+    --lh: 32px;
     overflow: visible;
 
     .header-row {
@@ -123,7 +123,7 @@
         display: flex;
         //font-size: 0; XXX
         line-height: var(--line-height-base);
-        gap: 0; 
+        gap: 0;
         border-radius: 8px;
         background: #fafbfc;
         border: 1px solid #e1e4e8;
@@ -176,22 +176,22 @@
             min-height: var(--lh) !important;
             max-height: var(--lh) !important;
             line-height: var(--lh) !important;
-            
+
             display: flex;
             align-items: center; // Zentriert die Zahl vertikal exakt in den 32px
             justify-content: flex-end;
             padding: 0 0.75rem 0 0 !important; // Kein Padding oben/unten
             margin: 0;
             box-sizing: border-box;
-            
+
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             font-size: 0.9rem;
             color: #6a737d;
-            
+
             align-items: center;
             justify-content: flex-end;
             gap: 0.4rem;
-            
+
             .line-number-text {
                 display: inline-block;
             }
@@ -225,7 +225,7 @@
         transform: translateZ(0); // Enable hardware acceleration
         -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
 
-    
+
 
         &.ai-highlight-mode {
             .sentence-inline {
@@ -259,7 +259,15 @@
             box-shadow: 0 0 0 3px rgba(255, 237, 179, 0.4);
         }
 
-        &.hovered-sentence {
+      &.ai-generated {
+        background-color: rgba(255, 230, 140, 0.6);
+        box-shadow: 0 0 0 2px rgba(255, 230, 140, 0.4);
+        border-radius: 4px;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+      }
+
+      &.hovered-sentence {
             border-radius: 4px;
             padding: 2px 4px;
             margin: -2px -4px;
@@ -306,6 +314,11 @@
                     box-shadow: 0 0 0 2px currentColor;
                 }
             }
+        }
+
+        /* ✅ NEW: AI prefix overlay (Disabled due to artifacts) */
+        .ai-overlay {
+          display: none;
         }
 
         // Editable text layer (on top of highlight)
@@ -640,7 +653,7 @@
         }
     .text-content {
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
-        
+
         .sentence-inline, .sentence-wrapper {
             display: flex;
             width: 100%;
@@ -668,27 +681,30 @@
 
 /* Große Schriftart Modus */
 :host-context(body.large-font-mode) {
-
     .text-viewer {
-        --lh: 48px; // Erhöhe die Zeilenhöhe proportional zur Schrift
-        --font-size-base: 1.35rem;
+      --lh: 48px; // Erhöhe die Zeilenhöhe proportional zur Schrift
+      --font-size-base: 1.35rem;
     }
-    .line-numbers {
+  .line-numbers {
 
-        .line-number {
-            font-size: 1.1rem; // Auch die Nummern etwas größer machen
-        }
+    .line-number {
+      font-size: 1.1rem; // Auch die Nummern etwas größer machen
     }
-    .text-content {
-        font-size: var(--font-size-base) !important;
-        line-height: var(--lh) !important;
+  }
+  .text-content {
+    font-size: var(--font-size-base) !important;
+    line-height: var(--lh) !important;
 
-        .sentence-text, .sentence-wrapper, .highlight-overlay .sentence-inline {
-            font-size: var(--font-size-base) !important;
-            line-height: var(--lh) !important;
-            height: var(--lh) !important;
-        }
+    .sentence-text, .sentence-wrapper, .highlight-overlay .sentence-inline {
+      font-size: var(--font-size-base) !important;
+      line-height: var(--lh) !important;
+      height: var(--lh) !important;
+    },
+    .ai-overlay {
+      font-size: 1.35rem !important;
+      line-height: 2.2 !important;
     }
+  }
 
     // Optional: Falls auch die Emojis im Emoji-Viewer mitwachsen sollen
     .emoji-content {
