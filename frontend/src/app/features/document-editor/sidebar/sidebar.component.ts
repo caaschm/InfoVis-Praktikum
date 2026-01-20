@@ -485,6 +485,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.selectedSentence.id,
       this.lastSuggestion
     );
+    this.documentService.setAiPrefixLen(this.selectedSentence.id, this.lastSuggestion.length);
+
     this.lastSuggestion = null;
   }
 
@@ -511,6 +513,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.showWordMappingPanel = false;
       this.showCharacterPanel = false;
     }
+  }
+
+  private normalizeSentenceSpacing(text: string): string {
+    return text
+      .replace(/([.!?])(?=\S)/g, '$1 ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   applyPreviewText(): void {
@@ -578,13 +587,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
       // CRITICAL: Update only active chapter's content, preserving others
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
-      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent);
+      newChapterContent = this.normalizeSentenceSpacing(newChapterContent);
+      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent, this.intentPreview);
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
       const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
-      this.documentService.updateDocumentContent(doc.id, newContent);
+      this.documentService.updateDocumentContent(doc.id, this.normalizeSentenceSpacing(newContent), this.intentPreview);
     }
 
     // Mark as applied
