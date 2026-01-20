@@ -190,7 +190,8 @@ def update_document_content(
             'emojis': emojis,
             'character_refs': character_refs,
             'chapter_id': sent.chapter_id,
-            'index': sent.index
+            'index': sent.index,
+            'is_ai_generated': sent.is_ai_generated
         })
     
     # Delete existing sentences
@@ -221,6 +222,17 @@ def update_document_content(
                 preserved_data = candidate
                 used_sentence_indices.add(index)
         
+        # Define normalization helper
+        def normalize(t):
+            return "".join(c.lower() for c in t if c.isalnum())
+            
+        # Fallback: exact match by index but normalized (handles punctuation changes at same position)
+        if not preserved_data and index < len(sentence_data_list):
+            candidate = sentence_data_list[index]
+            if normalize(candidate['text']) == normalize(sentence_text_stripped) and index not in used_sentence_indices:
+                preserved_data = candidate
+                used_sentence_indices.add(index)
+        
         # If no match, try to find by text only (but prefer unused ones)
         if not preserved_data:
             for i, candidate in enumerate(sentence_data_list):
@@ -228,6 +240,30 @@ def update_document_content(
                     preserved_data = candidate
                     used_sentence_indices.add(i)
                     break
+        
+        # Fallback: finding by normalized text
+        if not preserved_data:
+            norm_text = normalize(sentence_text_stripped)
+            for i, candidate in enumerate(sentence_data_list):
+                if normalize(candidate['text']) == norm_text and i not in used_sentence_indices:
+                    preserved_data = candidate
+                    used_sentence_indices.add(i)
+                    break
+                    
+        # Fallback: Check if new sentence is a PREFIX of an existing AI sentence
+        # (Handles case where user typed after AI text, merging it, and now we are splitting it back)
+        if not preserved_data:
+             norm_text = normalize(sentence_text_stripped)
+             if len(norm_text) > 5: # Avoid matching short common words like "The"
+                 for i, candidate in enumerate(sentence_data_list):
+                     cand_norm = normalize(candidate['text'])
+                     if i not in used_sentence_indices and cand_norm.startswith(norm_text):
+                         # Only allow this fuzzy prefix match if the candidate was AI generated
+                         # (We assume the user is extending an AI sentence)
+                         if candidate.get('is_ai_generated', False):
+                             preserved_data = candidate
+                             used_sentence_indices.add(i)
+                             break
         
         # Determine chapter_id
         chapter_id = None
@@ -257,7 +293,10 @@ def update_document_content(
             text=sentence_text,
             chapter_id=chapter_id,
             emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
-            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None
+            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None,
+            is_ai_generated=preserved_data.get('is_ai_generated', False) if preserved_data else (
+                True if content_update.ai_suggestion_text and sentence_text.strip() in content_update.ai_suggestion_text else False
+            )
         )
         db.add(db_sentence)
     
@@ -310,7 +349,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             text=sentence.text,
             emojis=emojis,
             character_refs=character_refs,
-            emoji_mappings=emoji_mappings
+            emoji_mappings=emoji_mappings,
+            is_ai_generated=sentence.is_ai_generated
         ))
     
     # Get all characters for this document (SINGLE SOURCE OF TRUTH)
