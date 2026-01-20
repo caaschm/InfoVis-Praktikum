@@ -37,6 +37,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   private scrollSyncFrame: number | null = null; // RAF ID for scroll sync
   lineNumbers: number[] = []; // Array of line numbers for actual text lines
   private lineNumberUpdateTimer: any = null;
+  private charsSinceLastSnapshot = 0;
 
   @ViewChild('lineNumbersContainer') lineNumbersContainer?: ElementRef<HTMLElement>;
   @ViewChild('textContentContainer') textContentContainer?: ElementRef<HTMLElement>;
@@ -207,6 +208,16 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     }
   }
 
+  private triggerGlobalUndoSnapshot(sentenceId: string, newText: string): void {
+    if (!this.currentDocument) return;
+
+    const updatedFullContent = this.sentences
+      .map(s => s.id === sentenceId ? newText : s.text)
+      .join(' ');
+     this.documentService.updateContentSilent(this.currentDocument.id, updatedFullContent);
+
+  }
+
   /**
    * Save current cursor state for active chapter
    */
@@ -331,6 +342,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   onSentenceInput(sentence: Sentence, newText: string): void {
+    this.charsSinceLastSnapshot++;
     // Set active chapter when user types in a sentence
     if (sentence.chapterId) {
       this.chapterStateService.setActiveChapter(sentence.chapterId);
@@ -361,6 +373,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
     // Check if text contains multiple sentences (split by .!? followed by space)
     const hasMultipleSentences = trimmedText.split(/[.!?]\s+(?=\S)/).length > 1;
+    
+    if (this.charsSinceLastSnapshot >= 20) {
+      this.triggerGlobalUndoSnapshot(sentence.id, trimmedText); 
+    }
 
     if (justCompletedSentence || hasMultipleSentences) {
       // Sentence just completed - immediately split and trigger emoji generation
@@ -1339,4 +1355,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   trackByChapterId(index: number, chapter: Chapter): string {
     return chapter.id;
   }
+
+  trackBySentenceId(index: number, sentence: Sentence): string {
+  return sentence.id;
+  } 
+
+
 }

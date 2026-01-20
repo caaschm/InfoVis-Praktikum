@@ -253,6 +253,17 @@ export class DocumentService {
         this.updateDocumentContent(documentId, fullContent);
     }
 
+    // Eine Methode, die nur den Content-String aktualisiert, 
+// aber NICHT .next() auf das Haupt-Dokument feuert.
+    updateContentSilent(docId: string, fullContent: string) {
+        const doc = this.currentDocumentSubject.value;
+        if (doc && doc.id === docId) {
+            // Wir ändern nur den Wert im Hintergrund
+            doc.content = fullContent;
+            // Hier KEIN this.currentDocumentSubject.next(doc) aufrufen!
+        }
+     }
+
     /**
      * Update sentence text (debounced)
      */
