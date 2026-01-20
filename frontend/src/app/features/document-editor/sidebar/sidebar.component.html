@@ -707,6 +707,11 @@
                 [class.beat-marker]="true"
                 [class.beat-inactive]="b.value === 0"
                 [class.beat-active]="b.value > 0"
+                [class.beat-climax]="b.name === 'Climax'"
+                [class.beat-rising-action]="b.name === 'Rising Action'"
+                [class.beat-falling-action]="b.name === 'Falling Action'"
+                [class.beat-denouement]="b.name === 'Denouement'"
+                [class.beat-exposition]="b.name === 'Exposition'"
                 (mousedown)="startBeatDrag(b, $event)"
                 (mouseover)="onBeatHover(b)"
                 [title]="getBeatTitle(b)">

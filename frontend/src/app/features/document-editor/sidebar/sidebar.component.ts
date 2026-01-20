@@ -30,7 +30,7 @@ interface ChapterAnalysis {
 }
 
 interface Beat {
-  name: string;
+  name: string; // Climax, Rising Action, etc.
   position: number; // 0..1 (x)
   value: number;    // 0..1 (y / tension)
   note?: string;

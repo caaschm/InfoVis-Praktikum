@@ -1789,7 +1789,6 @@
 
 // Active beat (value > 0)
 .arc-point.beat-marker.beat-active {
-  fill: #ef4444;
   stroke: #ffffff;
   stroke-width: 2;
   r: 5px;
@@ -1800,9 +1799,29 @@
   }
 }
 
+.arc-point.beat-exposition {
+  fill: #fff565;
+}
+
+.arc-point.beat-rising-action {
+  fill: #ff6f00;
+}
+
+.arc-point.beat-climax {
+  fill: #ff0000;
+}
+
+.arc-point.beat-falling-action {
+  fill: #ff6ad0;
+}
+
+.arc-point.beat-denouement {
+  fill: #004cff;
+}
+
 // Inactive beat (value = 0) - grey, fixed position, not draggable
 .arc-point.beat-marker.beat-inactive {
-  fill: #9ca3af;
+  fill: #757575;
   stroke: #ffffff;
   stroke-width: 2;
   r: 5px;
@@ -1817,7 +1836,7 @@
 
 // Fallback beat (no active content) - legacy support
 .arc-point.beat-marker.fallback {
-  fill: #9ca3af;
+  fill: #757575;
 }
 
 .point-label {
