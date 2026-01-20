@@ -190,31 +190,36 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   // ========== STORY ARC STAGES ==========
-storyStages: { name: string; description: string; sentenceIndices: number[] }[] = [
+storyStages: { name: string; description: string; sentenceIndices: number[]; stage_name: string }[] = [
   {
     name: 'Exposition',
     description: 'Introduction of characters and setting',
-    sentenceIndices: []
+    sentenceIndices: [],
+    stage_name: 'exposition'
   },
   {
     name: 'Rising Action',
     description: 'Events building tension and conflict',
-    sentenceIndices: []
+    sentenceIndices: [],
+    stage_name: 'rising-action'
   },
   {
     name: 'Climax',
     description: 'The peak moment of the story',
-    sentenceIndices: []
+    sentenceIndices: [],
+    stage_name: 'climax'
   },
   {
     name: 'Falling Action',
     description: 'Events after the climax',
-    sentenceIndices: []
+    sentenceIndices: [],
+    stage_name: 'falling-action'
   },
   {
     name: 'Denouement',
     description: 'Final resolution and conclusion',
-    sentenceIndices: []
+    sentenceIndices: [],
+    stage_name: 'denouement'
   }];
 
   // ========== INIT ==========

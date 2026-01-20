@@ -744,8 +744,8 @@
             -->
             
             <div class="arc-details">
-                <div class="arc-stage" *ngFor="let stage of storyStages">
-                    <h4>{{ stage.name }}</h4>
+                <div class="arc-stage" *ngFor="let stage of storyStages" [ngClass]="'stage-' + stage.stage_name">
+                    <h4 [ngClass]="'stage-name-' + stage.stage_name">{{ stage.name }}</h4>
                     <p>{{ stage.description }}</p>
                     <span class="sentence-count">{{ stage.sentenceIndices.length || 0 }} sentences</span>
 

@@ -1867,6 +1867,25 @@
   margin-bottom: 10px;
   border-left: 4px solid #8B5CF6;
 }
+.arc-stage.stage-exposition {
+  border-left: 4px solid #fff565;
+}
+.arc-stage.stage-rising-action {
+  border-left: 4px solid #ff6f00;
+}
+.arc-stage.stage-climax {
+  border-left: 4px solid #ff0000;
+}
+.arc-stage.stage-falling-action {
+  border-left: 4px solid #ff6ad0;
+}
+.arc-stage.stage-denouement {
+  border-left: 4px solid #004cff;
+}
+
+.arc-stage:hover {
+  background: #f3f4f6;
+}
 
 .stage-header {
   display: flex;
