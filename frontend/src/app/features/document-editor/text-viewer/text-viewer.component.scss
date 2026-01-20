@@ -1,4 +1,8 @@
 .text-viewer {
+    /* 1. Definieren einer globalen Zeilenhöhe für dieses Modul */
+    --line-height-base: 2rem; 
+    --font-size-base: 1.0rem;
+    --lh: 32px; 
     overflow: visible;
 
     .header-row {
@@ -117,14 +121,16 @@
 
     .text-editor-container {
         display: flex;
-        gap: 0; // Remove gap to align line numbers with content
+        //font-size: 0; XXX
+        line-height: var(--line-height-base);
+        gap: 0; 
         border-radius: 8px;
         background: #fafbfc;
         border: 1px solid #e1e4e8;
         min-height: 500px;
         max-height: calc(100vh - 250px); // Make container scrollable
         transition: border-color 0.2s ease;
-        overflow: hidden; // Hide overflow on container
+        overflow: hidden;
         position: relative;
         // Performance optimization
         contain: layout style paint; // Isolate rendering for better performance
@@ -142,8 +148,9 @@
     .line-numbers {
         background: #f6f8fa;
         border-right: 1px solid #e1e4e8;
-        padding: 0 0.75rem 1.5rem 0.75rem; // Match text-content padding: 0 top, 1.5rem bottom
+        padding: 0 0.75rem 1.5rem 0.75rem ; // Match text-content padding: 0 top, 1.5rem bottom
         display: flex;
+        //margin: 0; XXX
         flex-direction: column;
         min-width: 50px;
         user-select: none;
@@ -164,20 +171,27 @@
         }
 
         .line-number {
-            line-height: 2; // Must match text-content line-height exactly (2)
+            // WICHTIG: Alle em-Werte entfernen und nur --lh nutzen
+            height: var(--lh) !important;
+            min-height: var(--lh) !important;
+            max-height: var(--lh) !important;
+            line-height: var(--lh) !important;
+            
+            display: flex;
+            align-items: center; // Zentriert die Zahl vertikal exakt in den 32px
+            justify-content: flex-end;
+            padding: 0 0.75rem 0 0 !important; // Kein Padding oben/unten
+            margin: 0;
+            box-sizing: border-box;
+            
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             font-size: 0.9rem;
             color: #6a737d;
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
-            display: flex;
+            
             align-items: center;
             justify-content: flex-end;
             gap: 0.4rem;
-            height: 2em; // Fixed height: 2em matches line-height: 2 (each line is 2em tall)
-            min-height: 2em; // Ensure consistent height
-            max-height: 2em; // Prevent any expansion
-            padding-right: 0.75rem; // Match padding from container
-            box-sizing: border-box; // Include padding in height calculation
-
+            
             .line-number-text {
                 display: inline-block;
             }
@@ -193,8 +207,9 @@
     .text-content {
         flex: 1;
         padding: 0 1.5rem 1.5rem 1.5rem; // No top padding to align with line numbers
-        line-height: 2;
-        font-size: 1.05rem;
+        margin: 0;
+        font-size: 16px;
+        line-height: var(--lh);
         color: #24292e;
         cursor: text;
         font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
@@ -209,6 +224,8 @@
         will-change: scroll-position;
         transform: translateZ(0); // Enable hardware acceleration
         -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+
+    
 
         &.ai-highlight-mode {
             .sentence-inline {
@@ -616,14 +633,16 @@
 
 /* Zebra-Modus für den Text-Viewer */
 :host-context(body.zebra-mode) {
+    .line-number .line-numbers {
+            // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
+            height: 2rem !important;
+            line-height: 2 !important;
+        }
     .text-content {
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
-        .line-number {
-            // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
-            height: 2.1rem;
-        }
+        
         .sentence-inline, .sentence-wrapper {
-            display: block;
+            display: flex;
             width: 100%;
             padding-left: 5px;
             transition: background-color 0.2s ease;
@@ -649,20 +668,25 @@
 
 /* Große Schriftart Modus */
 :host-context(body.large-font-mode) {
+
+    .text-viewer {
+        --lh: 48px; // Erhöhe die Zeilenhöhe proportional zur Schrift
+        --font-size-base: 1.35rem;
+    }
     .line-numbers {
+
         .line-number {
-            // Neue Höhe berechnen: Schriftgröße 1.35rem * Line-Height 2.2 = ~2.97rem
-            height: 2.97rem !important;
             font-size: 1.1rem; // Auch die Nummern etwas größer machen
         }
     }
     .text-content {
-        font-size: 1.35rem !important; // Erhöht die Lesbarkeit deutlich
-        line-height: 2.2 !important;  // Mehr Zeilenabstand für bessere Orientierung
+        font-size: var(--font-size-base) !important;
+        line-height: var(--lh) !important;
 
-        .sentence-text, .sentence-wrapper, .highlight-overlay {
-            font-size: 1.35rem !important;
-            line-height: 2.2 !important;
+        .sentence-text, .sentence-wrapper, .highlight-overlay .sentence-inline {
+            font-size: var(--font-size-base) !important;
+            line-height: var(--lh) !important;
+            height: var(--lh) !important;
         }
     }
 
