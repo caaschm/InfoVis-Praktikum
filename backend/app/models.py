@@ -1,6 +1,6 @@
 """SQLAlchemy database models."""
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
@@ -47,6 +47,7 @@ class Sentence(Base):
     emojis = Column(Text, nullable=True)  # JSON array of raw emoji strings (unstructured)
     character_refs = Column(Text, nullable=True)  # JSON array of character IDs (structured)
     emoji_mappings = Column(Text, nullable=True)  # JSON object: {emoji: [word indices or text spans]}
+    is_ai_generated = Column(Boolean, default=False)  # Flag for AI-generated text
 
     # Relationships
     document = relationship("Document", back_populates="sentences")
