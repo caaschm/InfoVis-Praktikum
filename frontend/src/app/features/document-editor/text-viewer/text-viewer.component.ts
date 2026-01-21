@@ -224,7 +224,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     const updatedFullContent = this.sentences
       .map(s => s.id === sentenceId ? newText : s.text)
       .join(' ');
-     this.documentService.updateContentSilent(this.currentDocument.id, updatedFullContent);
+    this.documentService.updateContentSilent(this.currentDocument.id, updatedFullContent);
 
   }
 
