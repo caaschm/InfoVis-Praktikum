@@ -191,7 +191,8 @@ def update_document_content(
             'character_refs': character_refs,
             'chapter_id': sent.chapter_id,
             'index': sent.index,
-            'is_ai_generated': sent.is_ai_generated
+            'is_ai_generated': sent.is_ai_generated,
+            'ai_category': sent.ai_category
         })
     
     # Delete existing sentences
@@ -299,6 +300,12 @@ def update_document_content(
                     sentence_text.strip() in content_update.ai_suggestion_text or
                     normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
                 ) else False
+            ),
+            ai_category=preserved_data.get('ai_category') if preserved_data else (
+                content_update.ai_suggestion_category if content_update.ai_suggestion_text and (
+                    sentence_text.strip() in content_update.ai_suggestion_text or
+                    normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
+                ) else None
             )
         )
         db.add(db_sentence)
@@ -353,7 +360,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             emojis=emojis,
             character_refs=character_refs,
             emoji_mappings=emoji_mappings,
-            is_ai_generated=sentence.is_ai_generated
+            is_ai_generated=sentence.is_ai_generated,
+            ai_category=sentence.ai_category
         ))
     
     # Get all characters for this document (SINGLE SOURCE OF TRUTH)

@@ -25,6 +25,7 @@ export interface Sentence {
     emojis: string[];  // Raw emoji strings
     emojiMappings?: { [emoji: string]: string[] };  // Maps emoji to phrases it represents
     isAiGenerated?: boolean;  // Flag for AI-generated text
+    aiCategory?: string;  // Category of AI text (drama, humor, etc.)
 }
 
 export interface Chapter {
