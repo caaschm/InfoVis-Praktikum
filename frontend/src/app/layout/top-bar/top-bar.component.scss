@@ -11,6 +11,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 1rem;
     }
 
     .app-title {
@@ -25,6 +26,13 @@
         display: flex;
         gap: 0.75rem;
         align-items: center;
+    }
+
+    .workflow-tracker-container {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        max-width: 420px;
     }
 
     // Buttons

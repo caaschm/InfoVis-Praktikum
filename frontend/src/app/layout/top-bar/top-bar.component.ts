@@ -2,14 +2,16 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Location } from '@angular/common'; 
 import { DocumentService } from '../../core/services/document.service';
 import { ChapterStateService } from '../../core/services/chapter-state.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import { CommonModule } from '@angular/common';
 import { takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
+import { WorkflowTrackerComponent } from '../../core/components/workflow-tracker/workflow-tracker.component';
 
 @Component({
   selector: 'app-top-bar',
   standalone: true,
-  imports: [CommonModule], // CommonModule hinzufügen für *ngIf
+  imports: [CommonModule, WorkflowTrackerComponent],
   templateUrl: './top-bar.component.html',
   styleUrl: './top-bar.component.scss'
 })
@@ -25,6 +27,7 @@ export class TopBarComponent implements OnInit, OnDestroy {
   constructor(
     private documentService: DocumentService,
     private chapterStateService: ChapterStateService,
+    private navigationService: NavigationService,
     private location: Location 
   ) { }
 
@@ -140,5 +143,17 @@ export class TopBarComponent implements OnInit, OnDestroy {
     formData.append('file', file);
     formData.append('title', title);
     this.documentService.uploadPdfDocument(formData).subscribe();
+  }
+
+  onWorkflowNavigate(tabId: string): void {
+    console.log('Navigate to:', tabId);
+    this.navigationService.navigateToTab(tabId as any);
+  }
+
+  onWorkflowAction(stepId: string): void {
+    console.log('Execute action for:', stepId);
+    // TODO: Trigger AI generation based on stepId
+    // For now, just open the relevant tab
+    this.navigationService.navigateToTab(stepId as any);
   }
 }

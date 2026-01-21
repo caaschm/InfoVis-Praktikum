@@ -20,21 +20,22 @@
                 (click)="toggleTab('emojis')" (dblclick)="hideSidebar()" title="Emojis (Double-click to hide)">
                 <span class="icon">😀</span>
             </button>
-            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'graph'"
-                (click)="toggleTab('graph')" (dblclick)="hideSidebar()" title="Graph (Double-click to hide)">
-                <span class="icon">📊</span>
-            </button>
             <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'characters'"
                 (click)="toggleTab('characters')" (dblclick)="hideSidebar()" title="Characters (Double-click to hide)">
-                <span class="icon">👥</span>
-            </button>
-            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'analysis'"
-                (click)="toggleTab('analysis')" (dblclick)="hideSidebar()" title="Analysis (Double-click to hide)">
                 <span class="icon">🎭</span>
             </button>
-            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'toc'"
-                (click)="toggleTab('toc')" (dblclick)="hideSidebar()" title="Table of Contents (Double-click to hide)">
-                <span class="icon">📑</span>
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'analysis'"
+                (click)="toggleTab('analysis')" (dblclick)="hideSidebar()"
+                title="Sentiment Analysis (Double-click to hide)">
+                <span class="icon">🕸️</span>
+            </button>
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'graph'"
+                (click)="toggleTab('graph')" (dblclick)="hideSidebar()" title="Story Arc (Double-click to hide)">
+                <span class="icon">📈</span>
+            </button>
+            <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'toc'" (click)="toggleTab('toc')"
+                (dblclick)="hideSidebar()" title="Chapter Overview (Double-click to hide)">
+                <span class="icon">📊</span>
             </button>
             <button class="tab-btn" [class.active]="sidebarVisible && activeTab === 'storyarc'"
                 (click)="toggleTab('storyarc')" (dblclick)="hideSidebar()" title="Story Arc (Double-click to hide)">

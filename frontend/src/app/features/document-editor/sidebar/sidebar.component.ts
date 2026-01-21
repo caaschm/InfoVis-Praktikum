@@ -98,7 +98,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.selectedAnalysisChapterId = 'all';
       }
 
-        setTimeout(() => this.analyzeDocument(), 100);
+      setTimeout(() => this.analyzeDocument(), 100);
     }
 
     // Load story arc
@@ -143,7 +143,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   newSectionType: string = 'chapter';
   newSectionTitle: string = '';
   newSectionEmoji: string = '';
-  
+
   // Section type editing state
   editingSectionTypeId: string | null = null;
   editingSectionType: string = 'chapter';
@@ -161,7 +161,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   suggestingEmojiForChapterId: string | null = null;
   aiEmojiSuggestion: string | null = null;
   emojiSuggestionLoading: boolean = false;
-  
+
   // Drag and drop for chapter reordering
   draggedChapter: Chapter | null = null; // Made public for template access
   dragOverChapterId: string | null = null; // Track which chapter is being dragged over
@@ -225,43 +225,43 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   // ========== STORY ARC STAGES ==========
-storyStages: { name: string; description: string; sentenceIndices: number[]; stage_name: string }[] = [
-  {
-    name: 'Exposition',
-    description: 'Introduction of characters and setting',
-    sentenceIndices: [],
-    stage_name: 'exposition'
-  },
-  {
-    name: 'Rising Action',
-    description: 'Events building tension and conflict',
-    sentenceIndices: [],
-    stage_name: 'rising-action'
-  },
-  {
-    name: 'Climax',
-    description: 'The peak moment of the story',
-    sentenceIndices: [],
-    stage_name: 'climax'
-  },
-  {
-    name: 'Falling Action',
-    description: 'Events after the climax',
-    sentenceIndices: [],
-    stage_name: 'falling-action'
-  },
-  {
-    name: 'Denouement',
-    description: 'Final resolution and conclusion',
-    sentenceIndices: [],
-    stage_name: 'denouement'
-  }];
+  storyStages: { name: string; description: string; sentenceIndices: number[]; stage_name: string }[] = [
+    {
+      name: 'Exposition',
+      description: 'Introduction of characters and setting',
+      sentenceIndices: [],
+      stage_name: 'exposition'
+    },
+    {
+      name: 'Rising Action',
+      description: 'Events building tension and conflict',
+      sentenceIndices: [],
+      stage_name: 'rising-action'
+    },
+    {
+      name: 'Climax',
+      description: 'The peak moment of the story',
+      sentenceIndices: [],
+      stage_name: 'climax'
+    },
+    {
+      name: 'Falling Action',
+      description: 'Events after the climax',
+      sentenceIndices: [],
+      stage_name: 'falling-action'
+    },
+    {
+      name: 'Denouement',
+      description: 'Final resolution and conclusion',
+      sentenceIndices: [],
+      stage_name: 'denouement'
+    }];
 
   // Event handler for showing section form (defined as arrow function to preserve 'this' context)
   private showSectionFormHandler = (): void => {
     // Always show sidebar and switch to ToC tab when Add Section is clicked
     this.switchTab.emit('toc');
-    
+
     // Toggle the form visibility
     if (this.showSectionForm) {
       // If form is open, close it
@@ -336,11 +336,11 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
           if (this.activeTab === 'storyarc' && !this.arcLoading) {
             setTimeout(() => this.fetchStoryArc(), 300);
           }
-          
+
         } else if (currentSentenceCount !== this.previousSentenceCount) {
-            this.previousSentenceCount = currentSentenceCount;
+          this.previousSentenceCount = currentSentenceCount;
         }
-        
+
         if (doc && this.activeTab === 'analysis' && !this.isAnalyzing) {
           if (this.chapters.length === 1) {
             // If exactly one chapter, force that chapter view
@@ -357,14 +357,14 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
 
           let currentText: string;
           const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
-          
+
           if (targetChapterId) {
             const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
             currentText = activeChapterSentences.map(s => s.text).join(' ').trim();
           } else {
             currentText = doc.sentences.map(s => s.text).join(' ').trim();
           }
-          
+
           if (currentText) {
             const textHash = this.computeTextHash(currentText);
             if (textHash !== this.lastAnalyzedTextHash) {
@@ -397,7 +397,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
   }
 
   ngOnDestroy(): void {
-  window.removeEventListener('showSectionForm', this.showSectionFormHandler);
+    window.removeEventListener('showSectionForm', this.showSectionFormHandler);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -700,17 +700,17 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     // CRITICAL: Only update the active chapter's content
     // CRITICAL: Only update the selected analysis chapter's content
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
-    
+
     if (targetChapterId) {
       // Get selected chapter's sentences (sorted by index)
       const activeChapterSentences = doc.sentences
         .filter(s => s.chapterId === targetChapterId)
         .sort((a, b) => a.index - b.index);
-      
+
       // Try to get cursor position for cursor-based insertion
       const cursorState = this.chapterStateService.getCursor(targetChapterId);
       let newChapterContent: string;
-      
+
       if (cursorState && cursorState.sentenceId && cursorState.offset !== undefined) {
         // Insert at cursor position
         const cursorSentence = activeChapterSentences.find(s => s.id === cursorState.sentenceId);
@@ -718,10 +718,10 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
           const sentenceText = cursorSentence.text;
           const beforeCursor = sentenceText.substring(0, cursorState.offset);
           const afterCursor = sentenceText.substring(cursorState.offset);
-          
+
           // Insert the preview text at cursor position
           const updatedSentence = `${beforeCursor}${this.intentPreview}${afterCursor}`;
-          
+
           // Reconstruct chapter content with updated sentence
           const chapterParts: string[] = [];
           for (const sentence of activeChapterSentences) {
@@ -731,21 +731,21 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
         } else {
           // Cursor sentence not found, fall back to appending
           const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-          newChapterContent = activeChapterContent 
-            ? `${activeChapterContent} ${this.intentPreview}` 
+          newChapterContent = activeChapterContent
+            ? `${activeChapterContent} ${this.intentPreview}`
             : this.intentPreview;
         }
       } else {
         // No cursor position available, append to end
         const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-        newChapterContent = activeChapterContent 
-          ? `${activeChapterContent} ${this.intentPreview}` 
+        newChapterContent = activeChapterContent
+          ? `${activeChapterContent} ${this.intentPreview}`
           : this.intentPreview;
       }
-      
+
       // Update chapter history
       this.chapterStateService.addHistoryEntry(targetChapterId, newChapterContent);
-      
+
       // CRITICAL: Update only active chapter's content, preserving others
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       // Pass currentIntentDimension as ai_suggestion_category to mark the category
@@ -866,7 +866,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
 
     let textToAnalyze: string;
-    
+
     if (targetChapterId) {
       // Analyze only selected chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
@@ -878,7 +878,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
       this.analyzeAllChapters();
       return;
     }
-    
+
     if (!textToAnalyze) return;
 
     const textHash = this.computeTextHash(textToAnalyze);
@@ -924,10 +924,10 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
           // This prevents "jumping" values after applying an edit
           this.preserveSlidersOnNextAnalysis = false;
         } else {
-        this.drama = response.drama;
-        this.humor = response.humor;
-        this.conflict = response.conflict;
-        this.mystery = response.mystery;
+          this.drama = response.drama;
+          this.humor = response.humor;
+          this.conflict = response.conflict;
+          this.mystery = response.mystery;
         }
 
         this.lastAnalyzedTextHash = textHash;
@@ -1024,9 +1024,9 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
   }
 
   @HostListener('window:mouseup')
-    stopBeatDrag(): void {
-      this.draggingBeat = null;
-    }
+  stopBeatDrag(): void {
+    this.draggingBeat = null;
+  }
 
   @HostListener('window:mousemove', ['$event'])
   onGlobalMouseMove(event: MouseEvent) {
@@ -1067,13 +1067,13 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     }
 
     const rect = this.arcSvg.nativeElement.getBoundingClientRect();
-    
+
     // Only update Y (value/tension), keep X (position) fixed
     const yNorm = (event.clientY - rect.top) / rect.height;
-    
+
     // Store old value for comparison
     const oldValue = this.draggingBeat.value;
-    
+
     // Update only Value (Y), position stays fixed
     // Prevent setting to exactly 0 via dragging (only AI can set to 0)
     const newValue = Math.min(1, Math.max(0.001, 1 - yNorm)); // y=0 top, 1 bottom invertiert, min 0.001
@@ -1081,7 +1081,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
 
     // Arc neu berechnen
     this.recomputeArcFromBeats();
-    
+
     // Trigger AI reformulation if value changed significantly
     if (Math.abs(oldValue - this.draggingBeat.value) > 0.01) {
       this.beatChangeSubject.next({
@@ -1154,7 +1154,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     // Use selected chapter for intent suggestions
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
     let text: string;
-    
+
     if (targetChapterId) {
       // Use only selected chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
@@ -1163,7 +1163,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
       // Fallback: use all content
       text = doc.sentences.map(s => s.text).join(' ').trim();
     }
-    
+
     if (!text) return;
 
     this.intentLoading = true;
@@ -1200,12 +1200,15 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
   }
 
   // ========== TABLE OF CONTENTS ==========
-  
+
   /**
    * Navigate to a specific chapter
    */
   navigateToChapter(chapterId: string): void {
+    // Emit event to parent to switch to text viewer and select chapter
     this.switchTab.emit('toc');
+
+    // Dispatch custom event for text viewer to navigate to the chapter
     window.dispatchEvent(new CustomEvent('navigateToChapter', { detail: { chapterId } }));
   }
 
@@ -1477,7 +1480,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
 
   // Beat positions on the story arc SVG
   beatX(pos: number): number { return 20 + Number(pos) * 360; }
-  
+
   beatYFromValue(value: number): number {
     const hTop = 40;
     const hBottom = 250;
@@ -1585,10 +1588,10 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
   // Reformulate sentence based on new tension value
   reformulateSentenceForTension(beat: Beat, tensionValue: number): void {
     if (typeof beat.sentence_index !== 'number') return;
-    
+
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
-    
+
     const sentence = doc.sentences.find(s => s.index === beat.sentence_index);
     if (!sentence) return;
 
@@ -1667,7 +1670,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     if (chapter.type === 'foreword') return 'Foreword';
     if (chapter.type === 'afterword') return 'Afterword';
     if (chapter.type === 'custom') return 'Title';  // Always show "Title" for custom sections
-    
+
     // For numbered chapters, extract number from title
     const match = chapter.title.match(/Chapter\s+(\d+)/i);
     if (match) {
@@ -1684,7 +1687,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
    */
   deleteChapter(chapter: Chapter): void {
     if (!this.currentDocument) return;
-    
+
     if (confirm(`Are you sure you want to delete "${chapter.title}"? This will unassign all sentences in this chapter.`)) {
       this.documentService.deleteChapter(this.currentDocument.id, chapter.id).subscribe({
         next: () => {
@@ -1725,7 +1728,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const mouseY = event.clientY;
     const elementCenterY = rect.top + rect.height / 2;
-    
+
     this.dragOverChapterId = targetChapter.id;
     this.dragOverPosition = mouseY < elementCenterY ? 'above' : 'below';
   }
@@ -1734,7 +1737,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     // Only clear if we're actually leaving the element (not just moving to a child)
     const relatedTarget = event.relatedTarget as HTMLElement;
     const currentTarget = event.currentTarget as HTMLElement;
-    
+
     if (!currentTarget.contains(relatedTarget)) {
       this.dragOverChapterId = null;
       this.dragOverPosition = null;
@@ -1759,7 +1762,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
 
     // Remove dragged item from its current position
     currentOrder.splice(draggedIndex, 1);
-    
+
     // Calculate new insertion index
     // If dragging from before target, target index decreases by 1 after removal
     let newIndex: number;
@@ -1782,7 +1785,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
         newIndex = targetIndex + 1;
       }
     }
-    
+
     // Insert at new position
     currentOrder.splice(newIndex, 0, this.draggedChapter!.id);
 
@@ -1857,7 +1860,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
 
     // Determine new title based on type
     let newTitle = chapter.title;
-    
+
     if (newType === 'prologue') {
       newTitle = 'Prologue';
     } else if (newType === 'epilogue') {
@@ -1973,7 +1976,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
       // Extract current chapter number from title
       const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
       const numMatch = chapter.title.match(/^(\d+)\s+/);
-      
+
       let chapterNum: string;
       if (chapterMatch) {
         chapterNum = chapterMatch[1];
@@ -1985,7 +1988,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
         const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
         chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
       }
-      
+
       const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
       newTitle = `${paddedNum} ${this.editingChapterTitle.trim()}`;
     } else {
@@ -2088,11 +2091,11 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
    */
   requestTitleSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || this.titleSuggestionLoading) return;
-    
+
     this.suggestingTitleForChapterId = chapter.id;
     this.titleSuggestionLoading = true;
     this.aiTitleSuggestion = null;
-    
+
     this.documentService.suggestChapterTitle(this.currentDocument.id, chapter.id).subscribe({
       next: (response) => {
         this.aiTitleSuggestion = response.suggested_title;
@@ -2112,14 +2115,14 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
    */
   applyTitleSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || !this.aiTitleSuggestion) return;
-    
+
     // Extract current chapter number if it's a numbered chapter
     let newTitle: string;
     if (chapter.type === 'chapter') {
       // Extract current number from title
       const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
       const numMatch = chapter.title.match(/^(\d+)\s+/);
-      
+
       let chapterNum: string;
       if (chapterMatch) {
         chapterNum = chapterMatch[1];
@@ -2131,14 +2134,14 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
         const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
         chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
       }
-      
+
       const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
       newTitle = `${paddedNum} ${this.aiTitleSuggestion}`;
     } else {
       // For special sections, use suggestion as-is
       newTitle = this.aiTitleSuggestion;
     }
-    
+
     this.documentService.updateChapter(
       this.currentDocument.id,
       chapter.id,
@@ -2171,11 +2174,11 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
    */
   requestEmojiSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || this.emojiSuggestionLoading || !this.isChapterAccessible(chapter)) return;
-    
+
     this.suggestingEmojiForChapterId = chapter.id;
     this.emojiSuggestionLoading = true;
     this.aiEmojiSuggestion = null;
-    
+
     this.documentService.suggestChapterEmoji(this.currentDocument.id, chapter.id).subscribe({
       next: (response) => {
         this.aiEmojiSuggestion = response.suggested_emoji;
@@ -2195,7 +2198,7 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
    */
   applyEmojiSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || !this.aiEmojiSuggestion) return;
-    
+
     this.editingChapterEmoji = this.aiEmojiSuggestion;
     this.saveChapterEmoji(chapter);
     this.suggestingEmojiForChapterId = null;

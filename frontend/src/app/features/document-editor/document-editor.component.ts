@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../core/services/document.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import { DocumentDetail } from '../../core/models/document.model';
 import { TextViewerComponent } from './text-viewer/text-viewer.component';
 import { SidebarComponent } from './sidebar/sidebar.component';
@@ -19,7 +20,12 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
 
   // Sidebar management
   sidebarVisible = true;
-  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai'; constructor(public documentService: DocumentService) { }
+  activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai';
+
+  constructor(
+    public documentService: DocumentService,
+    private navigationService: NavigationService
+  ) { }
 
   ngOnInit(): void {
     // Subscribe to current document
@@ -27,6 +33,13 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(doc => {
         this.currentDocument = doc;
+      });
+
+    // Subscribe to navigation events from workflow tracker
+    this.navigationService.navigateToTab$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(tab => {
+        this.onSwitchTab(tab as any);
       });
 
     // TODO: For MVP, create a sample document or show upload interface
