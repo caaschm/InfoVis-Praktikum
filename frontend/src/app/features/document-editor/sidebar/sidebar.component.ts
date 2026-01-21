@@ -41,6 +41,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   intentPreview: string | null = null;
   intentLoading = false;
   textApplied = false;
+  currentIntentDimension: Dimension | null = null;
   private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number; requestId: number }>();
   private requestCounter = 0;
 
@@ -587,14 +588,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
       // CRITICAL: Update only active chapter's content, preserving others
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
+      // Pass currentIntentDimension as ai_suggestion_category to mark the category
       newChapterContent = this.normalizeSentenceSpacing(newChapterContent);
-      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent, this.intentPreview);
+      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent, this.intentPreview, this.currentIntentDimension || undefined);
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
       const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
-      this.documentService.updateDocumentContent(doc.id, this.normalizeSentenceSpacing(newContent), this.intentPreview);
+      this.documentService.updateDocumentContent(doc.id, this.normalizeSentenceSpacing(newContent), this.intentPreview, this.currentIntentDimension || undefined);
     }
 
     // Mark as applied
@@ -749,6 +751,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const previousPreview = this.intentPreview;
     this.intentPreview = null;
     this.textApplied = false; // Reset when new suggestions are generated
+    this.currentIntentDimension = dimension;
 
     this.aiService.getSpiderIntent({
       documentId: doc.id,
