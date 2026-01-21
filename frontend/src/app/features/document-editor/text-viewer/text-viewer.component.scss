@@ -364,10 +364,39 @@
             }
         }
 
-        &:hover .emoji-tooltip {
-            display: block;
-        }
+    &:hover .emoji-tooltip {
+      display: block;
     }
+
+    /* Delete button (x) for AI sentences */
+    .delete-ai-btn {
+      display: inline-block !important;
+      width: 18px;
+      height: 18px;
+      line-height: 16px;
+      text-align: center;
+      margin-left: 5px;
+      background-color: #ef4444 !important;
+      /* Red-500 */
+      color: white !important;
+      border: 1px solid white;
+      border-radius: 50%;
+      font-size: 14px !important;
+      font-weight: bold;
+      cursor: pointer;
+      vertical-align: middle;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+      user-select: none;
+      z-index: 1000 !important;
+      position: relative;
+
+      &:hover {
+        background-color: #dc2626 !important;
+        transform: scale(1.1);
+      }
+    }
+  }
 
     .hint {
         text-align: center;

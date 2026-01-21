@@ -295,7 +295,10 @@ def update_document_content(
             emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
             character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None,
             is_ai_generated=preserved_data.get('is_ai_generated', False) if preserved_data else (
-                True if content_update.ai_suggestion_text and sentence_text.strip() in content_update.ai_suggestion_text else False
+                True if content_update.ai_suggestion_text and (
+                    sentence_text.strip() in content_update.ai_suggestion_text or
+                    normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
+                ) else False
             )
         )
         db.add(db_sentence)

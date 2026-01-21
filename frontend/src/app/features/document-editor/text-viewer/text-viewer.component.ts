@@ -246,8 +246,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   shouldHighlightAi(sentence: Sentence): boolean {
     if (!this.showAiHighlight) return false;
-    if (!sentence?.isAiGenerated) return false;
-    return true;
+    return this.isAiGenerated(sentence);
   }
 
   getAiSegments(sentence: Sentence): Array<{ text: string, isAi: boolean }> {
@@ -674,7 +673,9 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   isAiGenerated(sentence: Sentence): boolean {
-    return !!sentence.isAiGenerated;
+    if (!sentence) return false;
+    // Check both standard and raw property names to be safe
+    return !!sentence.isAiGenerated || !!(sentence as any).is_ai_generated;
   }
 
   /**
@@ -826,6 +827,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
     // Find all phrase occurrences in the text using word boundaries
     const segments: Array<{ text: string, isHighlighted: boolean }> = [];
+    const matches: Array<{ start: number, end: number }> = [];
 
     // Build a list of matches with positions
     const matches: Array<{ start: number, end: number, phrase: string }> = [];
@@ -1123,6 +1125,41 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   onPlaceholderClick(chapterId: string | null): void {
     // Placeholder is already contenteditable, so clicking will focus it
+  }
+  /**
+   * Delete an AI-generated sentence
+   */
+  deleteAiSentence(sentence: Sentence, event: Event): void {
+    event.stopPropagation();
+    event.preventDefault(); // Prevent focus loss or other side effects
+
+    if (!this.currentDocument) return;
+
+    if (confirm('Delete this AI-generated sentence?')) {
+      if (sentence.chapterId) {
+        // Handle sentence in a chapter
+        const chapterSentences = this.getChapterSentences(sentence.chapterId)
+          .sort((a, b) => a.index - b.index);
+
+        // Filter out this sentence
+        const updatedSentences = chapterSentences.filter(s => s.id !== sentence.id);
+
+        // Reconstruct text
+        const newChapterText = updatedSentences.map(s => s.text).join(' ').trim();
+
+        // Push update
+        this.chapterStateService.addHistoryEntry(sentence.chapterId, newChapterText);
+        this.documentService.updateChapterContent(this.currentDocument.id, sentence.chapterId, newChapterText);
+      } else {
+        // Handle unassigned sentence or no-chapter mode
+        // Reconstruct full document content excluding this sentence
+        const sortedSentences = [...this.sentences].sort((a, b) => a.index - b.index);
+        const updatedSentences = sortedSentences.filter(s => s.id !== sentence.id);
+        const newFullContent = updatedSentences.map(s => s.text).join(' ').trim();
+
+        this.documentService.updateDocumentContent(this.currentDocument.id, newFullContent);
+      }
+    }
   }
 
   /**
