@@ -1120,6 +1120,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     return chapterSentences.length === 0 && this.sentences.length === 0;
   }
 
+  getAiCategoryClass(sentence: Sentence): string {
+    if (!sentence.isAiGenerated || !sentence.aiCategory) return '';
+    return `ai-category-${sentence.aiCategory}`;
+  }
+
   /**
    * Handle placeholder click - focus the editor
    */

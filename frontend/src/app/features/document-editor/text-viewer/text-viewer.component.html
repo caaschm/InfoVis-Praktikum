@@ -55,7 +55,7 @@
             <div class="chapter-sentences">
               <ng-container *ngFor="let sentence of getChapterSentences(chapter.id); let isLast = last">
                 <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
-                  [class.ai-generated]="shouldHighlightAi(sentence)"
+                  [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
                   [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
 
                   <!-- ✅ AI overlay (fixed prefix, does NOT grow with typing) -->
@@ -117,7 +117,7 @@
           <div class="chapter-sentences">
             <ng-container *ngFor="let sentence of getUnassignedSentences(); let isLast = last">
               <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
-                [class.ai-generated]="shouldHighlightAi(sentence)"
+                [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
                 [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
 
                 <!-- ✅ AI overlay (fixed prefix) -->
@@ -162,7 +162,7 @@
       <ng-container *ngIf="chapters.length === 0">
         <ng-container *ngFor="let sentence of getFilteredSentences(); let isLast = last">
           <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
-            [class.ai-generated]="shouldHighlightAi(sentence)"
+            [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
             [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
 
             <!-- ✅ AI overlay (fixed prefix) -->
