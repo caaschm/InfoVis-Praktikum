@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { Location } from '@angular/common'; 
+import { Location } from '@angular/common';
 import { DocumentService } from '../../core/services/document.service';
 import { ChapterStateService } from '../../core/services/chapter-state.service';
 import { NavigationService } from '../../core/services/navigation.service';
@@ -28,7 +28,7 @@ export class TopBarComponent implements OnInit, OnDestroy {
     private documentService: DocumentService,
     private chapterStateService: ChapterStateService,
     private navigationService: NavigationService,
-    private location: Location 
+    private location: Location
   ) { }
 
   ngOnInit(): void {
@@ -59,20 +59,20 @@ export class TopBarComponent implements OnInit, OnDestroy {
   toggleZebraMode() {
     this.isZebraMode = !this.isZebraMode;
     if (this.isZebraMode) {
-        document.body.classList.add('zebra-mode');
+      document.body.classList.add('zebra-mode');
     } else {
-        document.body.classList.remove('zebra-mode');
+      document.body.classList.remove('zebra-mode');
     }
   }
-  
+
   toggleLargeFont() {
     this.isLargeFont = !this.isLargeFont;
     if (this.isLargeFont) {
-        document.body.classList.add('large-font-mode');
+      document.body.classList.add('large-font-mode');
     } else {
-        document.body.classList.remove('large-font-mode');
+      document.body.classList.remove('large-font-mode');
     }
-  } 
+  }
 
   get canUndo(): boolean {
     // Check per-chapter undo first (primary method)
@@ -87,7 +87,7 @@ export class TopBarComponent implements OnInit, OnDestroy {
   goBack(): void {
     const currentDoc = this.documentService.getCurrentDocument();
     if (!currentDoc) return;
-    
+
     // Use per-chapter undo (primary method)
     const activeChapterId = this.chapterStateService.getActiveChapterId();
     if (activeChapterId) {
@@ -98,12 +98,12 @@ export class TopBarComponent implements OnInit, OnDestroy {
         return;
       }
     }
-    
+
     // Fallback to global history for backward compatibility
     if (this.historyStack.length > 1) {
-      this.historyStack.pop(); 
+      this.historyStack.pop();
       const previousContent = this.historyStack[this.historyStack.length - 1];
-      this.documentService.updateDocumentContent(currentDoc.id, previousContent); 
+      this.documentService.updateDocumentContent(currentDoc.id, previousContent);
     }
   }
 
@@ -113,12 +113,12 @@ export class TopBarComponent implements OnInit, OnDestroy {
   }
 
   // ... (onFileSelected, readTextFile, readPdfFile bleiben gleich) ...
-  
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
-    const fileName = file.name.replace(/\.[^/.]+$/, ''); 
+    const fileName = file.name.replace(/\.[^/.]+$/, '');
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       this.readTextFile(file, fileName);
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {

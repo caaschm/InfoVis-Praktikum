@@ -1,94 +1,79 @@
 <div class="workflow-guide" [class.expanded]="isExpanded">
-  <!-- Compact Horizontal Bar -->
-  <div class="workflow-bar" (click)="toggleExpanded()" *ngIf="(workflowState$ | async) as state">
-    <span class="guide-label">Workflow</span>
-    
-    <div class="progress-icons">
-      <span 
-        *ngFor="let step of state.steps"
-        class="progress-icon"
-        [class]="getStatusClass(step.status)"
-        [title]="getStepTooltip(step)">
-        {{ step.icon }}
-      </span>
-    </div>
-    
-    <div class="progress-percent">{{ state.completionPercentage }}%</div>
-    
-    <span class="expand-icon">{{ isExpanded ? '▲' : '▼' }}</span>
-  </div>
+    <!-- Compact Horizontal Bar -->
+    <div class="workflow-bar" (click)="toggleExpanded()" *ngIf="(workflowState$ | async) as state">
+        <span class="guide-label">Workflow</span>
 
-  <!-- Expanded Dropdown Panel -->
-  <div class="workflow-dropdown" *ngIf="isExpanded && (workflowState$ | async) as state" (click)="$event.stopPropagation()">
-    <!-- Current Phase -->
-    <div class="workflow-header">
-      <div class="phase-info">
-        <span class="phase-label">{{ state.currentPhase }}</span>
-        <span class="phase-percentage">{{ state.completionPercentage }}%</span>
-      </div>
-      <div class="progress-bar">
-        <div 
-          class="progress-fill" 
-          [style.width.%]="state.completionPercentage"
-          [class.complete]="state.completionPercentage === 100">
+        <div class="progress-icons">
+            <span *ngFor="let step of state.steps" class="progress-icon" [class]="getStatusClass(step.status)"
+                [title]="getStepTooltip(step)">
+                {{ step.icon }}
+            </span>
         </div>
-      </div>
+
+        <div class="progress-percent">{{ state.completionPercentage }}%</div>
+
+        <span class="expand-icon">{{ isExpanded ? '▲' : '▼' }}</span>
     </div>
 
-    <!-- Horizontal Steps Flow -->
-    <div class="workflow-steps-horizontal">
-      <div class="step-hint">💡 Click any step to open its panel →</div>
-      
-      <div class="steps-flow">
-        <div 
-          *ngFor="let step of state.steps; let last = last"
-          class="step-wrapper">
-          
-          <button 
-            class="workflow-step-btn"
-            [class]="getStatusClass(step.status)"
-            [title]="getStepTooltip(step)"
-            (click)="onStepClick(step)">
-            
-            <span class="step-icon">{{ step.icon }}</span>
-            <span class="step-label">{{ step.label }}</span>
-            <span class="step-count" *ngIf="step.count !== undefined">({{ step.count }})</span>
-            <span class="step-status-icon" *ngIf="step.statusIcon">{{ step.statusIcon }}</span>
-            
-            <span class="ai-badge" *ngIf="step.aiGenerated">AI</span>
-            
-            <button 
-              *ngIf="step.action"
-              class="quick-action"
-              (click)="onActionClick(step, $event)">
-              ⚡ {{ step.action }}
-            </button>
-          </button>
-
-          <span class="step-arrow" *ngIf="!last">→</span>
+    <!-- Expanded Dropdown Panel -->
+    <div class="workflow-dropdown" *ngIf="isExpanded && (workflowState$ | async) as state"
+        (click)="$event.stopPropagation()">
+        <!-- Current Phase -->
+        <div class="workflow-header">
+            <div class="phase-info">
+                <span class="phase-label">{{ state.currentPhase }}</span>
+                <span class="phase-percentage">{{ state.completionPercentage }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="state.completionPercentage"
+                    [class.complete]="state.completionPercentage === 100">
+                </div>
+            </div>
         </div>
-      </div>
 
-      <!-- Global Actions -->
-      <div class="global-actions">
-        <button 
-          class="run-all-btn"
-          [disabled]="state.completionPercentage < 20"
-          title="Run all AI features at once">
-          🔄 Update All
-        </button>
-      </div>
-    </div>
+        <!-- Horizontal Steps Flow -->
+        <div class="workflow-steps-horizontal">
+            <div class="step-hint">💡 Click any step to open its panel →</div>
 
-    <!-- Smart Suggestions -->
-    <div class="suggestions" *ngIf="state.suggestions.length > 0">
-      <span class="suggestions-icon">💡</span>
-      <div class="suggestions-text">
-        <span *ngFor="let suggestion of state.suggestions; let last = last">
-          {{ suggestion }}<span *ngIf="!last"> • </span>
-        </span>
-      </div>
+            <div class="steps-flow">
+                <div *ngFor="let step of state.steps; let last = last" class="step-wrapper">
+
+                    <button class="workflow-step-btn" [class]="getStatusClass(step.status)"
+                        [title]="getStepTooltip(step)" (click)="onStepClick(step)">
+
+                        <span class="step-icon">{{ step.icon }}</span>
+                        <span class="step-label">{{ step.label }}</span>
+                        <span class="step-count" *ngIf="step.count !== undefined">({{ step.count }})</span>
+                        <span class="step-status-icon" *ngIf="step.statusIcon">{{ step.statusIcon }}</span>
+
+                        <span class="ai-badge" *ngIf="step.aiGenerated">AI</span>
+
+                        <button *ngIf="step.action" class="quick-action" (click)="onActionClick(step, $event)">
+                            ⚡ {{ step.action }}
+                        </button>
+                    </button>
+
+                    <span class="step-arrow" *ngIf="!last">→</span>
+                </div>
+            </div>
+
+            <!-- Global Actions -->
+            <div class="global-actions">
+                <button class="run-all-btn" [disabled]="state.completionPercentage < 20"
+                    title="Run all AI features at once">
+                    🔄 Update All
+                </button>
+            </div>
+        </div>
+
+        <!-- Smart Suggestions -->
+        <div class="suggestions" *ngIf="state.suggestions.length > 0">
+            <span class="suggestions-icon">💡</span>
+            <div class="suggestions-text">
+                <span *ngFor="let suggestion of state.suggestions; let last = last">
+                    {{ suggestion }}<span *ngIf="!last"> • </span>
+                </span>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
-

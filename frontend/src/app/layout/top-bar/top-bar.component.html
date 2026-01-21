@@ -9,8 +9,7 @@
 
         <!-- Workflow Tracker -->
         <div class="workflow-tracker-container">
-            <app-workflow-tracker
-                (navigateToTab)="onWorkflowNavigate($event)"
+            <app-workflow-tracker (navigateToTab)="onWorkflowNavigate($event)"
                 (executeAction)="onWorkflowAction($event)">
             </app-workflow-tracker>
         </div>
@@ -18,7 +17,7 @@
         <div class="actions">
             <input type="file" #fileInput (change)="onFileSelected($event)" accept=".txt,.pdf" style="display: none;"
                 aria-label="Upload file">
-            
+
             <button class="upload-btn" (click)="fileInput.click()" aria-label="Upload file">
                 📁 Upload
             </button>
@@ -33,31 +32,26 @@
                     <div class="dropdown-item">
                         <span>Color Corrected: Deuteranomaly</span>
                         <label class="switch">
-                            <input type="checkbox" 
-                                   [checked]="isColorBlindMode" 
-                                   (change)="toggleColorBlindMode()">
+                            <input type="checkbox" [checked]="isColorBlindMode" (change)="toggleColorBlindMode()">
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="dropdown-item">
                         <span>Line Highlighting</span>
                         <label class="switch">
-                            <input type="checkbox" 
-                                    [checked]="isZebraMode" 
-                                    (change)="toggleZebraMode()">
+                            <input type="checkbox" [checked]="isZebraMode" (change)="toggleZebraMode()">
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="dropdown-item">
                         <span>Large Font Size</span>
                         <label class="switch">
-                            <input type="checkbox" 
-                                [checked]="isLargeFont" 
-                                (change)="toggleLargeFont()">
+                            <input type="checkbox" [checked]="isLargeFont" (change)="toggleLargeFont()">
                             <span class="slider round"></span>
                         </label>
                     </div>
                 </div>
-            </div> </div> </div> </header>
-
-            
+            </div>
+        </div>
+    </div>
+</header>
