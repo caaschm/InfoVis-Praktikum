@@ -827,7 +827,6 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
     // Find all phrase occurrences in the text using word boundaries
     const segments: Array<{ text: string, isHighlighted: boolean }> = [];
-    const matches: Array<{ start: number, end: number }> = [];
 
     // Build a list of matches with positions
     const matches: Array<{ start: number, end: number, phrase: string }> = [];

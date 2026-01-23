@@ -724,16 +724,19 @@
     font-size: var(--font-size-base) !important;
     line-height: var(--lh) !important;
 
-    .sentence-text, .sentence-wrapper, .highlight-overlay .sentence-inline {
-      font-size: var(--font-size-base) !important;
-      line-height: var(--lh) !important;
-      height: var(--lh) !important;
-    },
-    .ai-overlay {
-      font-size: 1.35rem !important;
-      line-height: 2.2 !important;
+        .sentence-text,
+        .sentence-wrapper,
+        .highlight-overlay .sentence-inline {
+            font-size: var(--font-size-base) !important;
+            line-height: var(--lh) !important;
+            height: var(--lh) !important;
+        }
+
+        .ai-overlay {
+            font-size: 1.35rem !important;
+            line-height: 2.2 !important;
+        }
     }
-  }
 
     // Optional: Falls auch die Emojis im Emoji-Viewer mitwachsen sollen
     .emoji-content {
