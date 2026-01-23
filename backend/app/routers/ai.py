@@ -355,7 +355,6 @@ def build_arc_from_beats(beats, granularity=20):
 
     return arc
 
-# TODO: Fix sentenceid assignment, beat and highlighted sentence in text do not match
 @router.post("/story-arc", response_model=schemas.StoryArcResponse)
 async def compute_story_arc(request: schemas.StoryArcRequest, db: Session = Depends(get_db)):
 
