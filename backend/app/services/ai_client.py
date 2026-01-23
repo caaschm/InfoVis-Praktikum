@@ -157,6 +157,11 @@ magic castle:🏰"""
             
             print(f"📡 OpenRouter response status: {response.status_code}")
             
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Switching to local fallback.")
+                fallback = _keyword_based_emoji_selection(text)
+                return (fallback, {})
+
             if response.status_code != 200:
                 print(f"❌ Error response: {response.text}")
                 fallback = _keyword_based_emoji_selection(text)
@@ -440,7 +445,11 @@ Write naturally as part of a story:"""
             return text if text else f"A mysterious figure emerged from the shadows. {emoji_str}"
             
     except Exception as e:
-        print(f"Error generating text: {e}")
+        # Check specifically for rate limit in exception message if raised by status check
+        if "429" in str(e) or (hasattr(e, "response") and e.response.status_code == 429):
+             print(f"⚠️ OpenRouter free tier limit reached (429). Using fallback text.")
+        else:
+             print(f"Error generating text: {e}")
         return f"A mysterious figure emerged from the shadows. {emoji_str}"
 
 
@@ -510,6 +519,10 @@ No explanations, no markdown, just the JSON object."""
                 }
             )
             
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using neutral analysis.")
+                return _simple_fallback_analysis(text)
+
             if response.status_code != 200:
                 print(f"❌ Error response: {response.text}")
                 return _simple_fallback_analysis(text)
@@ -544,21 +557,65 @@ No explanations, no markdown, just the JSON object."""
 
 def _simple_fallback_analysis(text: str) -> dict[str, int]:
     """
-    Simple fallback when AI is unavailable - returns neutral values.
+    Simple fallback when AI is unavailable - returns heuristic values based on simple keyword matching.
     
     Args:
         text: The text to analyze
         
     Returns:
-        Dictionary with neutral drama, humor, conflict, mystery values (0-100)
+        Dictionary with estimated drama, humor, conflict, mystery values (0-100)
     """
-    # Return neutral values as fallback
-    return {
-        "drama": 50,
-        "humor": 50,
-        "conflict": 50,
-        "mystery": 50
+    text_lower = text.lower()
+    
+    # Enhanced keyword lists
+    keywords = {
+        "drama": [
+            'love', 'cry', 'sad', 'tear', 'heart', 'feel', 'emotion', 'tragic', 'loss', 'hope', 
+            'despair', 'life', 'death', 'pain', 'broken', 'soul', 'darkness', 'alone', 'miss', 
+            'regret', 'sorry', 'please', 'wait', 'leave', 'hurt', 'feelings', 'moment', 'touch',
+            'eyes', 'voice', 'whisper', 'scream', 'fear', 'scared', 'afraid', 'worry', 'anxious'
+        ],
+        "humor": [
+            'laugh', 'funny', 'joke', 'smile', 'happy', 'fun', 'joy', 'silly', 'wit', 'comedy', 
+            'haha', 'giggle', 'lol', 'crazy', 'stupid', 'dumb', 'clumsy', 'trip', 'fall', 
+            'oops', 'awkward', 'weird', 'strange', 'grin', 'chuckle', 'snort', 'play', 'game',
+            'ridiculous', 'absurd', 'hilarious', 'amusing', 'entertaining', 'cheerful'
+        ],
+        "conflict": [
+            'fight', 'war', 'battle', 'kill', 'attack', 'enemy', 'hate', 'anger', 'hurt', 'wound', 
+            'blood', 'sword', 'gun', 'argue', 'shout', 'yell', 'scream', 'punch', 'kick', 'beat',
+            'destroy', 'break', 'smash', 'crush', 'rival', 'opponent', 'danger', 'threat', 'risk',
+            'tension', 'stress', 'pressure', 'force', 'power', 'strength', 'resist', 'defend'
+        ],
+        "mystery": [
+            'secret', 'hide', 'dark', 'shadow', 'unknown', 'question', 'clue', 'strange', 'weird', 
+            'ghost', 'magic', 'whisper', 'fog', 'mist', 'night', 'moon', 'stars', 'silent', 
+            'quiet', 'hush', 'sneak', 'creep', 'search', 'find', 'discover', 'reveal', 'truth',
+            'lie', 'puzzle', 'riddle', 'maze', 'trap', 'lost', 'confused', 'wonder', 'curious'
+        ]
     }
+    
+    scores = {}
+    total_words = len(text_lower.split())
+    if total_words == 0:
+        return {"drama": 50, "humor": 50, "conflict": 50, "mystery": 50}
+        
+    for cat, words in keywords.items():
+        count = sum(1 for word in words if word in text_lower)
+        
+        # Scoring logic: 
+        # Base score 35 (mildly present)
+        # Each match adds significant points to ensure visibility
+        # Cap at 95
+        score = 35 + (count * 8)
+        
+        # If words are present but score is low, minimal 55 to show "Something"
+        if count > 0:
+            score = max(55, score)
+            
+        scores[cat] = min(95, max(10, score))
+        
+    return scores
 
 async def generate_spider_intent(text: str, dimension: str, baseline: int, current: int):
     api_key = get_api_key()
@@ -624,8 +681,8 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
         models_to_try = [
             "google/gemini-2.0-flash-exp:free",
             "google/gemini-2.0-flash-thinking-exp:free", 
-            "meta-llama/llama-3.2-11b-vision-instruct:free",
-            "huggingfaceh4/zephyr-7b-beta:free"
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "microsoft/phi-4:free"
         ]
         
         last_exception = None
@@ -656,6 +713,10 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
                     raw = res.json()["choices"][0]["message"]["content"].strip()
                     print(f"✅ Success with {model}")
                     break # Success!
+                elif res.status_code == 429:
+                    print(f"⚠️ Rate limit (429) with {model}. Likely account-wide limit.")
+                    # Break the loop to trigger fallback immediately, no point trying other models on same account
+                    break
                 else:
                     print(f"⚠️ Failed with {model}: Status {res.status_code}")
                     last_exception = Exception(f"Status {res.status_code}: {res.text}")
@@ -667,7 +728,10 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
         
         if 'raw' not in locals():
             print("⚠️ All AI models failed. Using local heuristic fallback.")
-            # Local fallback based on dimension and value
+            
+            # Local fallback based on dimension
+            dim_key = dimension.lower()
+            
             fallback_sentences = {
                 "drama": [
                     "The silence stretched on, heavy with unsaid words and lingering regret.",
@@ -685,20 +749,44 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
                     "There could be no peace between them now, not after what had been said."
                 ],
                 "mystery": [
-                    "Included in the shadows, something watched and waited for the perfect moment to strike.",
+                    "In the shadows, something watched and waited for the perfect moment to strike.",
                     "The note was unsigned, but the handwriting felt disturbingly familiar.",
                     "A cold draft swept through the room, extinguishing the candles one by one."
                 ]
             }
             
+            # Dimension-specific advice (instead of generic error messages)
+            fallback_advice = {
+                "drama": [
+                    "Focus on the character's internal reaction.",
+                    "Slow down the pacing to emphasize importance.",
+                    "Use sensory details to heighten emotion."
+                ],
+                "humor": [
+                    "Subvert expectations with a sudden twist.",
+                    "Use exaggeration to highlight absurdity.",
+                    "Focus on a character's embarrassing reaction."
+                ],
+                "conflict": [
+                    "Shorten sentences to increase tension.",
+                    "Focus on the physical sensations of anger/fear.",
+                    "Make the stakes personal for the character."
+                ],
+                "mystery": [
+                    "Reveal a clue but hide its meaning.",
+                    "Use lighting or atmosphere to create unease.",
+                    "End the sentence with an unanswered question."
+                ]
+            }
+
             import random
-            dim_key = dimension.lower()
-            fallback_preview = random.choice(fallback_sentences.get(dim_key, ["The story took an unexpected turn."]))
+            preview_text = random.choice(fallback_sentences.get(dim_key, ["The story took an unexpected turn."]))
+            advice_list = fallback_advice.get(dim_key, ["Vary sentence length.", "Show, don't tell.", "Use strong verbs."])
             
             return {
-                "summary": "AI unavailable. Showing heuristic suggestion.",
-                "ideas": ["Adjust the slider again to try AI.", "Check your internet connection.", "Try a different dimension."],
-                "preview": fallback_preview
+                "summary": f"Increasing {dim_key} (Offline Mode)",
+                "ideas": advice_list,
+                "preview": preview_text
             }
 
         # raw is already set in the loop
@@ -720,9 +808,8 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
 
     except Exception as e:
         print(f"❌ Error generating spider intent: {type(e).__name__}: {e}")
-        print("INTENT ERROR RAW:", raw if "raw" in locals() else "NO RAW")
         return {
-            "summary": "The AI could not generate a specific suggestion.",
-            "ideas": ["Try adjusting emotional tone.", "Modify character choices.", "Change pacing or tension."],
-            "preview": "Suggestion generation failed. Please try adjusting the slider again."
+            "summary": "AI Service Unavailable",
+            "ideas": ["Focus on sensory details.", "Show specific character reactions.", "Vary sentence rhythm."],
+            "preview": "Service is currently unavailable. Please try again later."
         }
