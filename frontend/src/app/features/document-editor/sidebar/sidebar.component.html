@@ -682,20 +682,43 @@
     <div class="tab-content" *ngSwitchCase="'storyarc'">
         <h3>Story Arc</h3>
         <div class="story-arc-container">
+            <!-- Loading overlay -->
+            <div class="arc-loading-overlay" *ngIf="arcLoading">
+                <div class="spinner"></div>
+                <div class="loading-text">Analyzing story…</div>
+            </div>
 
-            <svg #arcSvg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
-                <path class="arc-line" [attr.d]="storyArcPath" stroke="#8B5CF6" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
+            <svg #arcSvg viewBox="-40 0 440 300" class="arc-graph" preserveAspectRatio="none">
+                <path class="arc-line" [attr.d]="storyArcPath" stroke="#6b6b6b" stroke-width="3" fill="none" *ngIf="storyArcPath"></path>
 
-                <!-- Fallback: Show sentence points even without classifications -->
-                <!-- <g *ngIf="storyArcPath && totalSentences > 0">
-                    <circle *ngFor="let sentence of currentDocument!.sentences"
-                            [attr.cx]="sentenceX(sentence.index)"
-                            [attr.cy]="sentenceY(sentence.index)"
-                            r="3"
-                            class="arc-point sentence-point muted"
-                            (click)="selectSentenceByIndex(sentence.index)">
-                    </circle>
-                </g> -->
+                <!-- X-Axis -->
+                <line x1="20" y1="250" x2="380" y2="250" stroke="#999" stroke-width="1" />
+                <!-- Labels -->
+                <text x="20" y="270" text-anchor="start" class="axis-label">Beginning</text>
+                <text x="380" y="270" text-anchor="end" class="axis-label">End</text>
+                <!-- Title -->
+                <text
+                x="200"
+                y="280"
+                text-anchor="middle"
+                class="axis-title">
+                Story Progression
+                </text>
+
+                <!-- Y-Axis -->
+                <line x1="20" y1="40" x2="20" y2="250" stroke="#999" stroke-width="1" />
+                <!-- Labels -->
+                <text x="10" y="45" text-anchor="end" class="axis-label">High</text>
+                <text x="10" y="250" text-anchor="end" class="axis-label">Low</text>
+                <!-- Title  -->
+                <text
+                x="-145"
+                y="-15"
+                transform="rotate(-90)"
+                text-anchor="middle"
+                class="axis-title">
+                Narrative Tension
+                </text>
 
                 <!-- Beats -->
                 <circle
@@ -716,32 +739,7 @@
                 (mouseover)="onBeatHover(b)"
                 [title]="getBeatTitle(b)">
                 </circle>
-
-
-
             </svg>
-            
-            <!--
-            <svg viewBox="0 0 400 300" class="arc-graph" preserveAspectRatio="none">
-                Arc line
-                <path class="arc-line" d="M 20 250 Q 100 200, 200 80 T 380 250" 
-                    stroke="#8B5CF6" stroke-width="3" fill="none" />
-                
-                5 Beat Points
-                <circle cx="50" cy="230" r="6" class="arc-point exposition" />
-                <circle cx="130" cy="140" r="6" class="arc-point rising" />
-                <circle cx="200" cy="60" r="6" class="arc-point climax" />
-                <circle cx="270" cy="140" r="6" class="arc-point falling" />
-                <circle cx="350" cy="230" r="6" class="arc-point denouement" />
-                
-                Labels
-                <text x="50" y="270" text-anchor="middle" class="arc-label">Exposition</text>
-                <text x="130" y="270" text-anchor="middle" class="arc-label">Rising</text>
-                <text x="200" y="270" text-anchor="middle" class="arc-label">Climax</text>
-                <text x="270" y="270" text-anchor="middle" class="arc-label">Falling</text>
-                <text x="350" y="270" text-anchor="middle" class="arc-label">Resolution</text>
-            </svg>
-            -->
             
             <div class="arc-details">
                 <div class="arc-stage" *ngFor="let stage of storyStages" [ngClass]="'stage-' + stage.stage_name">

@@ -1734,40 +1734,37 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  position: relative;
 }
 
-.stage-selector {
-  background: #f5f5f5;
-  padding: 15px;
-  border-radius: 8px;
+.arc-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 750px;
+  z-index: 10;
 }
 
-.selector-label {
-  font-size: 14px;
-  margin-bottom: 10px;
-  font-weight: 500;
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #8B5CF6;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
 }
 
-.stage-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-.stage-btn {
-  padding: 8px 12px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.stage-btn:hover {
-  background: #8B5CF6;
-  color: white;
-  border-color: #8B5CF6;
+.arc-disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .arc-graph {
@@ -1791,32 +1788,32 @@
 .arc-point.beat-marker.beat-active {
   stroke: #ffffff;
   stroke-width: 2;
-  r: 5px;
+  r: 6.5px;
   cursor: pointer;
   
   &:hover {
-    r: 7px;
+    r: 8px;
   }
 }
 
 .arc-point.beat-exposition {
-  fill: #fff565;
+  fill: #d2bfff;
 }
 
 .arc-point.beat-rising-action {
-  fill: #ff6f00;
+  fill: #af8dff;
 }
 
 .arc-point.beat-climax {
-  fill: #ff0000;
+  fill: #8B5CF6;
 }
 
 .arc-point.beat-falling-action {
-  fill: #ff6ad0;
+  fill: #6342b0;
 }
 
 .arc-point.beat-denouement {
-  fill: #004cff;
+  fill: #312156;
 }
 
 // Inactive beat (value = 0) - grey, fixed position, not draggable
@@ -1824,7 +1821,7 @@
   fill: #757575;
   stroke: #ffffff;
   stroke-width: 2;
-  r: 5px;
+  r: 6.5px;
   cursor: default;
   opacity: 0.6;
   
@@ -1837,17 +1834,6 @@
 // Fallback beat (no active content) - legacy support
 .arc-point.beat-marker.fallback {
   fill: #757575;
-}
-
-.point-label {
-  font-size: 11px;
-  font-weight: bold;
-  fill: #333;
-}
-
-.arc-label {
-  font-size: 12px;
-  fill: #666;
 }
 
 .arc-details {
@@ -1865,66 +1851,25 @@
   padding: 10px;
   border-radius: 6px;
   margin-bottom: 10px;
-  border-left: 4px solid #8B5CF6;
 }
 .arc-stage.stage-exposition {
-  border-left: 4px solid #fff565;
+  border-left: 4px solid #d2bfff;
 }
 .arc-stage.stage-rising-action {
-  border-left: 4px solid #ff6f00;
+  border-left: 4px solid #af8dff;
 }
 .arc-stage.stage-climax {
-  border-left: 4px solid #ff0000;
+  border-left: 4px solid #8B5CF6;
 }
 .arc-stage.stage-falling-action {
-  border-left: 4px solid #ff6ad0;
+  border-left: 4px solid #6342b0;
 }
 .arc-stage.stage-denouement {
-  border-left: 4px solid #004cff;
+  border-left: 4px solid #312156;
 }
 
 .arc-stage:hover {
   background: #f3f4f6;
-}
-
-.stage-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.stage-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: #8B5CF6;
-  color: white;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.stage-name {
-  font-weight: 600;
-  font-size: 13px;
-  flex: 1;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: #999;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0;
-  transition: color 0.2s;
-}
-
-.remove-btn:hover {
-  color: #ef4444;
 }
 
 .sentence-text {
@@ -1932,6 +1877,19 @@
   font-size: 12px;
   color: #666;
   margin-left: 32px;
+}
+
+.axis-label {
+  font-size: 11px;
+  fill: #6b6b6b;
+  user-select: none;
+}
+
+.axis-title {
+  font-size: 12px;
+  font-weight: 600;
+  fill: #4b4b4b;
+  user-select: none;
 }
 
 /* Ganz unten in deiner sidebar.component.scss einfügen */

@@ -35,6 +35,7 @@ interface Beat {
   value: number;    // 0..1 (y / tension)
   note?: string;
   sentence_index?: number;
+  tensionReason?: string;
 }
 
 @Component({
