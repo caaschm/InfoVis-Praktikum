@@ -48,6 +48,7 @@ class Sentence(Base):
     character_refs = Column(Text, nullable=True)  # JSON array of character IDs (structured)
     emoji_mappings = Column(Text, nullable=True)  # JSON object: {emoji: [word indices or text spans]}
     is_ai_generated = Column(Boolean, default=False)  # Flag for AI-generated text
+    ai_category = Column(String, nullable=True)  # Category of AI text (drama, humor, etc.)
 
     # Relationships
     document = relationship("Document", back_populates="sentences")
