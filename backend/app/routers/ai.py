@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_story_arc, generate_sentence_stage_mapping, generate_beats_for_arc, reformulate_sentence_for_tension
+from app.services.ai_client import generate_spider_intent, generate_beats_for_arc, reformulate_sentence_for_tension
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
