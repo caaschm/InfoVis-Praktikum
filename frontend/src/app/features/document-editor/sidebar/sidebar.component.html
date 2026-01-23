@@ -378,9 +378,18 @@
     <div class="tab-content" *ngSwitchCase="'analysis'">
         <h3>Story Analysis</h3>
 
-        <!-- Spider Chart -->
-        <div class="spider-wrapper">
-            <svg #spiderSvg viewBox="0 0 200 200" class="spider-chart">
+        <div class="chapter-analysis-selector">
+            <label>Analyzing:</label>
+            <select [(ngModel)]="selectedAnalysisChapterId" (ngModelChange)="onAnalysisChapterChange($event)"
+                [disabled]="chapters.length <= 1">
+                <option value="all" *ngIf="chapters.length > 1">Entire Story (Overview)</option>
+                <option *ngFor="let ch of chapters" [value]="ch.id">{{ ch.title }}</option>
+            </select>
+        </div>
+
+        <!-- Spider Chart (Interactive) -->
+        <div class="spider-wrapper" *ngIf="selectedAnalysisChapterId !== 'all'">
+            <svg #spiderSvg viewBox="-40 0 280 200" class="spider-chart">
                 <!-- Grid circles -->
                 <circle cx="100" cy="100" r="80" class="spider-grid" />
                 <circle cx="100" cy="100" r="55" class="spider-grid" />
@@ -395,9 +404,9 @@
 
                 <!-- Labels -->
                 <text x="100" y="15" text-anchor="middle" class="spider-label">Drama</text>
-                <text x="190" y="105" text-anchor="end" class="spider-label">Humor</text>
+                <text x="190" y="105" text-anchor="start" class="spider-label">Humor</text>
                 <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
-                <text x="10" y="105" text-anchor="start" class="spider-label">Mystery</text>
+                <text x="10" y="105" text-anchor="end" class="spider-label">Mystery</text>
 
                 <!-- Drag handles -->
                 <circle class="spider-handle" [attr.cx]="dramaPoint.x" [attr.cy]="dramaPoint.y" r="4"
@@ -429,8 +438,89 @@
             </svg>
         </div>
 
-        <!-- Metric Cards with Sliders -->
-        <div class="analysis-section">
+        <!-- All Chapters Overview (Combined Chart) -->
+
+
+
+
+        <!-- All Chapters Overview (Combined Overlapping Chart) -->
+        <div class="overview-chart-wrapper" *ngIf="selectedAnalysisChapterId === 'all'">
+            <div *ngIf="isAnalyzingAll" class="loading-state">
+                <div class="loading-spinner"></div>
+                <span>Analyzing all chapters...</span>
+            </div>
+
+            <div class="combined-chart-container" *ngIf="!isAnalyzingAll">
+                <h4>Chapter Trends Overview</h4>
+                <p class="chart-subtitle">Comparing genres across {{ chapters.length }} chapters</p>
+
+                <div class="spider-wrapper combined">
+                    <svg viewBox="-40 0 280 200" class="spider-chart">
+                        <!-- Grid circles -->
+                        <circle cx="100" cy="100" r="80" class="spider-grid" />
+                        <circle cx="100" cy="100" r="55" class="spider-grid" />
+                        <circle cx="100" cy="100" r="30" class="spider-grid" />
+
+                        <!-- Axes -->
+                        <line x1="100" y1="20" x2="100" y2="180" class="spider-axis" />
+                        <line x1="20" y1="100" x2="180" y2="100" class="spider-axis" />
+
+                        <!-- Dynamic polygons for each chapter -->
+                        <ng-container *ngFor="let ch of chapters; let i = index">
+                            <polygon *ngIf="chapterAnalyses[ch.id]" class="spider-area-combined"
+                                [class.focused]="focusedChapterIndex === (i + 1)"
+                                [class.dimmed]="focusedChapterIndex !== 0 && focusedChapterIndex !== (i + 1)"
+                                [attr.points]="getSpiderPointsForValues(
+                                    chapterAnalyses[ch.id].drama,
+                                    chapterAnalyses[ch.id].humor,
+                                    chapterAnalyses[ch.id].conflict,
+                                    chapterAnalyses[ch.id].mystery
+                                )" [style.stroke]="getChapterColor(i)" [style.fill]="getChapterColor(i)"
+                                fill-opacity="0.1">
+                            </polygon>
+                        </ng-container>
+
+                        <!-- Labels -->
+                        <text x="100" y="15" text-anchor="middle" class="spider-label">Drama</text>
+                        <text x="190" y="105" text-anchor="start" class="spider-label">Humor</text>
+                        <text x="100" y="195" text-anchor="middle" class="spider-label">Conflict</text>
+                        <text x="10" y="105" text-anchor="end" class="spider-label">Mystery</text>
+                    </svg>
+                </div>
+
+                <!-- Chapter Foucslider -->
+                <div class="chapter-focus-control">
+                    <div class="focus-label">
+                        <span *ngIf="focusedChapterIndex === 0">Showing: All Chapters</span>
+                        <span *ngIf="focusedChapterIndex > 0">Showing: {{ getChapterTitle(chapters[focusedChapterIndex -
+                            1]) }}</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" class="chapter-slider" min="0" [max]="chapters.length" step="1"
+                            [(ngModel)]="focusedChapterIndex">
+                    </div>
+                    <div class="slider-ticks">
+                        <div class="tick-mark" style="left: 0%"></div>
+                        <div *ngFor="let ch of chapters; let i = index" class="tick-mark"
+                            [style.left.%]="((i + 1) / chapters.length) * 100"></div>
+                    </div>
+                    <div class="slider-labels">
+                        <span class="tick-label">All</span>
+                        <span class="tick-label" *ngFor="let ch of chapters; let i = index">{{ i + 1 }}</span>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="chart-legend">
+                    <div *ngFor="let ch of chapters; let i = index" class="legend-item"
+                        [class.active]="focusedChapterIndex === 0 || focusedChapterIndex === (i + 1)">
+                        <span class="color-dot" [style.background-color]="getChapterColor(i)"></span>
+                        <span class="legend-label">{{ getChapterNumber(ch) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="analysis-section" *ngIf="selectedAnalysisChapterId !== 'all'">
             <div class="metric-card drama">
                 <div class="metric-icon">🎭</div>
                 <div class="metric-info">
@@ -480,48 +570,61 @@
             </div>
         </div>
 
-        <!-- Suggestions Box -->
-        <div *ngIf="intentLoading" class="suggestions-box loading">
-            <div class="loading-spinner"></div>
-            <span>Analyzing…</span>
-        </div>
+        <!-- Suggestions Box (Hidden in Overview) -->
+        <div class="suggestions-wrapper" *ngIf="selectedAnalysisChapterId !== 'all'">
 
-        <div *ngIf="intentSummary && !intentLoading" class="suggestions-box">
-            <div class="suggestions-header">
-                <span class="suggestions-icon">💡</span>
+            <!-- Suggestions Box -->
+            <div *ngIf="intentLoading" class="suggestions-box loading">
+                <div class="loading-spinner"></div>
+                <span>Analyzing…</span>
+            </div>
+
+            <div *ngIf="intentSummary && !intentLoading" class="suggestions-box">
+                <div class="suggestions-header">
+                    <span class="suggestions-icon">💡</span>
+                    <h4>Suggestions</h4>
+                </div>
+
+                <div class="suggestions-list">
+                    <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
+                        <span class="suggestion-badge">{{ i + 1 }}</span>
+                        <span class="suggestion-text">{{ idea }}</span>
+                    </div>
+                </div>
+
+                <!-- Suggested Sentence Block -->
+                <div class="suggested-sentence-block suggestion-item">
+                    <span class="suggestion-badge icon-badge">📝</span>
+                    <div class="suggestion-content">
+                        <span class="suggestion-label">Suggested Sentence</span>
+                        <span class="suggestion-text" *ngIf="intentPreview">{{ intentPreview }}</span>
+                        <span class="suggestion-text placeholder" *ngIf="!intentPreview && intentLoading">Generating
+                            suggestion...</span>
+                        <span class="suggestion-text placeholder" *ngIf="!intentPreview && !intentLoading">No suggestion
+                            generated. Try adjusting the slider again.</span>
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <div class="suggestions-actions">
+                    <button class="apply-text-btn" [class.applied]="textApplied"
+                        [disabled]="textApplied || !intentPreview" (click)="applyPreviewText()">
+                        <span class="btn-icon">✨</span>
+                        <span class="btn-label">{{ textApplied ? 'Text Applied' : 'Apply Text' }}</span>
+                    </button>
+                    <div *ngIf="textApplied" class="already-applied-message">
+                        You already added the text
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fallback suggestions if no intent suggestions -->
+            <div *ngIf="!intentSummary && !intentLoading" class="quick-tips">
                 <h4>Suggestions</h4>
-            </div>
-
-            <div class="suggestions-list">
-                <div *ngFor="let idea of intentIdeas; let i = index" class="suggestion-item">
-                    <span class="suggestion-badge">{{ i + 1 }}</span>
-                    <span class="suggestion-text">{{ idea }}</span>
+                <div class="tip-card">
+                    <span class="tip-icon">💡</span>
+                    <p>Adjust the sliders to see AI-powered suggestions for improving your story</p>
                 </div>
-            </div>
-
-            <div *ngIf="intentPreview" class="suggestions-example">
-                <div class="example-label">EXAMPLE:</div>
-                <div class="example-text">{{ intentPreview }}</div>
-            </div>
-
-            <div *ngIf="intentPreview" class="suggestions-actions">
-                <button class="apply-text-btn" [class.applied]="textApplied" [disabled]="textApplied"
-                    (click)="applyPreviewText()">
-                    <span class="btn-icon">✨</span>
-                    <span class="btn-label">{{ textApplied ? 'Text Applied' : 'Apply Text' }}</span>
-                </button>
-                <div *ngIf="textApplied" class="already-applied-message">
-                    You already added the text
-                </div>
-            </div>
-        </div>
-
-        <!-- Fallback suggestions if no intent suggestions -->
-        <div *ngIf="!intentSummary && !intentLoading" class="quick-tips">
-            <h4>Suggestions</h4>
-            <div class="tip-card">
-                <span class="tip-icon">💡</span>
-                <p>Adjust the sliders to see AI-powered suggestions for improving your story</p>
             </div>
         </div>
     </div>
@@ -530,19 +633,18 @@
     <div class="tab-content" *ngSwitchCase="'toc'">
         <div class="sidebar-group">
             <h2 class="group-title">📑 Table of Contents</h2>
-            
+
             <div class="toc-summary" *ngIf="chapters.length > 0">
                 <p class="summary-text">
-                    <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this story
+                    <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this
+                    story
                 </p>
             </div>
 
             <div class="toc-list book-style" *ngIf="chapters.length > 0">
-                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" 
-                     class="toc-entry"
-                     [class.clickable]="isChapterAccessible(chapter)"
-                     [class.unclickable]="!isChapterAccessible(chapter)"
-                     (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
+                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" class="toc-entry"
+                    [class.clickable]="isChapterAccessible(chapter)" [class.unclickable]="!isChapterAccessible(chapter)"
+                    (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
                     <div class="toc-entry-left">
                         <div class="chapter-number">{{ getChapterNumber(chapter) }}</div>
                         <div class="chapter-title-wrapper">
@@ -554,8 +656,11 @@
                     </div>
                     <div class="toc-entry-right">
                         <div class="chapter-meta" *ngIf="isChapterAccessible(chapter)">
-                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }} pg</span>
-                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id)) }} chars</span>
+                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }}
+                                pg</span>
+                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id))
+                                }}
+                                chars</span>
                         </div>
                         <div class="chapter-dots"></div>
                         <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>

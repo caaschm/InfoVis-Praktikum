@@ -157,6 +157,11 @@ magic castle:🏰"""
             
             print(f"📡 OpenRouter response status: {response.status_code}")
             
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Switching to local fallback.")
+                fallback = _keyword_based_emoji_selection(text)
+                return (fallback, {})
+
             if response.status_code != 200:
                 print(f"❌ Error response: {response.text}")
                 fallback = _keyword_based_emoji_selection(text)
@@ -440,7 +445,11 @@ Write naturally as part of a story:"""
             return text if text else f"A mysterious figure emerged from the shadows. {emoji_str}"
             
     except Exception as e:
-        print(f"Error generating text: {e}")
+        # Check specifically for rate limit in exception message if raised by status check
+        if "429" in str(e) or (hasattr(e, "response") and e.response.status_code == 429):
+             print(f"⚠️ OpenRouter free tier limit reached (429). Using fallback text.")
+        else:
+             print(f"Error generating text: {e}")
         return f"A mysterious figure emerged from the shadows. {emoji_str}"
 
 
@@ -510,6 +519,10 @@ No explanations, no markdown, just the JSON object."""
                 }
             )
             
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using neutral analysis.")
+                return _simple_fallback_analysis(text)
+
             if response.status_code != 200:
                 print(f"❌ Error response: {response.text}")
                 return _simple_fallback_analysis(text)
@@ -544,21 +557,65 @@ No explanations, no markdown, just the JSON object."""
 
 def _simple_fallback_analysis(text: str) -> dict[str, int]:
     """
-    Simple fallback when AI is unavailable - returns neutral values.
+    Simple fallback when AI is unavailable - returns heuristic values based on simple keyword matching.
     
     Args:
         text: The text to analyze
         
     Returns:
-        Dictionary with neutral drama, humor, conflict, mystery values (0-100)
+        Dictionary with estimated drama, humor, conflict, mystery values (0-100)
     """
-    # Return neutral values as fallback
-    return {
-        "drama": 50,
-        "humor": 50,
-        "conflict": 50,
-        "mystery": 50
+    text_lower = text.lower()
+    
+    # Enhanced keyword lists
+    keywords = {
+        "drama": [
+            'love', 'cry', 'sad', 'tear', 'heart', 'feel', 'emotion', 'tragic', 'loss', 'hope', 
+            'despair', 'life', 'death', 'pain', 'broken', 'soul', 'darkness', 'alone', 'miss', 
+            'regret', 'sorry', 'please', 'wait', 'leave', 'hurt', 'feelings', 'moment', 'touch',
+            'eyes', 'voice', 'whisper', 'scream', 'fear', 'scared', 'afraid', 'worry', 'anxious'
+        ],
+        "humor": [
+            'laugh', 'funny', 'joke', 'smile', 'happy', 'fun', 'joy', 'silly', 'wit', 'comedy', 
+            'haha', 'giggle', 'lol', 'crazy', 'stupid', 'dumb', 'clumsy', 'trip', 'fall', 
+            'oops', 'awkward', 'weird', 'strange', 'grin', 'chuckle', 'snort', 'play', 'game',
+            'ridiculous', 'absurd', 'hilarious', 'amusing', 'entertaining', 'cheerful'
+        ],
+        "conflict": [
+            'fight', 'war', 'battle', 'kill', 'attack', 'enemy', 'hate', 'anger', 'hurt', 'wound', 
+            'blood', 'sword', 'gun', 'argue', 'shout', 'yell', 'scream', 'punch', 'kick', 'beat',
+            'destroy', 'break', 'smash', 'crush', 'rival', 'opponent', 'danger', 'threat', 'risk',
+            'tension', 'stress', 'pressure', 'force', 'power', 'strength', 'resist', 'defend'
+        ],
+        "mystery": [
+            'secret', 'hide', 'dark', 'shadow', 'unknown', 'question', 'clue', 'strange', 'weird', 
+            'ghost', 'magic', 'whisper', 'fog', 'mist', 'night', 'moon', 'stars', 'silent', 
+            'quiet', 'hush', 'sneak', 'creep', 'search', 'find', 'discover', 'reveal', 'truth',
+            'lie', 'puzzle', 'riddle', 'maze', 'trap', 'lost', 'confused', 'wonder', 'curious'
+        ]
     }
+    
+    scores = {}
+    total_words = len(text_lower.split())
+    if total_words == 0:
+        return {"drama": 50, "humor": 50, "conflict": 50, "mystery": 50}
+        
+    for cat, words in keywords.items():
+        count = sum(1 for word in words if word in text_lower)
+        
+        # Scoring logic: 
+        # Base score 35 (mildly present)
+        # Each match adds significant points to ensure visibility
+        # Cap at 95
+        score = 35 + (count * 8)
+        
+        # If words are present but score is low, minimal 55 to show "Something"
+        if count > 0:
+            score = max(55, score)
+            
+        scores[cat] = min(95, max(10, score))
+        
+    return scores
 
 async def generate_spider_intent(text: str, dimension: str, baseline: int, current: int):
     api_key = get_api_key()
@@ -609,50 +666,150 @@ Current story text:
 \"\"\"{text}\"\"\"
 
 
-Respond ONLY in JSON:
+Respond ONLY in valid JSON format. Do not add any conversational text before or after the JSON.
 {{
   "summary": "...",
   "ideas": ["...", "...", "..."],
   "preview": "..."
 }}
+
+IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflecting the requested change. It cannot be empty.
 """
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            res = await client.post(
-                OPENROUTER_API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:4200",
-                    "X-Title": "Story Writing Assistant"
-                },
-                json={
-                    "model": MODEL_NAME,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.6,
-                    "max_tokens": 300,
-                },
-            )
+        # Try primary model, then fallback to backup
+        models_to_try = [
+            "google/gemini-2.0-flash-exp:free",
+            "google/gemini-2.0-flash-thinking-exp:free", 
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "microsoft/phi-4:free"
+        ]
+        
+        last_exception = None
+        
+        for model in models_to_try:
+            print(f"🔄 Attempting generation with model: {model}")
+            try:
+                async with httpx.AsyncClient(timeout=45.0) as client:
+                    res = await client.post(
+                        OPENROUTER_API_URL,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "http://localhost:4200",
+                            "X-Title": "Story Writing Assistant"
+                        },
+                        json={
+                            "model": model,
+                            "messages": [
+                                {"role": "user", "content": prompt}
+                            ],
+                            "temperature": 0.7,
+                            "max_tokens": 300,
+                        },
+                    )
 
-        if res.status_code != 200:
-            print(f"❌ Error response: {res.text}")
-            raise Exception(f"API returned status {res.status_code}")
+                if res.status_code == 200:
+                    raw = res.json()["choices"][0]["message"]["content"].strip()
+                    print(f"✅ Success with {model}")
+                    break # Success!
+                elif res.status_code == 429:
+                    print(f"⚠️ Rate limit (429) with {model}. Likely account-wide limit.")
+                    # Break the loop to trigger fallback immediately, no point trying other models on same account
+                    break
+                else:
+                    print(f"⚠️ Failed with {model}: Status {res.status_code}")
+                    last_exception = Exception(f"Status {res.status_code}: {res.text}")
+                    continue # Try next model
+            except Exception as e:
+                print(f"⚠️ Error with {model}: {e}")
+                last_exception = e
+                continue
+        
+        if 'raw' not in locals():
+            print("⚠️ All AI models failed. Using local heuristic fallback.")
+            
+            # Local fallback based on dimension
+            dim_key = dimension.lower()
+            
+            fallback_sentences = {
+                "drama": [
+                    "The silence stretched on, heavy with unsaid words and lingering regret.",
+                    "Tears welled in her eyes as the realization of what she had lost finally hit home.",
+                    "It was a moment that would change everything, a turning point from which there was no return."
+                ],
+                "humor": [
+                    "He tripped over his own feet, sending the tray of drinks flying in a spectacular arc.",
+                    "She couldn't help but giggle at the absurdity of the situation.",
+                    "It was the kind of mistake that would be funny in ten years, but right now, it was just chaotic."
+                ],
+                "conflict": [
+                    "Their voices rose in anger, echoing off the stone walls of the chamber.",
+                    "Steel met steel with a deafening clang as the duel began in earnest.",
+                    "There could be no peace between them now, not after what had been said."
+                ],
+                "mystery": [
+                    "In the shadows, something watched and waited for the perfect moment to strike.",
+                    "The note was unsigned, but the handwriting felt disturbingly familiar.",
+                    "A cold draft swept through the room, extinguishing the candles one by one."
+                ]
+            }
+            
+            # Dimension-specific advice (instead of generic error messages)
+            fallback_advice = {
+                "drama": [
+                    "Focus on the character's internal reaction.",
+                    "Slow down the pacing to emphasize importance.",
+                    "Use sensory details to heighten emotion."
+                ],
+                "humor": [
+                    "Subvert expectations with a sudden twist.",
+                    "Use exaggeration to highlight absurdity.",
+                    "Focus on a character's embarrassing reaction."
+                ],
+                "conflict": [
+                    "Shorten sentences to increase tension.",
+                    "Focus on the physical sensations of anger/fear.",
+                    "Make the stakes personal for the character."
+                ],
+                "mystery": [
+                    "Reveal a clue but hide its meaning.",
+                    "Use lighting or atmosphere to create unease.",
+                    "End the sentence with an unanswered question."
+                ]
+            }
 
-        raw = res.json()["choices"][0]["message"]["content"].strip()
+            import random
+            preview_text = random.choice(fallback_sentences.get(dim_key, ["The story took an unexpected turn."]))
+            advice_list = fallback_advice.get(dim_key, ["Vary sentence length.", "Show, don't tell.", "Use strong verbs."])
+            
+            return {
+                "summary": f"Increasing {dim_key} (Offline Mode)",
+                "ideas": advice_list,
+                "preview": preview_text
+            }
 
-        # Remove markdown fences if present
-        cleaned = re.sub(r"```json|```", "", raw).strip()
+        # raw is already set in the loop
 
-        return json.loads(cleaned)
+        print(f"DEBUG: Raw AI Intent Response: {raw}")
+
+        # Robust JSON extraction: look for the first '{' and the last '}'
+        try:
+            json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if json_match:
+                cleaned = json_match.group(0)
+            else:
+                cleaned = raw  # Fallback to raw if no braces found (unlikely to work but worth a try)
+            
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON Decode Error: {e} | Cleaned Text: {cleaned}")
+            raise e
 
     except Exception as e:
         print(f"❌ Error generating spider intent: {type(e).__name__}: {e}")
-        print("INTENT ERROR RAW:", raw if "raw" in locals() else "NO RAW")
         return {
-            "summary": "The AI could not generate a specific suggestion.",
-            "ideas": ["Try adjusting emotional tone.", "Modify character choices.", "Change pacing or tension."],
-            "preview": ""
+            "summary": "AI Service Unavailable",
+            "ideas": ["Focus on sensory details.", "Show specific character reactions.", "Vary sentence rhythm."],
+            "preview": "Service is currently unavailable. Please try again later."
         }

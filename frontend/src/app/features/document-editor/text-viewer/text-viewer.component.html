@@ -1,192 +1,232 @@
 <div class="text-viewer">
-    <div class="header-row">
-        <h2 class="section-title">Workspace</h2>
-        <div class="header-controls">
-            <!-- Chapter Filter -->
-            <div class="chapter-filter" *ngIf="chapters.length > 0">
-                <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)" class="chapter-select">
-                    <option [ngValue]="null">All Chapters</option>
-                    <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ chapter.title }}</option>
-                </select>
-            </div>
-            <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
-                + Add Chapter
-            </button>
-            <div class="view-toggle">
-                <label class="toggle-label">
-                    <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
-                    <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
-                    <span class="toggle-slider"></span>
-                    <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
-                </label>
-            </div>
-            <button class="ai-highlight-btn" [class.active]="showAiHighlight" (click)="toggleAiHighlight()"
-                title="Highlight AI-generated sentences">
-                <span class="ai-icon">🤖</span>
-            </button>
-        </div>
+  <div class="header-row">
+    <h2 class="section-title">Workspace</h2>
+    <div class="header-controls">
+      <!-- Chapter Filter -->
+      <div class="chapter-filter" *ngIf="chapters.length > 0">
+        <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)" class="chapter-select">
+          <option [ngValue]="null">All Chapters</option>
+          <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ chapter.title }}</option>
+        </select>
+      </div>
+      <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
+        + Add Chapter
+      </button>
+      <div class="view-toggle">
+        <label class="toggle-label">
+          <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
+          <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
+          <span class="toggle-slider"></span>
+          <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
+        </label>
+      </div>
+      <button class="ai-highlight-btn" [class.active]="showAiHighlight" (click)="toggleAiHighlight()"
+        title="Highlight AI-generated sentences">
+        <span class="ai-icon">🤖</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Text View -->
+  <div class="text-editor-container" *ngIf="viewMode === 'text'">
+    <div class="line-numbers" #lineNumbersContainer>
+      <span *ngFor="let lineNum of lineNumbers" class="line-number">{{ lineNum }}</span>
     </div>
 
-    <!-- Text View -->
-    <div class="text-editor-container" *ngIf="viewMode === 'text'">
-        <div class="line-numbers" #lineNumbersContainer>
-            <span *ngFor="let lineNum of lineNumbers" class="line-number">{{ lineNum }}</span>
-        </div>
-        <div class="text-content" #textContentContainer [class.ai-highlight-mode]="showAiHighlight">
-            <!-- Render by chapters if chapters exist -->
-            <!-- Chapters are sorted by index to ensure correct order in "All Chapters" view -->
-            <ng-container *ngIf="chapters.length > 0">
-                <ng-container *ngFor="let chapter of chapters; trackBy: trackByChapterId">
-                    <!-- Show chapter only if selectedChapterId is null (all) or matches this chapter -->
-                    <div *ngIf="!selectedChapterId || selectedChapterId === chapter.id" 
-                        class="chapter-section"
-                        [attr.data-chapter-id]="chapter.id">
-                        <!-- Chapter Title -->
-                        <div class="chapter-title-wrapper">
-                            <div *ngIf="editingChapterId !== chapter.id" class="chapter-title-display"
-                                (click)="startEditingChapter(chapter)">
-                                {{ chapter.title }}
-                            </div>
-                            <input *ngIf="editingChapterId === chapter.id" 
-                                type="text" 
-                                [(ngModel)]="editingChapterTitle"
-                                (keydown)="onChapterTitleKeyDown($event, chapter)"
-                                (blur)="saveChapterTitle(chapter)"
-                                class="chapter-title-input"
-                                autofocus>
-                        </div>
-                        
-                        <!-- Chapter Sentences -->
-                        <div class="chapter-sentences">
-                            <ng-container *ngFor="let sentence of getChapterSentences(chapter.id); let isLast = last">
-                                <span class="sentence-inline"
-                                    [class.selected]="isSelected(sentence.id)" 
-                                    (click)="onSentenceClick(sentence)">
-                                    <!-- Word-level highlighting for hovered emoji -->
-                                    <span class="highlight-overlay" aria-hidden="true">
-                                        <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
-                                            <span *ngIf="segment.isHighlighted" class="word-highlight"
-                                                [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
-                                            <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
-                                        </ng-container>
-                                    </span>
-                                    <!-- Editable text layer (on top) -->
-                                    <span class="sentence-text" contenteditable="true"
-                                        (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                                        (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                                        (focus)="onSentenceFocus(sentence, $event)"
-                                        (keyup)="onSentenceKeyUp(sentence, $event)"
-                                        [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
-                                    <span class="emoji-tooltip"
-                                        *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
-                                    <span *ngIf="!isLast"> </span>
-                                </span>
-                            </ng-container>
-                            
-                            <!-- Placeholder for empty chapter - show if this chapter has no sentences -->
-                            <div *ngIf="getChapterSentences(chapter.id).length === 0"
-                                class="chapter-placeholder"
-                                [attr.data-chapter-placeholder]="chapter.id"
-                                contenteditable="true"
-                                (click)="onPlaceholderClick(chapter.id)"
-                                (input)="onPlaceholderInput($event, chapter.id)"
-                                (blur)="onPlaceholderBlur($event, chapter.id)">
-                                Start typing here...
-                            </div>
-                        </div>
-                    </div>
-                </ng-container>
-                
-                <!-- Unassigned sentences (before first chapter) - only show when "All Chapters" is selected -->
-                <div *ngIf="hasUnassignedSentences() && !selectedChapterId" class="chapter-section unassigned">
-                    <div class="chapter-sentences">
-                        <ng-container *ngFor="let sentence of getUnassignedSentences(); let isLast = last">
-                            <span class="sentence-inline"
-                                [class.selected]="isSelected(sentence.id)" 
-                                (click)="onSentenceClick(sentence)">
-                                <!-- Word-level highlighting for hovered emoji -->
-                                <span class="highlight-overlay" aria-hidden="true">
-                                    <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
-                                        <span *ngIf="segment.isHighlighted" class="word-highlight"
-                                            [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
-                                        <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
-                                    </ng-container>
-                                </span>
-                                <!-- Editable text layer (on top) -->
-                                <span class="sentence-text" contenteditable="true"
-                                    (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                                    (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                                    (focus)="onSentenceFocus(sentence, $event)"
-                                    (keyup)="onSentenceKeyUp(sentence, $event)"
-                                    [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
-                                <span class="emoji-tooltip"
-                                    *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
-                                <span *ngIf="!isLast"> </span>
-                            </span>
-                        </ng-container>
-                    </div>
-                </div>
-            </ng-container>
-            
-            <!-- No chapters - show all sentences -->
-            <ng-container *ngIf="chapters.length === 0">
-                <ng-container *ngFor="let sentence of getFilteredSentences(); let isLast = last">
-                    <span class="sentence-inline"
-                        [class.selected]="isSelected(sentence.id)" 
-                        (click)="onSentenceClick(sentence)">
-                        <!-- Word-level highlighting for hovered emoji -->
-                        <span class="highlight-overlay" aria-hidden="true">
-                            <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
-                                <span *ngIf="segment.isHighlighted" class="word-highlight"
-                                    [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
-                                <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
-                            </ng-container>
-                        </span>
-                        <!-- Editable text layer (on top) -->
-                        <span class="sentence-text" contenteditable="true"
-                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                            (focus)="onSentenceFocus(sentence, $event)"
-                            (keyup)="onSentenceKeyUp(sentence, $event)"
-                            [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
-                        <span class="emoji-tooltip"
-                            *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
-                        <span *ngIf="!isLast"> </span>
-                    </span>
-                </ng-container>
-                
-                <!-- Placeholder when no sentences and no chapters -->
-                <div *ngIf="sentences.length === 0" 
-                    class="chapter-placeholder"
-                    contenteditable="true"
-                    (input)="onPlaceholderInput($event, null)"
-                    (blur)="onPlaceholderBlur($event, null)">
-                    Start typing here...
-                </div>
-            </ng-container>
-        </div>
-    </div>
+    <div class="text-content" #textContentContainer [class.ai-highlight-mode]="showAiHighlight">
+      <!-- Render by chapters if chapters exist -->
+      <ng-container *ngIf="chapters.length > 0">
+        <ng-container *ngFor="let chapter of chapters; trackBy: trackByChapterId">
+          <div *ngIf="!selectedChapterId || selectedChapterId === chapter.id" class="chapter-section"
+            [attr.data-chapter-id]="chapter.id">
 
-    <!-- Emoji-Only View -->
-    <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
-        [class.ai-highlight-mode]="showAiHighlight">
-        <div class="emoji-content">
-            <span *ngFor="let sentence of getFilteredSentences(); let i = index" class="emoji-sentence"
-                [class.selected]="isSelected(sentence.id)"
-                [class.ai-generated]="isAiGenerated(sentence.id) && showAiHighlight"
-                [class.non-ai]="!isAiGenerated(sentence.id) && showAiHighlight" 
-                (click)="onSentenceClick(sentence)"
-                [attr.title]="sentence.text">
-                <span class="emoji-group" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || ''
-                    }}</span>
-                <span class="emoji-group empty" *ngIf="(sentence.emojis.length || 0) === 0">📝</span>
-                <span class="emoji-dot">•</span>
-                <div class="sentence-tooltip">{{ sentence.text }}</div>
+            <!-- Chapter Title -->
+            <div class="chapter-title-wrapper">
+              <div *ngIf="editingChapterId !== chapter.id" class="chapter-title-display"
+                (click)="startEditingChapter(chapter)">
+                {{ chapter.title }}
+              </div>
+              <input *ngIf="editingChapterId === chapter.id" type="text" [(ngModel)]="editingChapterTitle"
+                (keydown)="onChapterTitleKeyDown($event, chapter)" (blur)="saveChapterTitle(chapter)"
+                class="chapter-title-input" autofocus>
+            </div>
+
+            <!-- Chapter Sentences -->
+            <div class="chapter-sentences">
+              <ng-container *ngFor="let sentence of getChapterSentences(chapter.id); let isLast = last">
+                <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
+                  [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
+                  [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
+
+                  <!-- ✅ AI overlay (fixed prefix, does NOT grow with typing) -->
+                  <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
+                    <ng-container *ngFor="let seg of getAiSegments(sentence)">
+                      <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
+                      <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
+                    </ng-container>
+                  </span>
+
+                  <!-- Word-level highlighting for hovered emoji -->
+                  <span class="highlight-overlay" aria-hidden="true">
+                    <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
+                      <span *ngIf="segment.isHighlighted" class="word-highlight"
+                        [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
+                      <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
+                    </ng-container>
+                  </span>
+
+                  <!-- AI prefix highlight overlay (does NOT affect editing/caret) -->
+                  <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
+                    <ng-container *ngFor="let seg of getAiSegments(sentence)">
+                      <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
+                      <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
+                    </ng-container>
+                  </span>
+
+                  <!-- Editable text layer (on top) -->
+                  <span class="sentence-text" contenteditable="true"
+                    (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                    (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                    (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
+                    [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+
+                  <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{
+                    sentence.emojis.join(' ') || '' }}</span>
+
+                  <!-- Delete button for AI sentences -->
+                  <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
+                    (click)="deleteAiSentence(sentence, $event)" title="Delete sentence">&times;</span>
+
+                  <span *ngIf="!isLast"> </span>
+                </span>
+              </ng-container>
+
+              <!-- Placeholder for empty chapter -->
+              <div *ngIf="getChapterSentences(chapter.id).length === 0" class="chapter-placeholder"
+                [attr.data-chapter-placeholder]="chapter.id" contenteditable="true"
+                (click)="onPlaceholderClick(chapter.id)" (input)="onPlaceholderInput($event, chapter.id)"
+                (blur)="onPlaceholderBlur($event, chapter.id)">
+                Start typing here...
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Unassigned sentences -->
+        <div *ngIf="hasUnassignedSentences() && !selectedChapterId" class="chapter-section unassigned">
+          <div class="chapter-sentences">
+            <ng-container *ngFor="let sentence of getUnassignedSentences(); let isLast = last">
+              <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
+                [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
+                [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
+
+                <!-- ✅ AI overlay (fixed prefix) -->
+                <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
+                  <ng-container *ngFor="let seg of getAiSegments(sentence)">
+                    <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
+                    <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
+                  </ng-container>
+                </span>
+
+                <!-- Emoji hover overlay -->
+                <span class="highlight-overlay" aria-hidden="true">
+                  <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
+                    <span *ngIf="segment.isHighlighted" class="word-highlight"
+                      [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
+                    <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
+                  </ng-container>
+                </span>
+
+                <!-- Editable text -->
+                <span class="sentence-text" contenteditable="true"
+                  (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                  (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+                  (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
+                  [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+
+                <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{
+                  sentence.emojis.join(' ') || '' }}</span>
+
+                <!-- Delete button for AI sentences -->
+                <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
+                  (click)="deleteAiSentence(sentence, $event)" title="Delete sentence">&times;</span>
+
+                <span *ngIf="!isLast"> </span>
+              </span>
+            </ng-container>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- No chapters - show all sentences -->
+      <ng-container *ngIf="chapters.length === 0">
+        <ng-container *ngFor="let sentence of getFilteredSentences(); let isLast = last">
+          <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
+            [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
+            [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)">
+
+            <!-- ✅ AI overlay (fixed prefix) -->
+            <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
+              <ng-container *ngFor="let seg of getAiSegments(sentence)">
+                <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
+                <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
+              </ng-container>
             </span>
-        </div>
-    </div>
 
-    <div class="hint" *ngIf="sentences.length === 0 && chapters.length === 0">
-        <p>No sentences yet. Click "Add Chapter" to get started or paste your story.</p>
+            <!-- Emoji hover overlay -->
+            <span class="highlight-overlay" aria-hidden="true">
+              <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
+                <span *ngIf="segment.isHighlighted" class="word-highlight"
+                  [style.background-color]="highlightColor + '60'">{{ segment.text }}</span>
+                <ng-container *ngIf="!segment.isHighlighted">{{ segment.text }}</ng-container>
+              </ng-container>
+            </span>
+
+            <!-- Editable text -->
+            <span class="sentence-text" contenteditable="true"
+              (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+              (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
+              (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
+              [attr.data-sentence-id]="sentence.id">{{ sentence.text }}</span>
+
+            <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || ''
+              }}</span>
+
+            <!-- Delete button for AI sentences -->
+            <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
+              (click)="deleteAiSentence(sentence, $event)" title="Delete sentence">&times;</span>
+
+            <span *ngIf="!isLast"> </span>
+          </span>
+        </ng-container>
+
+        <!-- Placeholder when no sentences and no chapters -->
+        <div *ngIf="sentences.length === 0" class="chapter-placeholder" contenteditable="true"
+          (input)="onPlaceholderInput($event, null)" (blur)="onPlaceholderBlur($event, null)">
+          Start typing here...
+        </div>
+      </ng-container>
     </div>
+  </div>
+
+  <!-- Emoji-Only View -->
+  <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
+    [class.ai-highlight-mode]="showAiHighlight">
+    <div class="emoji-content">
+      <span *ngFor="let sentence of getFilteredSentences(); let i = index" class="emoji-sentence"
+        [class.selected]="isSelected(sentence.id)" [class.ai-generated]="shouldHighlightAi(sentence)"
+        [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)"
+        [attr.title]="sentence.text">
+
+        <span class="emoji-group" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join(' ') || '' }}</span>
+        <span class="emoji-group empty" *ngIf="(sentence.emojis.length || 0) === 0">📝</span>
+        <span class="emoji-dot">•</span>
+        <div class="sentence-tooltip">{{ sentence.text }}</div>
+      </span>
+    </div>
+  </div>
+
+  <div class="hint" *ngIf="sentences.length === 0 && chapters.length === 0">
+    <p>No sentences yet. Click "Add Chapter" to get started or paste your story.</p>
+  </div>
 </div>

@@ -24,6 +24,8 @@ export interface Sentence {
     characterRefs: string[];  // Array of character IDs
     emojis: string[];  // Raw emoji strings
     emojiMappings?: { [emoji: string]: string[] };  // Maps emoji to phrases it represents
+    isAiGenerated?: boolean;  // Flag for AI-generated text
+    aiCategory?: string;  // Category of AI text (drama, humor, etc.)
 }
 
 export interface Chapter {
@@ -235,15 +237,15 @@ export interface SpiderChartAnalysisResponse {
 }
 
 export interface SpiderChartIntentRequest {
-  documentId: string;
-  text: string;
-  dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
-  currentValue: number;
-  baselineValue: number;
+    documentId: string;
+    text: string;
+    dimension: 'drama' | 'humor' | 'conflict' | 'mystery';
+    currentValue: number;
+    baselineValue: number;
 }
 
 export interface SpiderChartIntentResponse {
-  summary: string;
-  ideas: string[];
-  preview: string;
+    summary: string;
+    ideas: string[];
+    preview: string;
 }

@@ -39,6 +39,16 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   private lineNumberUpdateTimer: any = null;
   private charsSinceLastSnapshot = 0;
 
+  // Track original AI text to allow partial highlighting
+  private aiOriginalTextMap = new Map<string, string>();
+
+  /**
+   * KEY FIX:
+   * Sobald ein AI-Satz vom User editiert wird, frieren wir das AI-Highlight ein
+   * (nur UI), damit das Highlight NICHT "weiterwandert".
+   */
+  private aiHighlightFrozenForSentenceIds = new Set<string>();
+
   @ViewChild('lineNumbersContainer') lineNumbersContainer?: ElementRef<HTMLElement>;
   @ViewChild('textContentContainer') textContentContainer?: ElementRef<HTMLElement>;
 
@@ -76,7 +86,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
           this.sentences = doc.sentences;
           this.characters = doc.characters || [];
           this.chapters = doc.chapters || [];
-          
+
           // If a chapter is selected but no longer exists, reset to "All Chapters"
           if (this.selectedChapterId !== null) {
             const chapterExists = this.chapters.some(ch => ch.id === this.selectedChapterId);
@@ -84,18 +94,18 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
               this.selectedChapterId = null;
             }
           }
-          
+
           // Ensure "All Chapters" is selected by default if no selection exists
           if (this.selectedChapterId === undefined || this.selectedChapterId === 'null') {
             this.selectedChapterId = null;
           }
-          
+
           // Ensure chapters are sorted by index
           this.chapters.sort((a, b) => a.index - b.index);
-          
+
           // Initialize chapter states with current content
           this.initializeChapterStates();
-          
+
           // Update line numbers after document loads
           setTimeout(() => this.updateLineNumbers(), 200);
         }
@@ -135,7 +145,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         this.highlightColor = color;
       });
   }
-  
+
   ngAfterViewInit(): void {
     // Set up passive scroll listeners for better performance
     // Use a small delay to ensure ViewChild elements are available
@@ -143,14 +153,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       this.setupScrollListeners();
     }, 100);
   }
-  
+
   /**
    * Set up optimized scroll listeners with passive event handling
    */
   private setupScrollListeners(): void {
     const textContentEl = this.textContentContainer?.nativeElement;
     const lineNumbersEl = this.lineNumbersContainer?.nativeElement;
-    
+
     if (textContentEl) {
       // Use passive listener for better scroll performance
       // Passive listeners allow browser to optimize scrolling
@@ -158,7 +168,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         this.onTextContentScroll(e);
       }, { passive: true });
     }
-    
+
     if (lineNumbersEl) {
       // Use passive listener for better scroll performance
       lineNumbersEl.addEventListener('scroll', (e) => {
@@ -175,10 +185,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   ngOnDestroy(): void {
     // Save cursor state before destroying
     this.saveCurrentCursorState();
-    
+
     // Remove event listener
     window.removeEventListener('navigateToChapter', this.navigateToChapterHandler);
-    
+
     this.destroy$.next();
     this.destroy$.complete();
     if (this.sentenceUpdateTimer) {
@@ -200,7 +210,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   private initializeChapterStates(): void {
     if (!this.currentDocument) return;
-    
+
     for (const chapter of this.chapters) {
       const chapterSentences = this.getChapterSentences(chapter.id);
       const chapterContent = chapterSentences.map(s => s.text).join(' ').trim();
@@ -214,26 +224,74 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     const updatedFullContent = this.sentences
       .map(s => s.id === sentenceId ? newText : s.text)
       .join(' ');
-     this.documentService.updateContentSilent(this.currentDocument.id, updatedFullContent);
+    this.documentService.updateContentSilent(this.currentDocument.id, updatedFullContent);
 
+  }
+
+  private initializeOriginalAiText(): void {
+    // Populate the original text map for AI sentences that aren't already tracked
+    if (this.sentences) {
+      this.sentences.forEach(s => {
+        if (s.isAiGenerated && !this.aiOriginalTextMap.has(s.id)) {
+          this.aiOriginalTextMap.set(s.id, s.text);
+        }
+      });
+    }
   }
 
   /**
    * Save current cursor state for active chapter
+   * NEW: Ob AI-Highlight für diesen Satz angezeigt werden soll.
+   * Wenn User einmal tippt -> Highlight wird eingefroren und verschwindet.
    */
+  shouldHighlightAi(sentence: Sentence): boolean {
+    if (!this.showAiHighlight) return false;
+    return this.isAiGenerated(sentence);
+  }
+
+  getAiSegments(sentence: Sentence): Array<{ text: string, isAi: boolean }> {
+    if (!sentence.isAiGenerated) {
+      return [{ text: sentence.text, isAi: false }];
+    }
+
+    const originalText = this.aiOriginalTextMap.get(sentence.id);
+    if (!originalText) {
+      // Fallback if we don't have original text mapped (shouldn't happen often)
+      return [{ text: sentence.text, isAi: true }];
+    }
+
+    // Check if the current text starts with the original AI text
+    if (sentence.text.startsWith(originalText)) {
+      const suffix = sentence.text.substring(originalText.length);
+      const segments = [{ text: originalText, isAi: true }];
+      if (suffix) {
+        segments.push({ text: suffix, isAi: false });
+      }
+      return segments;
+    }
+
+    // If text changed completely, treat as modified (no AI highlight? or full?
+    // User likely deleted/rewrote. Let's assume no highlight or minimal heuristic).
+    // For now, if strict match fails, we return full text as NON-AI to avoid wrong highlight.
+    return [{ text: sentence.text, isAi: false }];
+  }
+
+  // NOTE: freezeAiHighlightIfEdited removed as we support partial highlighting now.
+
+
   private saveCurrentCursorState(): void {
     if (!this.activeChapterId) return;
-    
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
-    
+
     const range = selection.getRangeAt(0);
     const container = range.commonAncestorContainer;
-    
+
     // Find the sentence element containing the cursor
     let sentenceElement: HTMLElement | null = null;
     let node: Node | null = container;
-    
+
     while (node && node !== document.body) {
       if (node instanceof HTMLElement && node.hasAttribute('data-sentence-id')) {
         sentenceElement = node;
@@ -241,11 +299,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       }
       node = node.parentNode;
     }
-    
+
     if (sentenceElement) {
       const sentenceId = sentenceElement.getAttribute('data-sentence-id');
       const sentence = this.sentences.find(s => s.id === sentenceId);
-      
+
       // Only save if this sentence belongs to the active chapter
       if (sentence && sentence.chapterId === this.activeChapterId) {
         // Calculate offset within the sentence
@@ -255,18 +313,18 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
           textRange.selectNodeContents(textNode);
           textRange.setEnd(range.endContainer, range.endOffset);
           const offset = textRange.toString().length;
-          
-          this.chapterStateService.saveCursor(this.activeChapterId, sentenceId, offset);
-          
+
+          this.chapterStateService.saveCursor(this.activeChapterId, sentenceId!, offset);
+
           // Save selection if there's a selection
           if (!range.collapsed) {
             textRange.setStart(range.startContainer, range.startOffset);
             const startOffset = textRange.toString().length;
             this.chapterStateService.saveSelection(
               this.activeChapterId,
-              sentenceId,
+              sentenceId!,
               startOffset,
-              sentenceId,
+              sentenceId!,
               offset
             );
           } else {
@@ -294,12 +352,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
               chapterSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
           }
-          
+
           const textElement = sentenceElement.querySelector('.sentence-text');
           if (textElement instanceof HTMLElement) {
             // Focus the element
             textElement.focus();
-            
+
             // Restore cursor position
             const range = document.createRange();
             const textNode = textElement.firstChild || textElement;
@@ -311,7 +369,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
               range.selectNodeContents(textElement);
               range.collapse(true);
             }
-            
+
             const selection = window.getSelection();
             if (selection) {
               selection.removeAllRanges();
@@ -331,12 +389,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   onSentenceClick(sentence: Sentence): void {
     this.documentService.selectSentence(sentence);
-    
+
     // Set active chapter when user clicks on a sentence
     if (sentence.chapterId) {
       this.chapterStateService.setActiveChapter(sentence.chapterId);
     }
-    
+
     // Save cursor state after a short delay
     this.debouncedSaveCursor();
   }
@@ -347,10 +405,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     if (sentence.chapterId) {
       this.chapterStateService.setActiveChapter(sentence.chapterId);
     }
-    
+
     // Save cursor state
     this.debouncedSaveCursor();
-    
+
     // Clear any existing timer
     if (this.sentenceUpdateTimer) {
       clearTimeout(this.sentenceUpdateTimer);
@@ -373,9 +431,9 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
     // Check if text contains multiple sentences (split by .!? followed by space)
     const hasMultipleSentences = trimmedText.split(/[.!?]\s+(?=\S)/).length > 1;
-    
+
     if (this.charsSinceLastSnapshot >= 20) {
-      this.triggerGlobalUndoSnapshot(sentence.id, trimmedText); 
+      this.triggerGlobalUndoSnapshot(sentence.id, trimmedText);
     }
 
     if (justCompletedSentence || hasMultipleSentences) {
@@ -398,7 +456,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
         // Update chapter history
         this.chapterStateService.addHistoryEntry(sentence.chapterId, chapterText);
-        
+
         // CRITICAL: Update only this chapter's content, preserving others
         // This will trigger backend re-parsing which splits sentences
         this.documentService.updateChapterContent(currentDoc.id, sentence.chapterId, chapterText);
@@ -411,14 +469,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
             const updatedChapterSentences = updatedDoc.sentences
               .filter(s => s.chapterId === sentence.chapterId)
               .sort((a, b) => a.index - b.index);
-            
+
             // Find the sentence(s) that were just completed
             // The last sentence in the chapter is likely the one just completed
             if (updatedChapterSentences.length > 0) {
               const lastSentence = updatedChapterSentences[updatedChapterSentences.length - 1];
-              
+
               // Only generate emojis if the sentence ends with punctuation and has no emojis yet
-              if (lastSentence && /[.!?]$/.test(lastSentence.text.trim()) && 
+              if (lastSentence && /[.!?]$/.test(lastSentence.text.trim()) &&
                   (!lastSentence.emojis || lastSentence.emojis.length === 0)) {
                 this.autoGenerateEmojisForSentence(lastSentence);
               }
@@ -442,7 +500,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   onSentenceBlur(sentence: Sentence, newText: string): void {
     // Save cursor state on blur
     this.saveCurrentCursorState();
-    
+
     // Clear any pending timer
     if (this.sentenceUpdateTimer) {
       clearTimeout(this.sentenceUpdateTimer);
@@ -474,21 +532,21 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
           // Update chapter content in history
           this.chapterStateService.addHistoryEntry(sentence.chapterId, chapterText);
-          
+
           // CRITICAL: Update only this chapter's content, preserving others
           this.documentService.updateChapterContent(currentDoc.id, sentence.chapterId, chapterText);
         }
       } else {
         // Just update this sentence text without re-parsing
         this.documentService.updateSentenceText(sentence.id, trimmedNewText);
-        
+
         // Update chapter history
         if (sentence.chapterId) {
           const chapterSentences = this.getChapterSentences(sentence.chapterId);
           const chapterText = chapterSentences.map(s => s.text).join(' ').trim();
           this.chapterStateService.addHistoryEntry(sentence.chapterId, chapterText);
         }
-        
+
         // Update line numbers after text change
         this.updateLineNumbers();
       }
@@ -511,11 +569,15 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    * Handle sentence focus - set active chapter and save cursor
    */
   onSentenceFocus(sentence: Sentence, event: FocusEvent): void {
-    // Set active chapter when user focuses on a sentence
+    // Ensure we track selection on focus, so highlighting logic works correctly
+    if (this.selectedSentenceId !== sentence.id) {
+      this.documentService.selectSentence(sentence);
+    }
+
     if (sentence.chapterId) {
       this.chapterStateService.setActiveChapter(sentence.chapterId);
     }
-    
+
     // Save cursor state immediately on focus
     setTimeout(() => {
       this.saveCurrentCursorState();
@@ -570,7 +632,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     if (sentence.emojis && sentence.emojis.length > 0) {
       return; // Skip if emojis already exist
     }
-    
+
     // Generate emojis for this sentence
     this.aiService.generateEmojisFromText({
       documentId: currentDoc.id,
@@ -610,8 +672,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     this.showAiHighlight = !this.showAiHighlight;
   }
 
-  isAiGenerated(sentenceId: string): boolean {
-    return this.aiGeneratedSentenceIds.has(sentenceId);
+  isAiGenerated(sentence: Sentence): boolean {
+    if (!sentence) return false;
+    // Check both standard and raw property names to be safe
+    return !!sentence.isAiGenerated || !!(sentence as any).is_ai_generated;
   }
 
   /**
@@ -666,8 +730,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       return [{ text: sentenceText, character: null }];
     }
 
-    filteredMatches.forEach((match, index) => {
-      // Add text before match
+    filteredMatches.forEach((match) => {
       if (match.start > lastIndex) {
         segments.push({
           text: sentenceText.substring(lastIndex, match.start),
@@ -878,7 +941,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       // No chapters - return all sentences sorted by index
       return [...this.sentences].sort((a, b) => a.index - b.index);
     }
-    
+
     if (this.selectedChapterId === null) {
       // "All Chapters" selected - return all sentences from all chapters, sorted by index
       // This ensures continuous line numbering across chapters
@@ -899,7 +962,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     if (this.chapters.length === 0) {
       return this.sentences;
     }
-    
+
     if (this.selectedChapterId === null) {
       // Show all chapters - return all sentences
       return this.sentences;
@@ -914,12 +977,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   addChapter(): void {
     if (!this.currentDocument) return;
-    
+
     this.documentService.createChapter(this.currentDocument.id).subscribe({
       next: (newChapter) => {
         // Also set as selected for view
         this.selectedChapterId = newChapter.id;
-        
+
         // Wait for document to reload, then initialize chapter state and set as active
         // The document reload happens in createChapter, so we need to wait for it
         setTimeout(() => {
@@ -929,20 +992,20 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
             const chapterSentences = updatedDoc.sentences
               .filter(s => s.chapterId === newChapter.id)
               .sort((a, b) => a.index - b.index);
-            
+
             if (chapterSentences.length > 0) {
               // Initialize chapter history with content
               const chapterContent = chapterSentences.map(s => s.text).join(' ').trim();
               this.chapterStateService.initializeHistory(newChapter.id, chapterContent);
-              
+
               // Set cursor to start of first sentence (position 0) BEFORE setting active chapter
               // This ensures the cursor is saved before restoreChapterState is called
               const firstSentence = chapterSentences[0];
               this.chapterStateService.saveCursor(newChapter.id, firstSentence.id, 0);
-              
+
               // Clear any selection
               this.chapterStateService.clearSelection(newChapter.id);
-              
+
               // Now set the chapter as active (this will trigger restoreChapterState)
               this.chapterStateService.setActiveChapter(newChapter.id);
             } else {
@@ -974,11 +1037,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   saveChapterTitle(chapter: Chapter): void {
     if (!this.currentDocument || !this.editingChapterTitle.trim()) return;
-    
+
     // Preserve the chapter number format (01, 02, etc.)
     const chapterNum = (chapter.index + 1).toString().padStart(2, '0');
     const newTitle = `${chapterNum} ${this.editingChapterTitle.trim()}`;
-    
+
     this.documentService.updateChapter(
       this.currentDocument.id,
       chapter.id,
@@ -1031,7 +1094,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   selectChapter(chapterId: string | null): void {
     // Ensure null is properly handled (ngValue should handle this, but be safe)
     this.selectedChapterId = chapterId === 'null' ? null : chapterId;
-    
+
     // When filtering to a single chapter, also set it as active
     if (this.selectedChapterId) {
       this.chapterStateService.setActiveChapter(this.selectedChapterId);
@@ -1042,7 +1105,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         this.chapterStateService.setActiveChapter(this.chapters[0].id);
       }
     }
-    
+
     // Update line numbers when chapter selection changes
     setTimeout(() => this.updateLineNumbers(), 100);
   }
@@ -1056,11 +1119,51 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     return chapterSentences.length === 0 && this.sentences.length === 0;
   }
 
+  getAiCategoryClass(sentence: Sentence): string {
+    if (!sentence.isAiGenerated || !sentence.aiCategory) return '';
+    return `ai-category-${sentence.aiCategory}`;
+  }
+
   /**
    * Handle placeholder click - focus the editor
    */
   onPlaceholderClick(chapterId: string | null): void {
     // Placeholder is already contenteditable, so clicking will focus it
+  }
+  /**
+   * Delete an AI-generated sentence
+   */
+  deleteAiSentence(sentence: Sentence, event: Event): void {
+    event.stopPropagation();
+    event.preventDefault(); // Prevent focus loss or other side effects
+
+    if (!this.currentDocument) return;
+
+    if (confirm('Delete this AI-generated sentence?')) {
+      if (sentence.chapterId) {
+        // Handle sentence in a chapter
+        const chapterSentences = this.getChapterSentences(sentence.chapterId)
+          .sort((a, b) => a.index - b.index);
+
+        // Filter out this sentence
+        const updatedSentences = chapterSentences.filter(s => s.id !== sentence.id);
+
+        // Reconstruct text
+        const newChapterText = updatedSentences.map(s => s.text).join(' ').trim();
+
+        // Push update
+        this.chapterStateService.addHistoryEntry(sentence.chapterId, newChapterText);
+        this.documentService.updateChapterContent(this.currentDocument.id, sentence.chapterId, newChapterText);
+      } else {
+        // Handle unassigned sentence or no-chapter mode
+        // Reconstruct full document content excluding this sentence
+        const sortedSentences = [...this.sentences].sort((a, b) => a.index - b.index);
+        const updatedSentences = sortedSentences.filter(s => s.id !== sentence.id);
+        const newFullContent = updatedSentences.map(s => s.text).join(' ').trim();
+
+        this.documentService.updateDocumentContent(this.currentDocument.id, newFullContent);
+      }
+    }
   }
 
   /**
@@ -1069,17 +1172,17 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   onPlaceholderInput(event: Event, chapterId: string | null): void {
     const target = event.target as HTMLElement;
     const text = target.innerText.trim();
-    
+
     // Set active chapter when user types in placeholder
     if (chapterId) {
       this.chapterStateService.setActiveChapter(chapterId);
     }
-    
+
     // Remove placeholder text if user is typing
     if (target.innerText === 'Start typing here...') {
       target.innerText = '';
     }
-    
+
     // Save cursor state
     this.debouncedSaveCursor();
   }
@@ -1090,24 +1193,24 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   onPlaceholderBlur(event: Event, chapterId: string | null): void {
     const target = event.target as HTMLElement;
     const text = target.innerText.trim();
-    
+
     if (text && text !== 'Start typing here...' && this.currentDocument && chapterId) {
       // Create a sentence from the placeholder text
       // CRITICAL: Only update the specific chapter's content
       const chapterSentences = this.getChapterSentences(chapterId);
       const chapterText = chapterSentences.map(s => s.text).join(' ').trim();
       const newChapterText = chapterText ? `${chapterText} ${text}` : text;
-      
+
       // Update chapter history
       this.chapterStateService.addHistoryEntry(chapterId, newChapterText);
-      
+
       // CRITICAL: Update only this chapter's content, preserving others
       this.documentService.updateChapterContent(this.currentDocument.id, chapterId, newChapterText);
-      
+
       // Clear placeholder after content is added
       target.innerText = '';
     }
-    
+
     // Restore placeholder if empty (but only if this chapter has no sentences)
     if (!text || text === 'Start typing here...') {
       if (chapterId) {
@@ -1162,24 +1265,24 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   onLineNumbersScroll(event: Event): void {
     if (this.isScrolling) return;
-    
+
     const lineNumbersEl = this.lineNumbersContainer?.nativeElement;
     const textContentEl = this.textContentContainer?.nativeElement;
-    
+
     if (lineNumbersEl && textContentEl) {
       // Cancel any pending scroll sync
       if (this.scrollSyncFrame !== null) {
         cancelAnimationFrame(this.scrollSyncFrame);
       }
-      
+
       // Use requestAnimationFrame for smooth, performant scrolling
       this.scrollSyncFrame = requestAnimationFrame(() => {
         this.isScrolling = true;
-        
+
         // Direct scrollTop matching for perfect alignment
         // Both containers should have the same scrollTop value
         textContentEl.scrollTop = lineNumbersEl.scrollTop;
-        
+
         this.isScrolling = false;
         this.scrollSyncFrame = null;
       });
@@ -1193,24 +1296,24 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   onTextContentScroll(event: Event): void {
     if (this.isScrolling) return;
-    
+
     const lineNumbersEl = this.lineNumbersContainer?.nativeElement;
     const textContentEl = this.textContentContainer?.nativeElement;
-    
+
     if (lineNumbersEl && textContentEl) {
       // Cancel any pending scroll sync
       if (this.scrollSyncFrame !== null) {
         cancelAnimationFrame(this.scrollSyncFrame);
       }
-      
+
       // Use requestAnimationFrame for smooth, performant scrolling
       this.scrollSyncFrame = requestAnimationFrame(() => {
         this.isScrolling = true;
-        
+
         // Direct scrollTop matching for perfect alignment
         // Both containers should have the same scrollTop value
         lineNumbersEl.scrollTop = textContentEl.scrollTop;
-        
+
         this.isScrolling = false;
         this.scrollSyncFrame = null;
       });
@@ -1238,14 +1341,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
       // Get all chapter-sentences containers (excludes chapter titles)
       const chapterSentencesContainers = textContentEl.querySelectorAll('.chapter-sentences');
-      
+
       // Get computed styles for accurate line height calculation
       const computedStyle = window.getComputedStyle(textContentEl);
       const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 2;
-      
+
       let totalTextHeight = 0;
       let firstTextLineOffset = 0;
-      
+
       if (chapterSentencesContainers.length > 0) {
         // Measure chapter-sentences containers (excludes chapter titles)
         let isFirstContainer = true;
@@ -1254,7 +1357,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
           // Get the actual rendered height of the text content
           const containerHeight = htmlContainer.scrollHeight || htmlContainer.offsetHeight;
           totalTextHeight += containerHeight;
-          
+
           // Calculate offset to first text line (account for chapter title if it's the first chapter)
           if (isFirstContainer && this.chapters.length > 0) {
             const chapterSection = htmlContainer.closest('.chapter-section');
@@ -1275,7 +1378,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
           this.lineNumbers = [];
           return;
         }
-        
+
         // Create a temporary container to measure wrapped text accurately
         const tempContainer = document.createElement('div');
         tempContainer.style.position = 'absolute';
@@ -1286,12 +1389,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         tempContainer.style.lineHeight = computedStyle.lineHeight;
         tempContainer.style.whiteSpace = 'normal';
         tempContainer.style.wordWrap = 'break-word';
-        
+
         // Collect all sentence text
         const allText = Array.from(sentenceElements)
           .map((el: Element) => (el as HTMLElement).textContent || '')
           .join(' ');
-        
+
         tempContainer.textContent = allText;
         document.body.appendChild(tempContainer);
         totalTextHeight = tempContainer.offsetHeight;
@@ -1301,22 +1404,22 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       // Calculate number of lines based on actual text height
       // Use the actual scrollHeight of the text content for accurate line counting
       let actualContentHeight = totalTextHeight;
-      
+
       // Get the actual scrollable height of the text content
       // This accounts for all padding, margins, and actual rendered content
       const textScrollHeight = textContentEl.scrollHeight;
       const textPaddingTop = parseFloat(getComputedStyle(textContentEl).paddingTop) || 0;
       const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom) || 0;
-      
+
       // Calculate the actual content height (excluding padding)
       actualContentHeight = textScrollHeight - textPaddingTop - textPaddingBottom;
-      
+
       // Calculate number of lines - each line is exactly lineHeight tall
       const numberOfLines = Math.max(1, Math.ceil(actualContentHeight / lineHeight));
-      
+
       // Generate line numbers array
       this.lineNumbers = Array.from({ length: numberOfLines }, (_, i) => i + 1);
-      
+
       // Ensure line numbers container has the same total height as text content
       // This ensures perfect scroll synchronization
       if (lineNumbersEl && textContentEl) {
@@ -1326,15 +1429,15 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         } else {
           lineNumbersEl.style.paddingTop = '0px';
         }
-        
+
         // Ensure padding-bottom matches exactly
         const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom);
         lineNumbersEl.style.paddingBottom = `${textPaddingBottom}px`;
-        
+
         // Force a reflow to ensure heights are calculated
         void lineNumbersEl.offsetHeight;
         void textContentEl.offsetHeight;
-        
+
         // After a brief delay, verify and sync scroll positions
         setTimeout(() => {
           // If scroll positions are out of sync, fix them
@@ -1344,7 +1447,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
           }
         }, 0);
       }
-      
+
       this.cdr.markForCheck();
     }, 150); // Debounce for 150ms to allow DOM to settle
   }
@@ -1358,7 +1461,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   trackBySentenceId(index: number, sentence: Sentence): string {
   return sentence.id;
-  } 
+  }
 
 
 }

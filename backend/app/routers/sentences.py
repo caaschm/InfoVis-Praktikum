@@ -28,7 +28,8 @@ def get_sentence(sentence_id: str, db: Session = Depends(get_db)):
         text=sentence.text,
         emojis=emojis,
         character_refs=character_refs,
-        emoji_mappings=emoji_mappings
+        emoji_mappings=emoji_mappings,
+        is_ai_generated=sentence.is_ai_generated
     )
 
 
@@ -53,6 +54,11 @@ def update_sentence(
     # Update text if provided
     if update.text is not None:
         sentence.text = update.text
+        # CRITICAL: We DO NOT clear is_ai_generated here anymore.
+        # We allow the flag to persist on extended sentences (e.g. "AI Text. Manual")
+        # so that when re-parsing happens, we can recover the "AI Text." part as valid AI.
+        # If the user never triggers a split, the whole sentence stays highlighted.
+        # This is the tradeoff for "type after full stop keeps highlight".
     
     # Update raw emojis if provided
     if update.emojis is not None:
@@ -84,5 +90,6 @@ def update_sentence(
         text=sentence.text,
         emojis=emojis,
         character_refs=character_refs,
-        emoji_mappings=emoji_mappings
+        emoji_mappings=emoji_mappings,
+        is_ai_generated=sentence.is_ai_generated
     )

@@ -77,6 +77,15 @@ export class DocumentService {
                     s.chapterId = s.chapter_id;
                     delete s.chapter_id;
                 }
+                if ('is_ai_generated' in s) {
+                    s.isAiGenerated = s.is_ai_generated;
+                    delete s.is_ai_generated;
+                }
+                // Transform ai_category to aiCategory
+                if ('ai_category' in s) {
+                    s.aiCategory = s.ai_category;
+                    delete s.ai_category;
+                }
             });
         }
         // Transform characters
@@ -129,6 +138,7 @@ export class DocumentService {
      * Create a new document from text
      */
     createDocument(title: string, content: string): Observable<DocumentDetail> {
+        const normalized = this.normalizeSentenceSpacing(content);
         return this.apiService.post<any>('/api/documents/', { title, content })
             .pipe(
                 tap((doc: any) => {
@@ -197,8 +207,15 @@ export class DocumentService {
      * Update document content and re-parse sentences
      * Uses the provided content directly (backend will preserve chapter assignments)
      */
-    updateDocumentContent(documentId: string, content: string): void {
-        this.apiService.patch<any>(`/api/documents/${documentId}`, { content })
+    updateDocumentContent(documentId: string, content: string, aiSuggestionText?: string, aiSuggestionCategory?: string, aiSuggestionChapterId?: string): void {
+        const normalized = this.normalizeSentenceSpacing(content);
+
+        this.apiService.patch<any>(`/api/documents/${documentId}`, {
+            content,
+            ai_suggestion_text: aiSuggestionText,
+            ai_suggestion_category: aiSuggestionCategory,
+            ai_suggestion_chapter_id: aiSuggestionChapterId
+        })
             .subscribe({
                 next: (updatedDoc: any) => {
                     const transformed = this.transformDocumentResponse(updatedDoc);
@@ -213,16 +230,16 @@ export class DocumentService {
     /**
      * Update a specific chapter's content (preserves other chapters)
      */
-    updateChapterContent(documentId: string, chapterId: string, chapterContent: string): void {
+    updateChapterContent(documentId: string, chapterId: string, chapterContent: string, aiSuggestionText?: string, aiSuggestionCategory?: string): void {
         const currentDoc = this.currentDocumentSubject.value;
         if (!currentDoc) return;
-        
+
         // Get all chapters in order
         const chapters = [...(currentDoc.chapters || [])].sort((a, b) => a.index - b.index);
-        
+
         // Reconstruct full document content by combining all chapters
         const allChapterContents: string[] = [];
-        
+
         for (const chapter of chapters) {
             if (chapter.id === chapterId) {
                 // Use the new content for the updated chapter
@@ -236,7 +253,7 @@ export class DocumentService {
                 allChapterContents.push(chapterSentences.join(' ').trim());
             }
         }
-        
+
         // Add unassigned sentences
         const unassignedSentences = currentDoc.sentences
             .filter(s => !s.chapterId)
@@ -245,12 +262,12 @@ export class DocumentService {
         if (unassignedSentences.length > 0) {
             allChapterContents.push(unassignedSentences.join(' ').trim());
         }
-        
+
         // Combine all chapters
         const fullContent = allChapterContents.filter(c => c).join(' ').trim();
-        
+
         // Update document with reconstructed content
-        this.updateDocumentContent(documentId, fullContent);
+        this.updateDocumentContent(documentId, fullContent, aiSuggestionText, aiSuggestionCategory, chapterId);
     }
 
     // Eine Methode, die nur den Content-String aktualisiert, 
@@ -389,7 +406,7 @@ export class DocumentService {
                         createdAt: chapterResponse.created_at || chapterResponse.createdAt,
                         updatedAt: chapterResponse.updated_at || chapterResponse.updatedAt
                     };
-                    
+
                     // Reload document to get updated chapters and sentences, then return the chapter
                     return this.loadDocument(documentId).pipe(
                         map((): Chapter => chapter)
@@ -411,10 +428,35 @@ export class DocumentService {
             );
     }
 
+    private normalizeSentenceSpacing(text: string): string {
+        // Fügt nach . ! ? ein Leerzeichen ein, wenn direkt ein Nicht-Whitespace folgt
+        // Beispiel: "festival.It" -> "festival. It"
+        return text
+            .replace(/([.!?])(?=\S)/g, '$1 ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+
     /**
-     * Get all chapters for a document
-     */
+       * Get all chapters for a document
+       */
     getChapters(documentId: string): Observable<Chapter[]> {
         return this.apiService.get<Chapter[]>(`/api/documents/${documentId}/chapters/`);
     }
+
+    setAiPrefixLen(sentenceId: string, len: number): void {
+        const doc = this.getCurrentDocument();
+        if (!doc) return;
+
+        const s = doc.sentences.find(x => x.id === sentenceId);
+        if (!s) return;
+
+        (s as any).aiPrefixLen = len;
+        s.isAiGenerated = true;
+
+        // trigger UI update if you use BehaviorSubject
+        this.currentDocumentSubject.next({ ...doc });
+    }
+
 }
