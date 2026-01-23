@@ -28,6 +28,15 @@ def create_document(
     )
     db.add(db_document)
     db.flush()  # Get the document ID
+
+    # Create default first chapter
+    default_chapter = models.Chapter(
+        document_id=db_document.id,
+        title="01 Title",
+        index=0
+    )
+    db.add(default_chapter)
+    db.flush() # Get chapter ID
     
     # Split content into sentences
     sentences = split_into_sentences(document.content)
@@ -37,7 +46,8 @@ def create_document(
         db_sentence = models.Sentence(
             document_id=db_document.id,
             index=index,
-            text=sentence_text
+            text=sentence_text,
+            chapter_id=default_chapter.id  # Assign to default chapter
         )
         db.add(db_sentence)
     
@@ -118,6 +128,15 @@ async def upload_pdf_document(
     )
     db.add(db_document)
     db.flush()
+
+    # Create default first chapter
+    default_chapter = models.Chapter(
+        document_id=db_document.id,
+        title="01 Title",
+        index=0
+    )
+    db.add(default_chapter)
+    db.flush() # Get chapter ID
     
     # Split content into sentences
     sentences = split_into_sentences(content)
@@ -127,7 +146,8 @@ async def upload_pdf_document(
         db_sentence = models.Sentence(
             document_id=db_document.id,
             index=index,
-            text=sentence_text
+            text=sentence_text,
+            chapter_id=default_chapter.id
         )
         db.add(db_sentence)
     
@@ -268,7 +288,18 @@ def update_document_content(
         
         # Determine chapter_id
         chapter_id = None
-        if preserved_data:
+        
+        # Check if this sentence matches the AI suggestion
+        is_new_ai_suggestion = False
+        if content_update.ai_suggestion_text and (
+                sentence_text.strip() in content_update.ai_suggestion_text or
+                normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
+            ):
+            is_new_ai_suggestion = True
+
+        if is_new_ai_suggestion and content_update.ai_suggestion_chapter_id:
+             chapter_id = content_update.ai_suggestion_chapter_id
+        elif preserved_data:
             # Use preserved chapter_id from matching sentence
             chapter_id = preserved_data.get('chapter_id')
         else:

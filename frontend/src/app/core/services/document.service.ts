@@ -207,13 +207,14 @@ export class DocumentService {
      * Update document content and re-parse sentences
      * Uses the provided content directly (backend will preserve chapter assignments)
      */
-    updateDocumentContent(documentId: string, content: string, aiSuggestionText?: string, aiSuggestionCategory?: string): void {
+    updateDocumentContent(documentId: string, content: string, aiSuggestionText?: string, aiSuggestionCategory?: string, aiSuggestionChapterId?: string): void {
         const normalized = this.normalizeSentenceSpacing(content);
 
         this.apiService.patch<any>(`/api/documents/${documentId}`, {
             content,
             ai_suggestion_text: aiSuggestionText,
-            ai_suggestion_category: aiSuggestionCategory
+            ai_suggestion_category: aiSuggestionCategory,
+            ai_suggestion_chapter_id: aiSuggestionChapterId
         })
             .subscribe({
                 next: (updatedDoc: any) => {
@@ -266,7 +267,7 @@ export class DocumentService {
         const fullContent = allChapterContents.filter(c => c).join(' ').trim();
 
         // Update document with reconstructed content
-        this.updateDocumentContent(documentId, fullContent, aiSuggestionText, aiSuggestionCategory);
+        this.updateDocumentContent(documentId, fullContent, aiSuggestionText, aiSuggestionCategory, chapterId);
     }
 
     // Eine Methode, die nur den Content-String aktualisiert, 
