@@ -44,6 +44,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   currentIntentDimension: Dimension | null = null;
   private sliderChangeSubject = new Subject<{ dimension: Dimension; current: number; baseline: number; requestId: number }>();
   private requestCounter = 0;
+  private preserveSlidersOnNextAnalysis = false;
 
   // ===== BASELINE VALUES NACH AI-ANALYSE =====
   aiBaseline: Record<Dimension, number> = {
@@ -57,8 +58,25 @@ export class SidebarComponent implements OnInit, OnDestroy {
   set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc') {
     this._activeTab = value;
     if (value === 'analysis' && !this.isAnalyzing) {
+      // Ensure we have the latest document state
       const doc = this.documentService.getCurrentDocument();
+      if (doc) {
+        this.currentDocument = doc;
+        this.chapters = (doc.chapters || []).sort((a, b) => a.index - b.index);
+      }
+
+      // Default to Chapter 1 (index 0) per user request for a consistent start
+      if (this.chapters.length > 0) {
+        this.selectedAnalysisChapterId = this.chapters[0].id;
+      } else {
+        this.selectedAnalysisChapterId = 'all';
+      }
+
       if (doc && doc.id !== this.lastAnalyzedDocumentId) {
+        setTimeout(() => this.analyzeDocument(), 100);
+      } else {
+        // Even if doc didn't change ID, we might have switched back to this tab and need to ensure view is correct
+        // Re-trigger analysis if we have a valid selection
         setTimeout(() => this.analyzeDocument(), 100);
       }
     }
@@ -106,10 +124,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
   @ViewChild('spiderSvg') spiderSvg?: ElementRef<SVGSVGElement>;
   draggingHandle: Dimension | null = null;
 
+
   isAnalyzing = false;
   lastAnalysisError: string | null = null;
   private lastAnalyzedDocumentId: string | null = null;
   private lastAnalyzedTextHash: string | null = null;
+  selectedAnalysisChapterId: string | null = 'all'; // Default to 'all' or specific chapter
+  focusedChapterIndex = 0; // 0 = All/Overlay, 1..N = Specific Chapter Focus
+  chapterAnalyses: { [key: string]: { drama: number, humor: number, conflict: number, mystery: number } } = {};
+  isAnalyzingAll = false;
 
   constructor(
     public documentService: DocumentService,
@@ -139,29 +162,48 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.documentService.currentDocument$
       .pipe(
         takeUntil(this.destroy$),
-        debounceTime(2000),
+        debounceTime(1000), // Reduced from 2000ms for more responsive updates
         distinctUntilChanged((prev, curr) => {
           if (!prev || !curr) return prev === curr;
           // Compare only active chapter's content
           const activeChapterId = this.chapterStateService.getActiveChapterId();
-          if (activeChapterId) {
-            const prevActive = prev.sentences.filter(s => s.chapterId === activeChapterId).map(s => s.text).join(' ');
-            const currActive = curr.sentences.filter(s => s.chapterId === activeChapterId).map(s => s.text).join(' ');
+          // If we are analyzing a specific chapter, we should compare THAT chapter's content
+          const targetChapterId = this.selectedAnalysisChapterId === 'all' ? activeChapterId : this.selectedAnalysisChapterId;
+
+          if (targetChapterId) {
+            const prevActive = prev.sentences.filter(s => s.chapterId === targetChapterId).map(s => s.text).join(' ');
+            const currActive = curr.sentences.filter(s => s.chapterId === targetChapterId).map(s => s.text).join(' ');
             return prevActive === currActive;
           }
-          // Fallback: compare all content
+          // Fallback: compare all content within first 500 chars (optimization) or full text
           return prev.sentences.map(s => s.text).join(' ') ===
             curr.sentences.map(s => s.text).join(' ');
         })
       )
       .subscribe(doc => {
         if (doc && this.activeTab === 'analysis' && !this.isAnalyzing) {
-          // Check active chapter's content
+          // Initialize selected chapter from active chapter if not set
+          // Initialize selected chapter logic
           const activeChapterId = this.chapterStateService.getActiveChapterId();
-          let currentText: string;
 
-          if (activeChapterId) {
-            const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+          if (this.chapters.length === 1) {
+            // If exactly one chapter, force that chapter view
+            this.selectedAnalysisChapterId = this.chapters[0].id;
+          } else {
+            // If 0 chapters (new doc) or > 1 chapters, default to 'all' (combined view)
+            // Only set to activeChapterId if we specifically want to track the active one,
+            // but user requested "entire story" as default view entering functionality.
+            if (this.selectedAnalysisChapterId !== 'all' && !this.chapters.find(c => c.id === this.selectedAnalysisChapterId)) {
+              this.selectedAnalysisChapterId = 'all';
+            }
+          }
+
+
+          let currentText: string;
+          const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
+
+          if (targetChapterId) {
+            const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
             currentText = activeChapterSentences.map(s => s.text).join(' ').trim();
           } else {
             currentText = doc.sentences.map(s => s.text).join(' ').trim();
@@ -169,8 +211,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
           if (currentText) {
             const textHash = `${currentText.length}_${currentText.substring(0, 50)}`;
+            // Always analyze if we haven't analyzed this EXACT text state yet
             if (textHash !== this.lastAnalyzedTextHash) {
-              this.lastAnalyzedTextHash = textHash;
+              // this.analyzeDocument() handles the update
               this.analyzeDocument();
             }
           }
@@ -535,16 +578,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (!doc) return;
 
     // CRITICAL: Only update the active chapter's content
-    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    // CRITICAL: Only update the selected analysis chapter's content
+    const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
 
-    if (activeChapterId) {
-      // Get active chapter's sentences (sorted by index)
+    if (targetChapterId) {
+      // Get selected chapter's sentences (sorted by index)
       const activeChapterSentences = doc.sentences
-        .filter(s => s.chapterId === activeChapterId)
+        .filter(s => s.chapterId === targetChapterId)
         .sort((a, b) => a.index - b.index);
 
       // Try to get cursor position for cursor-based insertion
-      const cursorState = this.chapterStateService.getCursor(activeChapterId);
+      const cursorState = this.chapterStateService.getCursor(targetChapterId);
       let newChapterContent: string;
 
       if (cursorState && cursorState.sentenceId && cursorState.offset !== undefined) {
@@ -584,17 +628,29 @@ export class SidebarComponent implements OnInit, OnDestroy {
       }
 
       // Update chapter history
-      this.chapterStateService.addHistoryEntry(activeChapterId, newChapterContent);
+      this.chapterStateService.addHistoryEntry(targetChapterId, newChapterContent);
 
       // CRITICAL: Update only active chapter's content, preserving others
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       // Pass currentIntentDimension as ai_suggestion_category to mark the category
       newChapterContent = this.normalizeSentenceSpacing(newChapterContent);
-      this.documentService.updateChapterContent(doc.id, activeChapterId, newChapterContent, this.intentPreview, this.currentIntentDimension || undefined);
+      // Force analysis refresh on next update
+      this.lastAnalyzedTextHash = null;
+
+      // Preserve the current slider value for the active dimension
+      // This ensures the slider doesn't jump back to the analyzed value immediately
+      this.preserveSlidersOnNextAnalysis = true;
+
+      this.documentService.updateChapterContent(doc.id, targetChapterId, newChapterContent, this.intentPreview, this.currentIntentDimension || undefined);
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
       const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
+
+      // Force analysis refresh
+      this.lastAnalyzedTextHash = null;
+      this.preserveSlidersOnNextAnalysis = true;
+
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       this.documentService.updateDocumentContent(doc.id, this.normalizeSentenceSpacing(newContent), this.intentPreview, this.currentIntentDimension || undefined);
     }
@@ -602,6 +658,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // Mark as applied
     this.textApplied = true;
   }
+
 
   // ========== SPIDER SHAPE ==========
   private valueToPointXY(value: number, angleDeg: number) {
@@ -611,6 +668,21 @@ export class SidebarComponent implements OnInit, OnDestroy {
       x: this.centerX + r * Math.cos(angleRad),
       y: this.centerY + r * Math.sin(angleRad)
     };
+  }
+
+  getSpiderPointsForValues(drama: number, humor: number, conflict: number, mystery: number): string {
+    const dramaPoint = this.valueToPointXY(drama, -90);
+    const humorPoint = this.valueToPointXY(humor, 0);
+    const conflictPoint = this.valueToPointXY(conflict, 90);
+    const mysteryPoint = this.valueToPointXY(mystery, 180);
+
+    return [dramaPoint, humorPoint, conflictPoint, mysteryPoint]
+      .map(p => `${p.x},${p.y}`).join(', ');
+  }
+
+  getChapterColor(index: number): string {
+    const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+    return colors[index % colors.length];
   }
 
   get dramaPoint() { return this.valueToPointXY(this.drama, -90); }
@@ -628,35 +700,67 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   // ========== AI ANALYSIS ==========
+  onAnalysisChapterChange(chapterId: string | null): void {
+    this.selectedAnalysisChapterId = chapterId;
+    this.lastAnalyzedTextHash = null; // Force re-analysis by invalidating previous hash
+    this.analyzeDocument();
+  }
+
+  // ========== AI ANALYSIS ==========
   analyzeDocument(): void {
     const doc = this.documentService.getCurrentDocument();
     if (!doc) return;
 
-    // CRITICAL: Analyze only the active chapter's content
-    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    // Use selected chapter for analysis, or fallback to active chapter logic if 'all' is not explicitly handled yet
+    // The previous logic was: activeChapterId (from state) or all.
+    // New logic: Use selectedAnalysisChapterId. If 'all', use all.
+
+    // We treat 'all' as null for the purpose of ID, but we strictly check for 'all' string from template
+    const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
+
     let textToAnalyze: string;
 
-    if (activeChapterId) {
-      // Analyze only active chapter
-      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+    if (targetChapterId) {
+      // Analyze only selected chapter
+      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
       textToAnalyze = activeChapterSentences.map(s => s.text).join(' ').trim();
     } else {
-      // Fallback: analyze all content if no active chapter (backward compatibility)
-      textToAnalyze = doc.sentences.map(s => s.text).join(' ').trim();
+      // Analyze all content logic - TRIGGER BATCH ANALYSIS for "Entire Story" breakdown
+      // Clear current analyses to force refresh visual
+      // this.chapterAnalyses = {}; 
+      this.analyzeAllChapters();
+      return;
     }
 
     if (!textToAnalyze) return;
 
     this.isAnalyzing = true;
+    console.log(`🔍 [ANALYSIS] Analyzing chapter '${targetChapterId || 'ALL'}'. Text length: ${textToAnalyze.length}`);
+    console.log(`🔍 [ANALYSIS] Text preview: ${textToAnalyze.substring(0, 100)}...`);
+
     this.aiService.analyzeSpiderChart({
       documentId: doc.id,
       text: textToAnalyze
     }).subscribe({
       next: (response) => {
-        this.drama = response.drama;
-        this.humor = response.humor;
-        this.conflict = response.conflict;
-        this.mystery = response.mystery;
+        console.log('✅ [ANALYSIS] Result:', response);
+
+        if (this.preserveSlidersOnNextAnalysis) {
+          // Keep all sliders at their current positions (user intent)
+          // We only update the baseline to reflect the new text reality
+          // This prevents "jumping" values after applying an edit
+          this.preserveSlidersOnNextAnalysis = false;
+        } else {
+          this.drama = response.drama;
+          this.humor = response.humor;
+          this.conflict = response.conflict;
+          this.mystery = response.mystery;
+        }
+
+        // SYNC: Update the cache for this chapter so the Overlapping Chart is up-to-date
+        if (targetChapterId) {
+          this.chapterAnalyses[targetChapterId] = response;
+        }
 
         this.aiBaseline = { ...response } as Record<Dimension, number>;
         this.isAnalyzing = false;
@@ -668,7 +772,43 @@ export class SidebarComponent implements OnInit, OnDestroy {
       error: () => {
         this.lastAnalysisError = 'Failed to analyze text';
         this.isAnalyzing = false;
+        this.preserveSlidersOnNextAnalysis = false;
       }
+    });
+  }
+
+  analyzeAllChapters(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc || !this.chapters.length) return;
+
+    this.isAnalyzingAll = true;
+    let completedCount = 0;
+
+    this.chapters.forEach(chapter => {
+      const chapterSentences = doc.sentences.filter(s => s.chapterId === chapter.id);
+      const text = chapterSentences.map(s => s.text).join(' ').trim();
+
+      if (!text) {
+        // Skip empty chapters but count them as done
+        completedCount++;
+        if (completedCount === this.chapters.length) this.isAnalyzingAll = false;
+        return;
+      }
+
+      this.aiService.analyzeSpiderChart({
+        documentId: doc.id,
+        text
+      }).subscribe({
+        next: (response) => {
+          this.chapterAnalyses[chapter.id] = response;
+          completedCount++;
+          if (completedCount === this.chapters.length) this.isAnalyzingAll = false;
+        },
+        error: () => {
+          completedCount++;
+          if (completedCount === this.chapters.length) this.isAnalyzingAll = false;
+        }
+      });
     });
   }
 
@@ -731,15 +871,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (!doc) return;
 
     // CRITICAL: Use only active chapter's content for intent suggestions
-    const activeChapterId = this.chapterStateService.getActiveChapterId();
+    // Use selected chapter for intent suggestions
+    const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
     let text: string;
 
-    if (activeChapterId) {
-      // Use only active chapter
-      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === activeChapterId);
+    if (targetChapterId) {
+      // Use only selected chapter
+      const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
       text = activeChapterSentences.map(s => s.text).join(' ').trim();
     } else {
-      // Fallback: use all content if no active chapter (backward compatibility)
+      // Fallback: use all content
       text = doc.sentences.map(s => s.text).join(' ').trim();
     }
 
