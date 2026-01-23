@@ -495,11 +495,18 @@
                         <span *ngIf="focusedChapterIndex > 0">Showing: {{ getChapterTitle(chapters[focusedChapterIndex -
                             1]) }}</span>
                     </div>
-                    <input type="range" class="chapter-slider" min="0" [max]="chapters.length" step="1"
-                        [(ngModel)]="focusedChapterIndex">
+                    <div class="slider-wrapper">
+                        <input type="range" class="chapter-slider" min="0" [max]="chapters.length" step="1"
+                            [(ngModel)]="focusedChapterIndex">
+                    </div>
                     <div class="slider-ticks">
-                        <span class="tick">All</span>
-                        <span class="tick" *ngFor="let ch of chapters; let i = index">{{ i + 1 }}</span>
+                        <div class="tick-mark" style="left: 0%"></div>
+                        <div *ngFor="let ch of chapters; let i = index" class="tick-mark"
+                            [style.left.%]="((i + 1) / chapters.length) * 100"></div>
+                    </div>
+                    <div class="slider-labels">
+                        <span class="tick-label">All</span>
+                        <span class="tick-label" *ngFor="let ch of chapters; let i = index">{{ i + 1 }}</span>
                     </div>
                 </div>
 

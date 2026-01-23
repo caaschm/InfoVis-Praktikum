@@ -2065,7 +2065,7 @@
         border: 1px solid #e5e7eb;
         border-radius: 12px;
         padding: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
         .card-header {
             display: flex;
@@ -2095,20 +2095,20 @@
             justify-content: space-between;
             align-items: center;
             gap: 1rem;
-            
+
             .spider-chart.small {
                 width: 140px;
                 height: 140px;
                 max-width: 140px;
             }
-            
+
             .mini-metrics {
                 display: grid;
                 grid-template-columns: 1fr;
                 gap: 0.5rem;
                 font-size: 0.8rem;
                 color: #4b5563;
-                
+
                 .metric {
                     display: flex;
                     align-items: center;
@@ -2133,7 +2133,7 @@
 // Combined Chart Styles
 .overview-chart-wrapper {
     margin-bottom: 2rem;
-    
+
     .loading-state {
         display: flex;
         flex-direction: column;
@@ -2160,13 +2160,13 @@
         .spider-wrapper.combined {
             margin: 0 auto 1.5rem auto;
             max-width: 260px;
-            
+
             .spider-area-combined {
                 stroke-width: 2;
                 // Mix-blend mode helps distinguish overlapping areas
                 mix-blend-mode: multiply;
                 transition: all 0.3s ease;
-                
+
                 &:hover {
                     fill-opacity: 0.3;
                     stroke-width: 3;
@@ -2203,33 +2203,138 @@
 }
 
 // Chapter Focus Slider Styles
+// Chapter Focus Slider Styles
 .chapter-focus-control {
     margin-bottom: 1.5rem;
-    padding: 0 0.5rem;
+    padding: 1rem;
+    position: relative;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+
+    &:hover {
+        border-color: #d1d5db;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
 
     .focus-label {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         font-weight: 600;
         color: #374151;
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
         text-align: center;
     }
 
-    .chapter-slider {
+    .slider-wrapper {
+        position: relative;
         width: 100%;
-        margin-bottom: 0.25rem;
-        accent-color: #3b82f6;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+
+        // Background Track
+        &::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            z-index: 0;
+        }
+
+        .chapter-slider {
+            position: relative;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: transparent;
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            z-index: 2;
+            margin: 0;
+
+            &::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                background: white;
+                border: 2px solid #3b82f6;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+                transition: transform 0.1s ease;
+                margin-top: -6px;
+            }
+
+            &::-webkit-slider-thumb:hover {
+                transform: scale(1.15);
+                background: #eff6ff;
+            }
+
+            &::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                background: white;
+                border: 2px solid #3b82f6;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+                transition: transform 0.1s ease;
+            }
+
+            // Chrome/Safari Track
+            &::-webkit-slider-runnable-track {
+                width: 100%;
+                height: 6px;
+                cursor: pointer;
+                background: transparent;
+                border-radius: 3px;
+            }
+        }
     }
 
     .slider-ticks {
+        position: absolute;
+        top: 2.25rem; // Adjusted for padding + label
+        left: 1rem; // Match container padding
+        right: 1rem;
+        height: 6px;
+        pointer-events: none;
+
+        // Ensure ticks align with slider track content box
+        margin-left: 2px;
+        margin-right: 2px;
+
+        .tick-mark {
+            position: absolute;
+            top: 14px;
+            width: 2px;
+            height: 4px;
+            background: #d1d5db;
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+    }
+
+    .slider-labels {
         display: flex;
         justify-content: space-between;
-        padding: 0 4px;
+        padding: 0 0;
+        margin-top: 0.5rem;
 
-        .tick {
-            font-size: 0.7rem;
-            color: #9ca3af;
-            width: 1rem;
+        .tick-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            width: 1.5rem;
             text-align: center;
         }
     }
@@ -2238,14 +2343,14 @@
 // Polygon Selection Styles
 .spider-area-combined {
     transition: all 0.3s ease;
-    
+
     &.focused {
         stroke-width: 4;
         fill-opacity: 0.25;
         z-index: 100;
-        filter: drop-shadow(0 0 4px rgba(0,0,0,0.2));
+        filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.2));
     }
-    
+
     &.dimmed {
         opacity: 0.15;
         stroke-width: 1;
@@ -2256,7 +2361,7 @@
 .chart-legend .legend-item {
     opacity: 0.5;
     transition: all 0.3s ease;
-    
+
     &.active {
         opacity: 1;
         font-weight: 600;
@@ -2269,7 +2374,7 @@
 .spider-wrapper.combined {
     svg {
         // Ensure the SVG itself has no overflow issues
-        overflow: visible; 
+        overflow: visible;
     }
 }
 
@@ -2277,11 +2382,11 @@
     // Force visibility
     display: block;
     // Mix blend mode might be helping or hurting depending on browser support, try simplified first
-    mix-blend-mode: multiply; 
-    
+    mix-blend-mode: multiply;
+
     // Ensure sufficient opacity to be seen
     fill-opacity: 0.2 !important;
-    
+
     // Ensure stroke is visible
     stroke-width: 2px;
     stroke-opacity: 0.8;
