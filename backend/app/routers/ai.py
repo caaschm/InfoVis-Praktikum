@@ -232,7 +232,7 @@ async def analyze_spider_chart(
     
     # Analyze text using AI service
     try:
-        values = await analyze_spider_chart_values(request.text)
+        values = await ai_client.analyze_spider_chart_values(request.text)
     except Exception as e:
         raise HTTPException(
             status_code=500,
