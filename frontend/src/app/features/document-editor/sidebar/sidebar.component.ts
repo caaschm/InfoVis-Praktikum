@@ -109,23 +109,22 @@ export class SidebarComponent implements OnInit, OnDestroy {
   @Output() switchTab = new EventEmitter<'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc'>();
 
 
-  get current_Document() {
+  get currentDocument() {
     return this.documentService.getCurrentDocument();
   }
 
   get total_Sentences(): number {
-    const doc = this.current_Document;
+    const doc = this.currentDocument;
     return doc?.sentences?.length || 0;
   }
 
   get significant_Sentence_Classifications(): SentenceClassification[] {
     return this.sentenceClassifications
       ?.filter(c => c.value !== undefined && c.value > 0)   // nur Sätze mit Wert
-      .filter(c => this.current_Document?.sentences?.some(s => s.index === c.index)) ?? [];
+      .filter(c => this.currentDocument?.sentences?.some(s => s.index === c.index)) ?? [];
   }
 
   selectedSentence: Sentence | null = null;
-  currentDocument: DocumentDetail | null = null;
   chapters: Chapter[] = [];
   emojiDictionary: any = null;  // Emoji dictionary data
   isGenerating = false;
@@ -1158,9 +1157,9 @@ ngOnDestroy(): void {
    * Check if a chapter has content (is accessible)
    */
   isChapterAccessible(chapter: Chapter): boolean {
-    if (!this.current_Document) return false;
+    if (!this.currentDocument) return false;
     // A chapter is accessible if it has sentences
-    return this.current_Document.sentences.some(s => s.chapterId === chapter.id);
+    return this.currentDocument.sentences.some(s => s.chapterId === chapter.id);
   }
 
   /**
@@ -1188,16 +1187,16 @@ ngOnDestroy(): void {
    * Get sentence count for a chapter
    */
   getChapterSentenceCount(chapterId: string): number {
-    if (!this.current_Document) return 0;
-    return this.current_Document.sentences.filter(s => s.chapterId === chapterId).length;
+    if (!this.currentDocument) return 0;
+    return this.currentDocument.sentences.filter(s => s.chapterId === chapterId).length;
   }
 
   /**
    * Get character count for a chapter
    */
   getChapterCharacterCount(chapterId: string): number {
-    if (!this.current_Document) return 0;
-    const chapterSentences = this.current_Document.sentences.filter(s => s.chapterId === chapterId);
+    if (!this.currentDocument) return 0;
+    const chapterSentences = this.currentDocument.sentences.filter(s => s.chapterId === chapterId);
     return chapterSentences.reduce((total, sentence) => total + sentence.text.length, 0);
   }
 
@@ -1468,14 +1467,14 @@ ngOnDestroy(): void {
   }
 
   get totalSentences(): number {
-    const doc = this.current_Document;
+    const doc = this.currentDocument;
     return doc?.sentences?.length || 0;
   }
 
   get significantSentenceClassifications(): SentenceClassification[] {
     return this.sentenceClassifications
       ?.filter(c => c.value !== undefined && c.value > 0)   // nur Sätze mit Wert
-      .filter(c => this.current_Document?.sentences?.some(s => s.index === c.index)) ?? [];
+      .filter(c => this.currentDocument?.sentences?.some(s => s.index === c.index)) ?? [];
   }
 
   // Used by classification display under the story arc
