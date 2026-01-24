@@ -1007,7 +1007,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:mouseup')
-  stopDrag() { this.draggingHandle = null; }
+  stopDrag() {
+    // Trigger intent suggestions when drag ends (not during drag)
+    if (this.draggingHandle) {
+      this.onSliderChange(this.draggingHandle);
+    }
+    this.draggingHandle = null;
+  }
 
   startBeatDrag(beat: Beat, e: MouseEvent): void {
     // Don't allow dragging beats with value=0 (they should stay fixed at 0)
@@ -1050,11 +1056,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     const value = Math.round(Math.min(100, Math.max(0, (dist / this.maxRadius) * 100)));
 
-    // Wert setzen
+    // Update value (but don't trigger intent suggestions during drag)
     (this as any)[this.draggingHandle] = value;
 
-    // Intent-Panel triggern
-    this.onSliderChange(this.draggingHandle);
+    // Intent suggestions will be triggered when drag ends (in stopDrag)
   }
 
   onBeatMouseMove(event: MouseEvent): void {
