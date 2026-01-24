@@ -153,6 +153,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
   // Chapter emoji editing state
   editingChapterEmojiId: string | null = null;
   editingChapterEmoji: string = '';
+  // AI title suggestion state
+  suggestingTitleForChapterId: string | null = null;
+  aiTitleSuggestion: string | null = null;
+  titleSuggestionLoading: boolean = false;
   
   // Drag and drop for chapter reordering
   draggedChapter: Chapter | null = null; // Made public for template access
@@ -2073,5 +2077,88 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
         }
       });
     }
+  }
+
+  /**
+   * Request AI title suggestion for a chapter
+   */
+  requestTitleSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || this.titleSuggestionLoading) return;
+    
+    this.suggestingTitleForChapterId = chapter.id;
+    this.titleSuggestionLoading = true;
+    this.aiTitleSuggestion = null;
+    
+    this.documentService.suggestChapterTitle(this.currentDocument.id, chapter.id).subscribe({
+      next: (response) => {
+        this.aiTitleSuggestion = response.suggested_title;
+        this.titleSuggestionLoading = false;
+      },
+      error: (err) => {
+        console.error('Error getting title suggestion:', err);
+        this.titleSuggestionLoading = false;
+        this.suggestingTitleForChapterId = null;
+        alert('Failed to generate title suggestion. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Apply AI-suggested title
+   */
+  applyTitleSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || !this.aiTitleSuggestion) return;
+    
+    // Extract current chapter number if it's a numbered chapter
+    let newTitle: string;
+    if (chapter.type === 'chapter') {
+      // Extract current number from title
+      const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
+      const numMatch = chapter.title.match(/^(\d+)\s+/);
+      
+      let chapterNum: string;
+      if (chapterMatch) {
+        chapterNum = chapterMatch[1];
+      } else if (numMatch) {
+        chapterNum = numMatch[1];
+      } else {
+        // Fallback: use index + 1
+        const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+        const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+        chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
+      }
+      
+      const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
+      newTitle = `${paddedNum} ${this.aiTitleSuggestion}`;
+    } else {
+      // For special sections, use suggestion as-is
+      newTitle = this.aiTitleSuggestion;
+    }
+    
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      newTitle,
+      chapter.type,
+      chapter.emoji || undefined
+    ).subscribe({
+      next: () => {
+        this.suggestingTitleForChapterId = null;
+        this.aiTitleSuggestion = null;
+      },
+      error: (err) => {
+        console.error('Error applying title suggestion:', err);
+        alert('Failed to apply title suggestion. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Cancel title suggestion
+   */
+  cancelTitleSuggestion(): void {
+    this.suggestingTitleForChapterId = null;
+    this.aiTitleSuggestion = null;
+    this.titleSuggestionLoading = false;
   }
 }

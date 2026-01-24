@@ -791,12 +791,35 @@
                             </select>
                         </div>
                         <div class="chapter-title-wrapper">
-                            <div class="chapter-title" 
-                                 *ngIf="editingChapterTitleId !== chapter.id"
-                                 (click)="startEditChapterTitle(chapter); $event.stopPropagation()"
-                                 [class.editable]="true"
-                                 [title]="'Click to edit title'">
-                                {{ getChapterTitle(chapter) }}
+                            <div class="chapter-title-row" *ngIf="editingChapterTitleId !== chapter.id && suggestingTitleForChapterId !== chapter.id">
+                                <div class="chapter-title" 
+                                     (click)="startEditChapterTitle(chapter); $event.stopPropagation()"
+                                     [class.editable]="true"
+                                     [title]="'Click to edit title'">
+                                    {{ getChapterTitle(chapter) }}
+                                </div>
+                            </div>
+                            <!-- AI Title Suggestion -->
+                            <div class="ai-title-suggestion" *ngIf="suggestingTitleForChapterId === chapter.id">
+                                <div class="suggestion-content">
+                                    <div class="suggestion-label" *ngIf="titleSuggestionLoading">Generating suggestion...</div>
+                                    <div class="suggestion-text" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                                        <span class="suggestion-prefix">Suggested:</span>
+                                        <span class="suggestion-title">{{ aiTitleSuggestion }}</span>
+                                    </div>
+                                </div>
+                                <div class="suggestion-actions" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                                    <button class="apply-suggestion-btn" 
+                                            (click)="applyTitleSuggestion(chapter); $event.stopPropagation()"
+                                            title="Apply suggestion">
+                                        ✓ Apply
+                                    </button>
+                                    <button class="cancel-suggestion-btn" 
+                                            (click)="cancelTitleSuggestion(); $event.stopPropagation()"
+                                            title="Cancel">
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
                             <input *ngIf="editingChapterTitleId === chapter.id"
                                    [(ngModel)]="editingChapterTitle"
@@ -818,12 +841,20 @@
                         </div>
                         <div class="chapter-dots"></div>
                         <div class="chapter-actions">
-                            <button class="delete-chapter-btn" 
-                                    (click)="deleteChapter(chapter); $event.stopPropagation()"
-                                    title="Delete chapter"
-                                    *ngIf="chapters.length > 1">
-                                🗑️
-                            </button>
+                            <div class="action-buttons-column">
+                                <button class="delete-chapter-btn" 
+                                        (click)="deleteChapter(chapter); $event.stopPropagation()"
+                                        title="Delete chapter"
+                                        *ngIf="chapters.length > 1">
+                                    🗑️
+                                </button>
+                                <button class="ai-title-btn" 
+                                        (click)="requestTitleSuggestion(chapter); $event.stopPropagation()"
+                                        [title]="'Get AI title suggestion'"
+                                        [disabled]="titleSuggestionLoading">
+                                    🤖
+                                </button>
+                            </div>
                             <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
                         </div>
                     </div>

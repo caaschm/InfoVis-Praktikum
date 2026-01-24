@@ -45,7 +45,7 @@
 
             <!-- Chapter Title -->
             <div class="chapter-title-wrapper">
-              <div *ngIf="editingChapterId !== chapter.id && editingChapterEmojiId !== chapter.id" class="chapter-title-display">
+              <div *ngIf="editingChapterId !== chapter.id && editingChapterEmojiId !== chapter.id && suggestingTitleForChapterId !== chapter.id" class="chapter-title-display">
                 <span class="chapter-emoji" 
                       *ngIf="chapter.emoji"
                       (click)="startEditChapterEmoji(chapter)"
@@ -57,6 +57,34 @@
                       [class.editable]="true"
                       [title]="'Click to add emoji'">➕ </span>
                 <span (click)="startEditingChapter(chapter)">{{ getChapterTitleDisplay(chapter) }}</span>
+                <button class="ai-title-btn" 
+                        (click)="requestTitleSuggestion(chapter)"
+                        [title]="'Get AI title suggestion'"
+                        [disabled]="titleSuggestionLoading">
+                  🤖
+                </button>
+              </div>
+              <!-- AI Title Suggestion -->
+              <div *ngIf="suggestingTitleForChapterId === chapter.id" class="ai-title-suggestion">
+                <div class="suggestion-content">
+                  <div class="suggestion-label" *ngIf="titleSuggestionLoading">Generating suggestion...</div>
+                  <div class="suggestion-text" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                    <span class="suggestion-prefix">Suggested:</span>
+                    <span class="suggestion-title">{{ aiTitleSuggestion }}</span>
+                  </div>
+                </div>
+                <div class="suggestion-actions" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                  <button class="apply-suggestion-btn" 
+                          (click)="applyTitleSuggestion(chapter)"
+                          title="Apply suggestion">
+                    ✓ Apply
+                  </button>
+                  <button class="cancel-suggestion-btn" 
+                          (click)="cancelTitleSuggestion()"
+                          title="Cancel">
+                    ✕
+                  </button>
+                </div>
               </div>
               <!-- Emoji Picker -->
               <div *ngIf="editingChapterEmojiId === chapter.id" class="emoji-picker-container">

@@ -1040,3 +1040,123 @@ Respond with ONLY the rewritten sentence. No explanations, no quotes, just the s
     except Exception as e:
         print(f"❌ Error reformulating sentence: {type(e).__name__}: {e}")
         return text
+
+
+async def generate_chapter_title(chapter_content: str, chapter_type: str = "chapter") -> str:
+    """
+    Generate a title suggestion for a chapter based on its content.
+    
+    Args:
+        chapter_content: The full text content of the chapter
+        chapter_type: Type of section (chapter, prologue, epilogue, etc.)
+        
+    Returns:
+        Suggested title string
+    """
+    api_key = get_api_key()
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using fallback title")
+        return _fallback_title_suggestion(chapter_content)
+    
+    # Determine section type context
+    type_context = {
+        "chapter": "a numbered chapter",
+        "prologue": "a prologue",
+        "epilogue": "an epilogue",
+        "interlude": "an interlude",
+        "foreword": "a foreword",
+        "afterword": "an afterword",
+        "custom": "a custom section"
+    }
+    section_type_desc = type_context.get(chapter_type, "a chapter")
+    
+    prompt = f"""You are helping a fiction writer create a title for {section_type_desc}.
+
+Read the following chapter content and suggest a compelling, concise title (2-5 words) that captures the essence, main event, or key theme of this section.
+
+Chapter content:
+"{chapter_content}"
+
+Rules:
+- The title should be 2-5 words maximum
+- It should be evocative and capture the main theme or key event
+- For numbered chapters, suggest only the title part (without the number)
+- Make it engaging and memorable
+- If the content is very short or unclear, suggest a generic but fitting title
+
+Respond with ONLY the title, no explanations, no quotes, no numbering. Just the title words.
+
+Example outputs:
+- "The Dragon's Lair"
+- "First Encounter"
+- "Revelation"
+- "Journey Begins"
+"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.8,
+                    "max_tokens": 30
+                }
+            )
+            
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using fallback title.")
+                return _fallback_title_suggestion(chapter_content)
+            
+            if response.status_code != 200:
+                print(f"❌ Error generating title: {response.text}")
+                return _fallback_title_suggestion(chapter_content)
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            
+            # Clean up the response - remove quotes, extra whitespace
+            title = re.sub(r'^["\']|["\']$', '', content).strip()
+            # Remove any numbering if present
+            title = re.sub(r'^\d+[\.\s]+', '', title).strip()
+            
+            if not title:
+                return _fallback_title_suggestion(chapter_content)
+            
+            return title
+            
+    except Exception as e:
+        print(f"Error generating chapter title: {e}")
+        return _fallback_title_suggestion(chapter_content)
+
+
+def _fallback_title_suggestion(content: str) -> str:
+    """Simple fallback title suggestion based on keywords."""
+    if not content or len(content.strip()) < 10:
+        return "Untitled"
+    
+    content_lower = content.lower()
+    
+    # Extract first significant words or key themes
+    words = content.split()[:10]
+    significant_words = [w for w in words if len(w) > 4 and w.lower() not in ['the', 'this', 'that', 'with', 'from', 'into']]
+    
+    if significant_words:
+        # Use first significant word or phrase
+        return significant_words[0].capitalize()
+    
+    # Fallback to first word
+    return words[0].capitalize() if words else "Untitled"

@@ -80,6 +80,11 @@ class ChapterReorderRequest(BaseModel):
     chapter_ids: List[str]  # List of chapter IDs in desired order
 
 
+class ChapterTitleSuggestion(BaseModel):
+    """Schema for AI-generated chapter title suggestion."""
+    suggested_title: str
+
+
 class DocumentDetail(BaseModel):
     """Full document with sentences and characters."""
     model_config = ConfigDict(from_attributes=True)

@@ -7,6 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services.text_processor import split_into_sentences
+from app.services.ai_client import generate_chapter_title
 
 router = APIRouter(prefix="/api/documents/{document_id}/chapters", tags=["chapters"])
 
@@ -547,3 +548,42 @@ def reorder_chapters(
     db.commit()
     
     return {"message": "Chapters reordered successfully"}
+
+
+@router.post("/{chapter_id}/suggest-title", response_model=schemas.ChapterTitleSuggestion)
+async def suggest_chapter_title(
+    document_id: str,
+    chapter_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate an AI-suggested title for a chapter based on its content.
+    """
+    # Verify document and chapter exist
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    chapter = db.query(models.Chapter).filter(
+        models.Chapter.id == chapter_id,
+        models.Chapter.document_id == document_id
+    ).first()
+    
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    # Get all sentences for this chapter
+    sentences = db.query(models.Sentence).filter(
+        models.Sentence.chapter_id == chapter_id
+    ).order_by(models.Sentence.index).all()
+    
+    if not sentences:
+        raise HTTPException(status_code=400, detail="Chapter has no content to analyze")
+    
+    # Combine all sentences into chapter content
+    chapter_content = " ".join(s.text for s in sentences)
+    
+    # Generate title suggestion
+    suggested_title = await generate_chapter_title(chapter_content, chapter.type or "chapter")
+    
+    return {"suggested_title": suggested_title}

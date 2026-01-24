@@ -682,6 +682,30 @@
                 display: flex;
                 align-items: center;
                 gap: 0.5rem;
+                flex-wrap: wrap;
+
+                .ai-title-btn {
+                    background: none;
+                    border: none;
+                    font-size: 1.3rem;
+                    cursor: pointer;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 4px;
+                    transition: all 0.2s ease;
+                    opacity: 0.7;
+                    flex-shrink: 0;
+
+                    &:hover:not(:disabled) {
+                        opacity: 1;
+                        background: #f3f4f6;
+                        transform: scale(1.1);
+                    }
+
+                    &:disabled {
+                        opacity: 0.4;
+                        cursor: not-allowed;
+                    }
+                }
 
                 .chapter-emoji {
                     font-size: 1.5rem;
@@ -850,6 +874,80 @@
 
         .chapter-sentences {
             padding-left: 1rem;
+        }
+
+        .ai-title-suggestion {
+            width: 100%;
+            padding: 0.75rem;
+            background: #f0f9ff;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+
+            .suggestion-content {
+                margin-bottom: 0.5rem;
+
+                .suggestion-label {
+                    color: #6b7280;
+                    font-size: 0.875rem;
+                    font-style: italic;
+                }
+
+                .suggestion-text {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+
+                    .suggestion-prefix {
+                        color: #6b7280;
+                        font-size: 0.875rem;
+                        font-weight: 500;
+                    }
+
+                    .suggestion-title {
+                        color: #1f2937;
+                        font-size: 1rem;
+                        font-weight: 600;
+                    }
+                }
+            }
+
+            .suggestion-actions {
+                display: flex;
+                gap: 0.5rem;
+                justify-content: flex-end;
+
+                .apply-suggestion-btn,
+                .cancel-suggestion-btn {
+                    padding: 0.375rem 0.75rem;
+                    border: 1px solid #e5e7eb;
+                    background: white;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                    transition: all 0.2s ease;
+                }
+
+                .apply-suggestion-btn {
+                    background: #3b82f6;
+                    color: white;
+                    border-color: #3b82f6;
+
+                    &:hover {
+                        background: #2563eb;
+                        border-color: #2563eb;
+                    }
+                }
+
+                .cancel-suggestion-btn {
+                    color: #6b7280;
+
+                    &:hover {
+                        background: #f3f4f6;
+                        color: #1f2937;
+                    }
+                }
+            }
         }
     }
 
