@@ -85,6 +85,11 @@ class ChapterTitleSuggestion(BaseModel):
     suggested_title: str
 
 
+class ChapterEmojiSuggestion(BaseModel):
+    """Schema for AI-generated chapter emoji suggestion."""
+    suggested_emoji: str
+
+
 class DocumentDetail(BaseModel):
     """Full document with sentences and characters."""
     model_config = ConfigDict(from_attributes=True)

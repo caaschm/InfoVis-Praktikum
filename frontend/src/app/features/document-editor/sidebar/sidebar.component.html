@@ -678,12 +678,22 @@
                                 {{ emoji }}
                             </button>
                         </div>
-                        <input 
-                            type="text" 
-                            [(ngModel)]="newSectionEmoji"
-                            placeholder="Or type emoji here"
-                            class="form-input emoji-input"
-                            maxlength="2">
+                        <div class="emoji-input-row">
+                            <input 
+                                type="text" 
+                                [(ngModel)]="newSectionEmoji"
+                                placeholder="Or type emoji here"
+                                class="form-input emoji-input"
+                                maxlength="2">
+                            <button 
+                                class="ai-emoji-btn"
+                                [title]="'Generate emoji from text (available after creating section)'"
+                                disabled
+                                [class.disabled]="true">
+                                🤖
+                            </button>
+                        </div>
+                        <small class="form-hint">Note: AI emoji generation is available after the section is created and has content.</small>
                     </div>
                 </div>
                 <div class="form-footer">
@@ -747,16 +757,37 @@
                                             {{ emoji }}
                                         </button>
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        [(ngModel)]="editingChapterEmoji"
-                                        (blur)="saveChapterEmoji(chapter)"
-                                        (keyup.enter)="saveChapterEmoji(chapter)"
-                                        (keyup.escape)="cancelEditChapterEmoji()"
-                                        placeholder="Or type emoji"
-                                        class="emoji-input"
-                                        (click)="$event.stopPropagation()"
-                                        autofocus>
+                                    <div class="emoji-input-row">
+                                        <input 
+                                            type="text" 
+                                            [(ngModel)]="editingChapterEmoji"
+                                            (blur)="saveChapterEmoji(chapter)"
+                                            (keyup.enter)="saveChapterEmoji(chapter)"
+                                            (keyup.escape)="cancelEditChapterEmoji()"
+                                            placeholder="Or type emoji"
+                                            class="emoji-input"
+                                            (click)="$event.stopPropagation()"
+                                            autofocus>
+                                        <button 
+                                            class="ai-emoji-generate-btn"
+                                            (click)="requestEmojiSuggestion(chapter); $event.stopPropagation()"
+                                            [title]="'Generate emoji from chapter content'"
+                                            [disabled]="emojiSuggestionLoading || !isChapterAccessible(chapter)">
+                                            🤖
+                                        </button>
+                                    </div>
+                                    <div class="emoji-suggestion" *ngIf="suggestingEmojiForChapterId === chapter.id">
+                                        <div class="suggestion-label" *ngIf="emojiSuggestionLoading">Generating emoji...</div>
+                                        <div class="suggestion-emoji" *ngIf="!emojiSuggestionLoading && aiEmojiSuggestion">
+                                            <span class="suggestion-prefix">Suggested:</span>
+                                            <span class="suggestion-emoji-display">{{ aiEmojiSuggestion }}</span>
+                                            <button class="apply-emoji-btn" 
+                                                    (click)="applyEmojiSuggestion(chapter); $event.stopPropagation()"
+                                                    title="Apply suggestion">
+                                                ✓
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div class="emoji-picker-actions">
                                         <button class="emoji-delete-btn" 
                                                 (click)="editingChapterEmoji = ''; saveChapterEmoji(chapter); $event.stopPropagation()"

@@ -35,6 +35,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   suggestingTitleForChapterId: string | null = null;
   aiTitleSuggestion: string | null = null;
   titleSuggestionLoading: boolean = false;
+  // AI emoji suggestion state
+  suggestingEmojiForChapterId: string | null = null;
+  aiEmojiSuggestion: string | null = null;
+  emojiSuggestionLoading: boolean = false;
   commonEmojis = [
     '📖', '📚', '📝', '✨', '⭐', '💫', '🔥', '💎',
     '⚔️', '🛡️', '👑', '🏰', '🌙', '☀️', '🌈', '🌊',
@@ -1623,6 +1627,43 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     this.suggestingTitleForChapterId = null;
     this.aiTitleSuggestion = null;
     this.titleSuggestionLoading = false;
+  }
+
+  /**
+   * Request AI emoji suggestion for a chapter
+   */
+  requestEmojiSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || this.emojiSuggestionLoading) return;
+    
+    this.suggestingEmojiForChapterId = chapter.id;
+    this.emojiSuggestionLoading = true;
+    this.aiEmojiSuggestion = null;
+    
+    this.documentService.suggestChapterEmoji(this.currentDocument.id, chapter.id).subscribe({
+      next: (response) => {
+        this.aiEmojiSuggestion = response.suggested_emoji;
+        this.emojiSuggestionLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error getting emoji suggestion:', err);
+        this.emojiSuggestionLoading = false;
+        this.suggestingEmojiForChapterId = null;
+        alert('Failed to generate emoji suggestion. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Apply AI-suggested emoji
+   */
+  applyEmojiSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || !this.aiEmojiSuggestion) return;
+    
+    this.editingChapterEmoji = this.aiEmojiSuggestion;
+    this.saveChapterEmoji(chapter);
+    this.suggestingEmojiForChapterId = null;
+    this.aiEmojiSuggestion = null;
   }
 
   /**

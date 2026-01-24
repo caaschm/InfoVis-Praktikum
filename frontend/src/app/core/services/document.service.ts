@@ -485,6 +485,13 @@ export class DocumentService {
         return this.apiService.post<{ suggested_title: string }>(`/api/documents/${documentId}/chapters/${chapterId}/suggest-title`, {});
     }
 
+    /**
+     * Get AI-suggested emoji for a chapter
+     */
+    suggestChapterEmoji(documentId: string, chapterId: string): Observable<{ suggested_emoji: string }> {
+        return this.apiService.post<{ suggested_emoji: string }>(`/api/documents/${documentId}/chapters/${chapterId}/suggest-emoji`, {});
+    }
+
     private normalizeSentenceSpacing(text: string): string {
         // Fügt nach . ! ? ein Leerzeichen ein, wenn direkt ein Nicht-Whitespace folgt
         // Beispiel: "festival.It" -> "festival. It"

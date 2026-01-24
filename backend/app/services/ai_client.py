@@ -1160,3 +1160,132 @@ def _fallback_title_suggestion(content: str) -> str:
     
     # Fallback to first word
     return words[0].capitalize() if words else "Untitled"
+
+
+async def generate_chapter_emoji(chapter_content: str) -> str:
+    """
+    Generate a single emoji suggestion for a chapter based on its content.
+    
+    Args:
+        chapter_content: The full text content of the chapter
+        
+    Returns:
+        Suggested emoji string (single emoji)
+    """
+    api_key = get_api_key()
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using fallback emoji")
+        return _fallback_emoji_suggestion(chapter_content)
+    
+    prompt = f"""You are helping a fiction writer choose an emoji for a chapter.
+
+Read the following chapter content and suggest ONE single emoji that best captures the essence, main theme, or key element of this chapter.
+
+Chapter content:
+"{chapter_content}"
+
+Rules:
+- Return ONLY a single emoji character
+- Choose an emoji that represents the main theme, key character, important object, or central emotion
+- Make it evocative and memorable
+- No explanations, no text, just the emoji
+
+Example outputs:
+- 🐉 (for a dragon chapter)
+- ⚔️ (for a battle chapter)
+- 👑 (for a royal chapter)
+- ✨ (for a magic chapter)
+- 🏰 (for a castle chapter)
+"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.8,
+                    "max_tokens": 10
+                }
+            )
+            
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using fallback emoji.")
+                return _fallback_emoji_suggestion(chapter_content)
+            
+            if response.status_code != 200:
+                print(f"❌ Error generating emoji: {response.text}")
+                return _fallback_emoji_suggestion(chapter_content)
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            
+            # Extract emoji from response - take first emoji found
+            import re
+            emoji_pattern = re.compile(
+                r'[\U0001F300-\U0001F9FF]|'  # Miscellaneous Symbols and Pictographs
+                r'[\U00002600-\U000027BF]|'  # Miscellaneous Symbols
+                r'[\U0001F600-\U0001F64F]|'  # Emoticons
+                r'[\U0001F680-\U0001F6FF]|'  # Transport and Map Symbols
+                r'[\U0001F1E0-\U0001F1FF]|'  # Flags
+                r'[\U00002702-\U000027B0]|'  # Dingbats
+                r'[\U000024C2-\U0001F251]'    # Enclosed characters
+            )
+            emojis = emoji_pattern.findall(content)
+            
+            if emojis:
+                return emojis[0]
+            
+            return _fallback_emoji_suggestion(chapter_content)
+            
+    except Exception as e:
+        print(f"Error generating chapter emoji: {e}")
+        return _fallback_emoji_suggestion(chapter_content)
+
+
+def _fallback_emoji_suggestion(content: str) -> str:
+    """Simple fallback emoji suggestion based on keywords."""
+    if not content or len(content.strip()) < 10:
+        return "📖"
+    
+    content_lower = content.lower()
+    
+    # Use keyword-based emoji selection
+    if any(word in content_lower for word in ['dragon', 'monster', 'beast']):
+        return "🐉"
+    if any(word in content_lower for word in ['king', 'queen', 'prince', 'princess', 'royal', 'crown']):
+        return "👑"
+    if any(word in content_lower for word in ['magic', 'spell', 'wizard', 'witch', 'enchant']):
+        return "✨"
+    if any(word in content_lower for word in ['fight', 'battle', 'sword', 'warrior', 'combat']):
+        return "⚔️"
+    if any(word in content_lower for word in ['castle', 'fortress', 'palace']):
+        return "🏰"
+    if any(word in content_lower for word in ['love', 'heart', 'romance']):
+        return "❤️"
+    if any(word in content_lower for word in ['treasure', 'gold', 'coin', 'jewel']):
+        return "💎"
+    if any(word in content_lower for word in ['forest', 'tree', 'wood']):
+        return "🌲"
+    if any(word in content_lower for word in ['ocean', 'sea', 'water', 'wave']):
+        return "🌊"
+    if any(word in content_lower for word in ['moon', 'night', 'dark']):
+        return "🌙"
+    if any(word in content_lower for word in ['sun', 'day', 'light']):
+        return "☀️"
+    
+    # Default fallback
+    return "📖"

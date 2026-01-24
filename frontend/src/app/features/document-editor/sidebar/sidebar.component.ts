@@ -157,6 +157,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
   suggestingTitleForChapterId: string | null = null;
   aiTitleSuggestion: string | null = null;
   titleSuggestionLoading: boolean = false;
+  // AI emoji suggestion state
+  suggestingEmojiForChapterId: string | null = null;
+  aiEmojiSuggestion: string | null = null;
+  emojiSuggestionLoading: boolean = false;
   
   // Drag and drop for chapter reordering
   draggedChapter: Chapter | null = null; // Made public for template access
@@ -2160,5 +2164,41 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     this.suggestingTitleForChapterId = null;
     this.aiTitleSuggestion = null;
     this.titleSuggestionLoading = false;
+  }
+
+  /**
+   * Request AI emoji suggestion for a chapter
+   */
+  requestEmojiSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || this.emojiSuggestionLoading || !this.isChapterAccessible(chapter)) return;
+    
+    this.suggestingEmojiForChapterId = chapter.id;
+    this.emojiSuggestionLoading = true;
+    this.aiEmojiSuggestion = null;
+    
+    this.documentService.suggestChapterEmoji(this.currentDocument.id, chapter.id).subscribe({
+      next: (response) => {
+        this.aiEmojiSuggestion = response.suggested_emoji;
+        this.emojiSuggestionLoading = false;
+      },
+      error: (err) => {
+        console.error('Error getting emoji suggestion:', err);
+        this.emojiSuggestionLoading = false;
+        this.suggestingEmojiForChapterId = null;
+        alert('Failed to generate emoji suggestion. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Apply AI-suggested emoji
+   */
+  applyEmojiSuggestion(chapter: Chapter): void {
+    if (!this.currentDocument || !this.aiEmojiSuggestion) return;
+    
+    this.editingChapterEmoji = this.aiEmojiSuggestion;
+    this.saveChapterEmoji(chapter);
+    this.suggestingEmojiForChapterId = null;
+    this.aiEmojiSuggestion = null;
   }
 }
