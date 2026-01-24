@@ -666,19 +666,20 @@
                         <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
                     </div>
                 </div>
-                <div class="toc-empty" *ngIf="chapters.length === 0">
+            </div>
+            
+            <div class="toc-empty" *ngIf="chapters.length === 0">
                     <div class="empty-state">
                         <span class="empty-icon">📖</span>
                         <p class="empty-title">No chapters yet</p>
                         <p class="empty-description">Create your first chapter to get started!</p>
                     </div>
-                </div>
             </div>
         </div>
     </div>
 
 
-  <!-- Story arc -->
+    <!-- Story arc -->
     <div class="tab-content" *ngSwitchCase="'storyarc'">
         <h3>Story Arc</h3>
         <div class="story-arc-container">

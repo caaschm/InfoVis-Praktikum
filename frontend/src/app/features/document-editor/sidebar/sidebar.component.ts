@@ -88,7 +88,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Ensure we have the latest document state
       const doc = this.documentService.getCurrentDocument();
       if (doc) {
-        this.currentDocument = doc;
         this.chapters = (doc.chapters || []).sort((a, b) => a.index - b.index);
       }
 
@@ -233,8 +232,7 @@ ngOnInit(): void {
       .pipe(takeUntil(this.destroy$))
       .subscribe(doc => {
         if (doc) {
-          this.currentDocument = doc;
-          this.chapters = (doc.chapters || []).sort((a, b) => a.index - b.index);
+          this.chapters = doc?.chapters?.sort((a, b) => a.index - b.index) ?? [];
           this.loadEmojiDictionary(doc.id);
         }
       });
