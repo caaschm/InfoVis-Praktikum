@@ -169,7 +169,7 @@
         &::-webkit-scrollbar {
             display: none; // Chrome, Safari, Opera
         }
-        
+
         // "All Chapters" view: Line numbers extend to cover full height
         &.all-chapters-view {
             padding-top: 0 !important; // Start from the very top
@@ -219,15 +219,15 @@
         font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
         overflow-y: auto; // Single scrollbar on the right
         overflow-x: hidden;
-        
+
         // "All Chapters" view: Indent text to align with line numbers
         &.all-chapters-view {
             padding-left: calc(50px + 1.5rem); // Indent by line numbers width + original padding
             margin-left: 0;
-            
+
             .chapter-section {
                 position: relative;
-                
+
                 .chapter-title-wrapper {
                     // Pull chapter title back to the left (outside the indent)
                     margin-left: calc(-50px - 1.5rem);
@@ -236,6 +236,7 @@
                 }
             }
         }
+
         // Remove scroll-behavior: smooth for better performance with touchpad/mouse
         // Native scrolling is smoother than CSS smooth scrolling
         // Scrollbar styling
@@ -345,6 +346,90 @@
             background-color: rgba(229, 231, 235, 0.3);
         }
 
+        // Generating state
+        &.generating {
+            background-color: rgba(251, 191, 36, 0.1);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        // Minimal hover toolbar
+        .sentence-toolbar {
+            position: absolute;
+            top: -38px;
+            left: 0;
+            display: flex;
+            gap: 4px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            animation: slideDown 0.15s ease;
+            pointer-events: auto; // Ensure toolbar is clickable
+
+            .generate-btn {
+                padding: 6px 10px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 16px;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                &:hover:not(:disabled) {
+                    background: #f3f4f6;
+                    transform: scale(1.05);
+                }
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                .spinner {
+                    animation: spin 1s linear infinite;
+                }
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         // Highlight overlay layer (positioned behind editable text)
         .highlight-overlay {
             position: absolute;
@@ -385,7 +470,7 @@
 
         /* ✅ NEW: AI prefix overlay (Disabled due to artifacts) */
         .ai-overlay {
-          display: none;
+            display: none;
         }
 
         // Editable text layer (on top of highlight)
@@ -431,39 +516,39 @@
             }
         }
 
-    &:hover .emoji-tooltip {
-      display: block;
-    }
+        &:hover .emoji-tooltip {
+            display: block;
+        }
 
-    /* Delete button (x) for AI sentences */
-    .delete-ai-btn {
-      display: inline-block !important;
-      width: 18px;
-      height: 18px;
-      line-height: 16px;
-      text-align: center;
-      margin-left: 5px;
-      background-color: #ef4444 !important;
-      /* Red-500 */
-      color: white !important;
-      border: 1px solid white;
-      border-radius: 50%;
-      font-size: 14px !important;
-      font-weight: bold;
-      cursor: pointer;
-      vertical-align: middle;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      transition: all 0.2s ease;
-      user-select: none;
-      z-index: 1000 !important;
-      position: relative;
+        /* Delete button (x) for AI sentences */
+        .delete-ai-btn {
+            display: inline-block !important;
+            width: 18px;
+            height: 18px;
+            line-height: 16px;
+            text-align: center;
+            margin-left: 5px;
+            background-color: #ef4444 !important;
+            /* Red-500 */
+            color: white !important;
+            border: 1px solid white;
+            border-radius: 50%;
+            font-size: 14px !important;
+            font-weight: bold;
+            cursor: pointer;
+            vertical-align: middle;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            user-select: none;
+            z-index: 1000 !important;
+            position: relative;
 
-      &:hover {
-        background-color: #dc2626 !important;
-        transform: scale(1.1);
-      }
+            &:hover {
+                background-color: #dc2626 !important;
+                transform: scale(1.1);
+            }
+        }
     }
-  }
 
     .hint {
         text-align: center;
@@ -669,7 +754,7 @@
         padding-top: 0.5rem; // Add a little space above each chapter section
         border-bottom: 1px solid #e5e7eb;
         position: relative;
-        
+
         // Add extra space for the first chapter
         &:first-child {
             padding-top: 1rem; // More space for the first chapter title
@@ -1099,14 +1184,16 @@
 /* Zebra-Modus für den Text-Viewer */
 :host-context(body.zebra-mode) {
     .line-number .line-numbers {
-            // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
-            height: 2rem !important;
-            line-height: 2 !important;
-        }
+        // Falls du Padding bei den Sätzen hinzugefügt hast, muss es hier gespiegelt werden
+        height: 2rem !important;
+        line-height: 2 !important;
+    }
+
     .text-content {
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
 
-        .sentence-inline, .sentence-wrapper {
+        .sentence-inline,
+        .sentence-wrapper {
             display: inline-block;
             width: 100%;
             padding-left: 5px;
@@ -1137,18 +1224,20 @@
 /* Große Schriftart Modus */
 :host-context(body.large-font-mode) {
     .text-viewer {
-      --lh: 48px; // Erhöhe die Zeilenhöhe proportional zur Schrift
-      --font-size-base: 1.35rem;
+        --lh: 48px; // Erhöhe die Zeilenhöhe proportional zur Schrift
+        --font-size-base: 1.35rem;
     }
-  .line-numbers {
 
-    .line-number {
-      font-size: 1.1rem; // Auch die Nummern etwas größer machen
+    .line-numbers {
+
+        .line-number {
+            font-size: 1.1rem; // Auch die Nummern etwas größer machen
+        }
     }
-  }
-  .text-content {
-    font-size: var(--font-size-base) !important;
-    line-height: var(--lh) !important;
+
+    .text-content {
+        font-size: var(--font-size-base) !important;
+        line-height: var(--lh) !important;
 
         .sentence-text,
         .sentence-wrapper,

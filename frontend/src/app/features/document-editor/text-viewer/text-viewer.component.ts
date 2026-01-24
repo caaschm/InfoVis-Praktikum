@@ -21,6 +21,8 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   chapters: Chapter[] = [];
   currentDocument: DocumentDetail | null = null;
   selectedSentenceId: string | null = null;
+  hoveredSentence: Sentence | null = null; // Sentence currently being hovered
+  generatingSentenceId: string | null = null; // Sentence currently generating emojis
   hoveredEmoji: string | null = null;
   highlightColor: string = '#999999';
   viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
@@ -414,6 +416,37 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     this.debouncedSaveCursor();
   }
 
+  onSentenceHover(sentence: Sentence): void {
+    this.hoveredSentence = sentence;
+  }
+
+  onSentenceLeave(): void {
+    this.hoveredSentence = null;
+  }
+
+  generateEmojisForSentence(sentence: Sentence): void {
+    if (!sentence.text || sentence.text.trim().length === 0) {
+      return;
+    }
+
+    this.generatingSentenceId = sentence.id;
+
+    this.aiService.generateEmojisFromText(sentence.text).subscribe({
+      next: (emojis) => {
+        // Update sentence with generated emojis
+        sentence.emojis = emojis;
+        this.documentService.updateSentenceEmojis(sentence.id, emojis);
+        this.generatingSentenceId = null;
+        this.hoveredSentence = null; // Hide toolbar after generation
+      },
+      error: (err) => {
+        console.error('Failed to generate emojis:', err);
+        this.generatingSentenceId = null;
+        // Could show error notification here
+      }
+    });
+  }
+
   onSentenceInput(sentence: Sentence, newText: string): void {
     this.charsSinceLastSnapshot++;
     // Set active chapter when user types in a sentence
@@ -492,7 +525,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
               // Only generate emojis if the sentence ends with punctuation and has no emojis yet
               if (lastSentence && /[.!?]$/.test(lastSentence.text.trim()) &&
-                  (!lastSentence.emojis || lastSentence.emojis.length === 0)) {
+                (!lastSentence.emojis || lastSentence.emojis.length === 0)) {
                 this.autoGenerateEmojisForSentence(lastSentence);
               }
             }
