@@ -59,31 +59,63 @@ async def generate_emojis_freely(
             models.Character.document_id == document.id
         ).all()
     
-    # If characters are defined in request, use character-based suggestion
-    if request.characters and len(request.characters) > 0:
-        return await suggest_characters_for_text(request, db)
-    
-    # Otherwise, generate emojis freely based on semantic content
-    # TODO: Replace with real AI emoji generation
-    
-    # Simple placeholder: Extract meaningful words and assign emojis
-    text_lower = request.text.lower()
-    words = re.findall(r'\b\w+\b', text_lower)
-    
-    # Filter out common function words
-    meaningful_words = [w for w in words if w not in IGNORE_WORDS]
-    
-    # STEP 1: Check if any existing characters are mentioned in this sentence
+    # If characters are defined in request, use character-based matching logic
     character_refs = []
     character_word_mappings = {}
+    text_lower = request.text.lower()
     
-    for char in all_characters:
-        char_name_lower = char.name.lower()
+    if request.characters and len(request.characters) > 0:
+        # CHARACTER-BASED GENERATION: Match predefined characters in text
         
-        # Check if character name appears as a whole word in text
-        if re.search(r'\b' + re.escape(char_name_lower) + r'\b', text_lower):
-            character_word_mappings[char_name_lower] = char.emoji
-            if char.id not in character_refs:
+        for character in request.characters:
+            # Check if character name appears as whole word in text
+            name_lower = character['name'].lower()
+            if re.search(r'\b' + re.escape(name_lower) + r'\b', text_lower):
+                character_refs.append(character['id'])
+                character_word_mappings[name_lower] = character['emoji']
+                continue
+            
+            # Check aliases
+            for alias in character.get('aliases', []):
+                alias_lower = alias.lower()
+                if re.search(r'\b' + re.escape(alias_lower) + r'\b', text_lower):
+                    character_refs.append(character['id'])
+                    character_word_mappings[alias_lower] = character['emoji']
+                    break
+    else:
+        # FREE GENERATION: Check if any existing characters are mentioned in this sentence
+        for char in all_characters:
+            # Get all words that belong to this character
+            character_words = set()
+            character_words.add(char.name.lower())
+            
+            # Add aliases
+            if char.aliases:
+                try:
+                    aliases = json.loads(char.aliases)
+                    character_words.update([alias.lower() for alias in aliases])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            # Add word phrases  
+            if char.word_phrases:
+                try:
+                    word_phrases = json.loads(char.word_phrases)
+                    character_words.update([phrase.lower() for phrase in word_phrases])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            # Check if any character word appears in the text
+            found_character_match = False
+            for word in character_words:
+                if re.search(r'\b' + re.escape(word) + r'\b', text_lower):
+                    # Only assign word to emoji if not already assigned to avoid duplicates
+                    if word not in character_word_mappings:
+                        character_word_mappings[word] = char.emoji
+                        found_character_match = True
+            
+            # Add character reference if any word matched
+            if found_character_match and char.id not in character_refs:
                 character_refs.append(char.id)
     
     # STEP 2: Use AI to generate emojis for the sentence
@@ -96,7 +128,46 @@ async def generate_emojis_freely(
     # Save emojis and mappings to sentence
     sentence.emojis = json.dumps(suggested_emojis)
     sentence.character_refs = json.dumps(character_refs)
-    sentence.emoji_mappings = json.dumps(emoji_word_mappings) if emoji_word_mappings else None
+    
+    # CLEANUP: Remove any character words from emoji mappings to prevent contamination
+    if emoji_word_mappings:
+        # Get all character words to filter out
+        all_character_words = set()
+        for char in all_characters:
+            all_character_words.add(char.name.lower())
+            if char.aliases:
+                try:
+                    aliases = json.loads(char.aliases)
+                    all_character_words.update([alias.lower() for alias in aliases])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if char.word_phrases:
+                try:
+                    word_phrases = json.loads(char.word_phrases)
+                    all_character_words.update([phrase.lower() for phrase in word_phrases])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        
+        # Clean emoji mappings AND apply separation logic
+        cleaned_mappings = {}
+        for emoji, phrases in emoji_word_mappings.items():
+            if isinstance(phrases, list):
+                # Remove character words
+                remaining_phrases = [
+                    phrase for phrase in phrases 
+                    if phrase.lower() not in all_character_words
+                ]
+                
+                # Apply separation logic: split conflicting entities
+                if remaining_phrases:
+                    separated_phrases = _separate_conflicting_entities(remaining_phrases)
+                    if separated_phrases:  # Only keep if still has phrases after separation
+                        cleaned_mappings[emoji] = separated_phrases
+        
+        sentence.emoji_mappings = json.dumps(cleaned_mappings) if cleaned_mappings else None
+    else:
+        sentence.emoji_mappings = None
+        
     db.commit()
     
     # Return emojis with character refs if any matched
@@ -113,68 +184,12 @@ async def suggest_characters_for_text(
     db: Session = Depends(get_db)
 ):
     """
-    Suggest emojis for text - works with or without predefined characters.
+    DEPRECATED: Use /generate-emojis instead.
     
-    - If characters are defined: Uses them for structured generation
-    - If no characters: Generates emojis freely based on semantic content
-    
-    Uses AI to generate contextual emojis.
+    This endpoint now just delegates to generate_emojis_freely for backward compatibility.
+    The main generate-emojis endpoint handles both character-based and free generation.
     """
-    # Verify sentence exists
-    sentence = db.query(models.Sentence).filter(
-        models.Sentence.id == request.sentence_id
-    ).first()
-    
-    if not sentence:
-        raise HTTPException(status_code=404, detail="Sentence not found")
-    
-    # If no characters defined, delegate to generate-emojis endpoint
-    if not request.characters or len(request.characters) == 0:
-        return await generate_emojis_freely(request, db)
-    
-    # Character-based generation mode (HYBRID: characters + AI-generated emojis)
-    text_lower = request.text.lower()
-    
-    suggested_refs = []
-    character_word_mappings = {}
-    matched_character_names = set()
-    
-    # First pass: Match characters by name/aliases
-    for character in request.characters:
-        # Check if character name appears as whole word in text
-        name_lower = character['name'].lower()
-        if re.search(r'\b' + re.escape(name_lower) + r'\b', text_lower):
-            suggested_refs.append(character['id'])
-            character_word_mappings[name_lower] = character['emoji']
-            matched_character_names.add(name_lower)
-            continue
-        
-        # Check aliases
-        for alias in character.get('aliases', []):
-            alias_lower = alias.lower()
-            if re.search(r'\b' + re.escape(alias_lower) + r'\b', text_lower):
-                suggested_refs.append(character['id'])
-                character_word_mappings[alias_lower] = character['emoji']
-                matched_character_names.add(name_lower)
-                break
-    
-    # Use AI to generate emojis, passing character mappings so AI respects them
-    suggested_emojis, emoji_word_mappings = await ai_client.generate_emojis_for_sentence(
-        text=request.text,
-        word_mappings=character_word_mappings
-    )
-    
-    # Save results to sentence
-    sentence.emojis = json.dumps(suggested_emojis)
-    sentence.character_refs = json.dumps(suggested_refs)
-    sentence.emoji_mappings = json.dumps(emoji_word_mappings) if emoji_word_mappings else None
-    db.commit()
-    
-    return schemas.CharacterSuggestionResponse(
-        sentence_id=request.sentence_id,
-        emojis=suggested_emojis,
-        character_refs=suggested_refs
-    )
+    return await generate_emojis_freely(request, db)
 
 
 @router.post("/text-from-characters", response_model=schemas.TextFromCharactersResponse)
@@ -194,10 +209,75 @@ async def generate_text_from_characters(
     
     suggested_text = f"A story involving {', '.join(character_names)}..."
     
-    return schemas.TextFromCharactersResponse(
-        sentence_id=request.sentence_id,
-        suggested_text=suggested_text
-    )
+def _separate_conflicting_entities(phrases: list[str]) -> list[str]:
+    """
+    Separate phrases that represent different entities to prevent contamination.
+    
+    For example, if phrases contain both 'dragon' and 'hero', they likely represent
+    different entities and shouldn't be grouped under the same emoji.
+    
+    Args:
+        phrases: List of word phrases assigned to an emoji
+        
+    Returns:
+        Filtered list with conflicting entities removed
+    """
+    if not phrases or len(phrases) <= 1:
+        return phrases
+    
+    # Common character/entity role words that shouldn't be mixed
+    character_roles = {
+        'hero', 'heroine', 'protagonist', 'main character',
+        'villain', 'antagonist', 'evil', 'dark lord',
+        'dragon', 'monster', 'beast', 'creature',
+        'king', 'queen', 'prince', 'princess', 'royal',
+        'wizard', 'witch', 'mage', 'sorcerer',
+        'knight', 'warrior', 'fighter', 'soldier',
+        'guard', 'captain', 'general', 'commander'
+    }
+    
+    # Find character roles in the phrases
+    found_roles = []
+    role_phrases = {}  # role -> [phrases containing that role]
+    
+    for phrase in phrases:
+        phrase_lower = phrase.lower().strip()
+        for role in character_roles:
+            if role in phrase_lower:
+                if role not in role_phrases:
+                    role_phrases[role] = []
+                    found_roles.append(role)
+                role_phrases[role].append(phrase)
+                break  # Only assign to first matching role
+    
+    # If multiple character roles found, keep only the most represented one
+    if len(found_roles) > 1:
+        # Count phrases for each role
+        role_counts = {role: len(role_phrases[role]) for role in found_roles}
+        # Keep the role with most phrases
+        dominant_role = max(role_counts.keys(), key=lambda r: role_counts[r])
+        
+        # Filter out phrases from other roles
+        filtered_phrases = []
+        for phrase in phrases:
+            phrase_lower = phrase.lower().strip()
+            # Keep phrase if it doesn't contain conflicting roles, or contains dominant role
+            contains_dominant = dominant_role in phrase_lower
+            contains_other_role = any(role != dominant_role and role in phrase_lower for role in found_roles)
+            
+            if contains_dominant or not contains_other_role:
+                filtered_phrases.append(phrase)
+        
+        return filtered_phrases
+    
+    # No conflicts found, return all phrases
+    return phrases
+
+
+# Helper function for AI router to access the separation logic
+def separate_conflicting_entities(phrases: list[str]) -> list[str]:
+    """Public interface to the entity separation logic."""
+    return _separate_conflicting_entities(phrases)
 
 
 
@@ -447,3 +527,43 @@ async def reformulate_sentence_tension(
         sentence_id=request.sentence_id,
         reformulated_text=reformulated_text
     )
+
+
+@router.delete("/clear-emojis/{document_id}")
+async def clear_document_emojis(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    """Clear all emoji mappings for a specific document and reset characters."""
+    try:
+        # Verify document exists
+        document = db.query(models.Document).filter(
+            models.Document.id == document_id
+        ).first()
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Clear emoji_mappings AND emojis for all sentences in the document
+        db.query(models.Sentence).filter(
+            models.Sentence.document_id == document_id
+        ).update({
+            "emoji_mappings": "{}",
+            "emojis": "[]"
+        })
+        
+        # Clear word_phrases for all characters (but keep the characters)
+        db.query(models.Character).filter(
+            models.Character.document_id == document_id
+        ).update({"word_phrases": "[]"})
+        
+        db.commit()
+        
+        return {"message": f"Cleared emoji mappings and character word phrases for document {document_id}"}
+    
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear emoji mappings: {str(e)}"
+        )

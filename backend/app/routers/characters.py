@@ -68,6 +68,33 @@ def create_character(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Check for existing character with same name OR same emoji in this document
+    existing_character = db.query(models.Character).filter(
+        models.Character.document_id == document_id,
+        ((models.Character.name.ilike(character.name.strip())) | 
+         (models.Character.emoji == character.emoji))
+    ).first()
+    
+    if existing_character:
+        # If exact match, return existing character
+        if existing_character.name.lower() == character.name.lower().strip() and existing_character.emoji == character.emoji:
+            return schemas.CharacterResponse(
+                id=existing_character.id,
+                document_id=existing_character.document_id,
+                name=existing_character.name,
+                emoji=existing_character.emoji,
+                color=existing_character.color,
+                aliases=json.loads(existing_character.aliases) if existing_character.aliases else [],
+                description=existing_character.description,
+                word_phrases=json.loads(existing_character.word_phrases) if existing_character.word_phrases and existing_character.word_phrases != 'null' else [],
+                created_at=existing_character.created_at
+            )
+        # If name or emoji conflict, raise error
+        elif existing_character.name.lower() == character.name.lower().strip():
+            raise HTTPException(status_code=409, detail=f"Character with name '{character.name}' already exists")
+        else:
+            raise HTTPException(status_code=409, detail=f"Character with emoji '{character.emoji}' already exists")
+    
     # Aggregate word phrases from sentence emoji_mappings if not provided
     word_phrases = character.word_phrases or []
     if not word_phrases and character.emoji:
@@ -380,12 +407,22 @@ def normalize_character_in_sentences(
     ).all()
     
     aliases = json.loads(character.aliases) if character.aliases else []
+    word_phrases = json.loads(character.word_phrases) if character.word_phrases else []
     updated_count = 0
+    
+    # Create set of all words/phrases that belong to this character
+    character_words = set()
+    character_words.add(character.name.lower())
+    character_words.update([alias.lower() for alias in aliases])
+    character_words.update([phrase.lower() for phrase in word_phrases])
     
     for sentence in sentences:
         # Parse existing data first
         emojis = json.loads(sentence.emojis) if sentence.emojis else []
         char_refs = json.loads(sentence.character_refs) if sentence.character_refs else []
+        emoji_mappings = json.loads(sentence.emoji_mappings) if sentence.emoji_mappings else {}
+        
+        sentence_updated = False
         
         # Check TWO conditions:
         # 1. Character emoji is already in the sentence (from AI generation)
@@ -398,22 +435,73 @@ def normalize_character_in_sentences(
             any(alias.lower() in text_lower for alias in aliases)
         )
         
-        # If neither condition is met, skip this sentence
-        if not has_emoji and not is_mentioned:
-            continue
+        # If either condition is met, add character references
+        if has_emoji or is_mentioned:
+            # Add character reference if not already present
+            if character_id not in char_refs:
+                char_refs.append(character_id)
+                sentence_updated = True
+            
+            # Add character emoji if not already present
+            if character.emoji not in emojis:
+                emojis.append(character.emoji)
+                sentence_updated = True
         
-        # Add character reference if not already present
-        if character_id not in char_refs:
-            char_refs.append(character_id)
+        # ALWAYS clean up emoji mappings in ALL sentences (prevent contamination)
+        mappings_updated = False
         
-        # Add character emoji if not already present
-        if character.emoji not in emojis:
-            emojis.append(character.emoji)
+        # Step 1: Find any emoji mappings that contain this character's words
+        # and migrate them to the correct character emoji
+        for emoji_key in list(emoji_mappings.keys()):
+            if emoji_key in emoji_mappings:
+                original_phrases = emoji_mappings[emoji_key]
+                if isinstance(original_phrases, list):
+                    # Find phrases that belong to this character
+                    character_phrases = [
+                        phrase for phrase in original_phrases 
+                        if phrase.lower() in character_words
+                    ]
+                    # Find phrases that don't belong to this character
+                    other_phrases = [
+                        phrase for phrase in original_phrases 
+                        if phrase.lower() not in character_words
+                    ]
+                    
+                    # If this emoji has character phrases but wrong emoji key, migrate them
+                    if character_phrases and emoji_key != character.emoji:
+                        mappings_updated = True
+                        # Move character phrases to correct emoji
+                        if character.emoji not in emoji_mappings:
+                            emoji_mappings[character.emoji] = []
+                        emoji_mappings[character.emoji].extend(character_phrases)
+                        # Remove duplicates
+                        emoji_mappings[character.emoji] = list(set(emoji_mappings[character.emoji]))
+                        
+                        # Update old emoji with remaining phrases
+                        if other_phrases:
+                            emoji_mappings[emoji_key] = other_phrases
+                        else:
+                            # Remove empty mapping
+                            del emoji_mappings[emoji_key]
+                    
+                    # If correct emoji but has character phrases, clean them out 
+                    # (they belong to character, not emoji mapping)
+                    elif character_phrases and emoji_key == character.emoji:
+                        # Remove character phrases from emoji mapping to prevent contamination
+                        if other_phrases:
+                            emoji_mappings[emoji_key] = other_phrases
+                            mappings_updated = True
+                        elif len(original_phrases) > len(other_phrases):
+                            # Had character phrases but now empty
+                            del emoji_mappings[emoji_key] 
+                            mappings_updated = True
         
-        # Save updates (PRESERVES all existing emojis and refs)
-        sentence.emojis = json.dumps(emojis)
-        sentence.character_refs = json.dumps(char_refs)
-        updated_count += 1
+        # Save updates if anything changed
+        if sentence_updated or mappings_updated:
+            sentence.emojis = json.dumps(emojis)
+            sentence.character_refs = json.dumps(char_refs)
+            sentence.emoji_mappings = json.dumps(emoji_mappings)
+            updated_count += 1
     
     db.commit()
     
@@ -422,6 +510,63 @@ def normalize_character_in_sentences(
         "character_name": character.name,
         "sentences_updated": updated_count,
         "message": f"Normalized {updated_count} sentence(s) containing '{character.name}'"
+    }
+    
+@router.delete("/cleanup-duplicates", status_code=status.HTTP_200_OK)
+def cleanup_duplicate_characters(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    """Remove duplicate characters, keeping the one with most word_phrases."""
+    # Verify document exists
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get all characters for this document
+    characters = db.query(models.Character).filter(
+        models.Character.document_id == document_id
+    ).all()
+    
+    # Group by name + emoji combination
+    character_groups = {}
+    for char in characters:
+        key = (char.name.lower().strip(), char.emoji)
+        if key not in character_groups:
+            character_groups[key] = []
+        character_groups[key].append(char)
+    
+    removed_count = 0
+    kept_characters = []
+    
+    # For each group, keep the best character and delete others
+    for (name, emoji), group in character_groups.items():
+        if len(group) > 1:
+            # Sort by: 1) most word_phrases, 2) most aliases, 3) newest
+            group.sort(key=lambda c: (
+                len(json.loads(c.word_phrases) if c.word_phrases and c.word_phrases != 'null' else []),
+                len(json.loads(c.aliases) if c.aliases else []),
+                c.created_at
+            ), reverse=True)
+            
+            # Keep the best one
+            best_character = group[0]
+            kept_characters.append(best_character.id)
+            
+            # Delete the others
+            for char in group[1:]:
+                db.delete(char)
+                removed_count += 1
+        else:
+            # No duplicates, keep it
+            kept_characters.append(group[0].id)
+    
+    db.commit()
+    
+    return {
+        "removed_duplicates": removed_count,
+        "remaining_characters": len(kept_characters),
+        "message": f"Removed {removed_count} duplicate characters"
     }
 
 

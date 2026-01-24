@@ -97,9 +97,10 @@
                 <!-- Edit mode -->
                 <div class="phrases-edit" *ngIf="editingPhrasesId === character.id">
                     <div class="phrases-list-editable">
-                        <div *ngFor="let phrase of getEditablePhrases(character.id); let i = index"
+                        <div *ngFor="let phrase of getEditablePhrases(character.id); let i = index; trackBy: trackByIndex"
                             class="phrase-edit-item">
-                            <input type="text" [(ngModel)]="getEditablePhrases(character.id)[i]" class="phrase-input"
+                            <input type="text" [ngModel]="phrase"
+                                (ngModelChange)="updatePhrase(character.id, i, $event)" class="phrase-input"
                                 placeholder="word or phrase" />
                             <button class="btn-remove-phrase" (click)="removePhrase(character.id, i)"
                                 title="Remove">✕</button>

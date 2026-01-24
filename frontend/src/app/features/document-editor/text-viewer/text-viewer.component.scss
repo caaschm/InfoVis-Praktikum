@@ -430,7 +430,7 @@
             }
         }
 
-        // Highlight overlay layer (positioned behind editable text)
+        // Highlight overlay layer - inline with text for perfect alignment
         .highlight-overlay {
             position: absolute;
             top: 0;
@@ -441,18 +441,38 @@
             user-select: none;
             white-space: pre-wrap;
             word-wrap: break-word;
+            // Match text properties EXACTLY for proper alignment
             font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
             font-size: 1.05rem;
             line-height: 2;
+            letter-spacing: normal;
+            word-spacing: normal;
             color: transparent;
             z-index: 0;
+            // Critical: ensure exact text layout matching
+            padding: 0;
+            margin: 0;
+            border: 0;
+            text-rendering: geometricPrecision;
+            -webkit-font-smoothing: subpixel-antialiased;
+            -moz-osx-font-smoothing: auto;
+            // Prevent any transformations
+            text-transform: none;
+            font-variant: normal;
+            font-weight: normal;
+            font-style: normal;
 
             .word-highlight {
-                border-radius: 3px;
-                padding: 2px 4px;
-                margin: 0 -2px;
-                transition: all 0.2s ease;
-                font-weight: 500;
+                background-color: inherit; // Set by inline style
+                border-radius: 2px;
+                // NO padding/margin to prevent position shifts
+                padding: 0;
+                margin: 0;
+                transition: background-color 0.2s ease;
+                // Match font properties exactly
+                font-weight: inherit;
+                font-style: inherit;
+                text-decoration: inherit;
             }
 
             .character-highlight {
@@ -468,9 +488,39 @@
             }
         }
 
-        /* ✅ NEW: AI prefix overlay (Disabled due to artifacts) */
+        /* AI prefix overlay - improved positioning */
         .ai-overlay {
-            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
+            font-size: 1.05rem;
+            line-height: 2;
+            color: transparent;
+            z-index: 1; // Above highlight overlay but below text
+            // Match text properties exactly
+            letter-spacing: inherit;
+            word-spacing: inherit;
+            text-rendering: inherit;
+            -webkit-font-smoothing: inherit;
+            -moz-osx-font-smoothing: inherit;
+            padding: 0;
+            margin: 0;
+            border: 0;
+
+            .ai-prefix {
+                background: rgba(34, 197, 94, 0.25);
+                border-radius: 3px;
+                padding: 0;
+                margin: 0;
+                position: relative;
+            }
         }
 
         // Editable text layer (on top of highlight)
@@ -481,6 +531,19 @@
             background: transparent;
             z-index: 1;
             color: #24292e;
+            // Match highlight overlay properties exactly
+            font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
+            font-size: 1.05rem;
+            line-height: 2;
+            letter-spacing: normal;
+            word-spacing: normal;
+            text-rendering: geometricPrecision;
+            -webkit-font-smoothing: subpixel-antialiased;
+            -moz-osx-font-smoothing: auto;
+            font-weight: normal;
+            font-style: normal;
+            text-transform: none;
+            font-variant: normal;
 
             &:focus {
                 background-color: rgba(251, 191, 36, 0.1);

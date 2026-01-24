@@ -118,6 +118,17 @@
                 }
             }
 
+            .ai-btn.bulk.secondary {
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+                margin-top: 0.75rem;
+
+                &:hover:not(:disabled) {
+                    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+                }
+            }
+
             .description {
                 margin: 0.75rem 0 0 0;
                 font-size: 0.85rem;
@@ -1731,165 +1742,172 @@
 
 /* Story Arc Styles */
 .story-arc-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
 }
 
 .arc-loading-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.85);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 750px;
-  z-index: 10;
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 750px;
+    z-index: 10;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #8B5CF6;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #8B5CF6;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .arc-disabled {
-  opacity: 0.4;
-  pointer-events: none;
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .arc-graph {
-  width: 100%;
-  height: 300px;
-  background: #fafafa;
-  border-radius: 8px;
-  margin: 15px 0;
+    width: 100%;
+    height: 300px;
+    background: #fafafa;
+    border-radius: 8px;
+    margin: 15px 0;
 }
 
 .arc-point {
-  cursor: pointer;
-  transition: r 0.2s, opacity 0.2s;
+    cursor: pointer;
+    transition: r 0.2s, opacity 0.2s;
 }
 
 .arc-point:hover {
-  r: 8px;
+    r: 8px;
 }
 
 // Active beat (value > 0)
 .arc-point.beat-marker.beat-active {
-  stroke: #ffffff;
-  stroke-width: 2;
-  r: 6.5px;
-  cursor: pointer;
-  
-  &:hover {
-    r: 8px;
-  }
+    stroke: #ffffff;
+    stroke-width: 2;
+    r: 6.5px;
+    cursor: pointer;
+
+    &:hover {
+        r: 8px;
+    }
 }
 
 .arc-point.beat-exposition {
-  fill: #d2bfff;
+    fill: #d2bfff;
 }
 
 .arc-point.beat-rising-action {
-  fill: #af8dff;
+    fill: #af8dff;
 }
 
 .arc-point.beat-climax {
-  fill: #8B5CF6;
+    fill: #8B5CF6;
 }
 
 .arc-point.beat-falling-action {
-  fill: #6342b0;
+    fill: #6342b0;
 }
 
 .arc-point.beat-denouement {
-  fill: #312156;
+    fill: #312156;
 }
 
 // Inactive beat (value = 0) - grey, fixed position, not draggable
 .arc-point.beat-marker.beat-inactive {
-  fill: #757575;
-  stroke: #ffffff;
-  stroke-width: 2;
-  r: 6.5px;
-  cursor: default;
-  opacity: 0.6;
-  
-  &:hover {
-    r: 5px; // Don't enlarge on hover
-    opacity: 0.8;
-  }
+    fill: #757575;
+    stroke: #ffffff;
+    stroke-width: 2;
+    r: 6.5px;
+    cursor: default;
+    opacity: 0.6;
+
+    &:hover {
+        r: 5px; // Don't enlarge on hover
+        opacity: 0.8;
+    }
 }
 
 // Fallback beat (no active content) - legacy support
 .arc-point.beat-marker.fallback {
-  fill: #757575;
+    fill: #757575;
 }
 
 .arc-details {
-  border-top: 2px solid #eee;
-  padding-top: 15px;
+    border-top: 2px solid #eee;
+    padding-top: 15px;
 }
 
 .arc-details h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
+    margin: 0 0 12px 0;
+    font-size: 14px;
 }
 
 .arc-stage {
-  background: #f9f9f9;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 10px;
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
 }
+
 .arc-stage.stage-exposition {
-  border-left: 4px solid #d2bfff;
+    border-left: 4px solid #d2bfff;
 }
+
 .arc-stage.stage-rising-action {
-  border-left: 4px solid #af8dff;
+    border-left: 4px solid #af8dff;
 }
+
 .arc-stage.stage-climax {
-  border-left: 4px solid #8B5CF6;
+    border-left: 4px solid #8B5CF6;
 }
+
 .arc-stage.stage-falling-action {
-  border-left: 4px solid #6342b0;
+    border-left: 4px solid #6342b0;
 }
+
 .arc-stage.stage-denouement {
-  border-left: 4px solid #312156;
+    border-left: 4px solid #312156;
 }
 
 .arc-stage:hover {
-  background: #f3f4f6;
+    background: #f3f4f6;
 }
 
 .sentence-text {
-  margin: 0;
-  font-size: 12px;
-  color: #666;
-  margin-left: 32px;
+    margin: 0;
+    font-size: 12px;
+    color: #666;
+    margin-left: 32px;
 }
 
 .axis-label {
-  font-size: 11px;
-  fill: #6b6b6b;
-  user-select: none;
+    font-size: 11px;
+    fill: #6b6b6b;
+    user-select: none;
 }
 
 .axis-title {
-  font-size: 12px;
-  font-weight: 600;
-  fill: #4b4b4b;
-  user-select: none;
+    font-size: 12px;
+    font-weight: 600;
+    fill: #4b4b4b;
+    user-select: none;
 }
 
 /* Ganz unten in deiner sidebar.component.scss einfügen */

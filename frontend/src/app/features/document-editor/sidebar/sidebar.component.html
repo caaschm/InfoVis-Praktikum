@@ -25,6 +25,21 @@
                                 <span class="usage-count">{{ entry.usageCount }} use{{ entry.usageCount !== 1 ? 's' : ''
                                     }}
                                     in text</span>
+
+                                <!-- Show what this character represents -->
+                                <div class="word-associations">
+                                    <ng-container
+                                        *ngIf="getCharacterWordPhrases(entry) as phrases; else noPhrasesTemplate">
+                                        <div class="associations-label">Represented as:</div>
+                                        <div class="phrases-chips">
+                                            <span *ngFor="let phrase of phrases" class="phrase-chip">{{ phrase }}</span>
+                                        </div>
+                                    </ng-container>
+                                    <ng-template #noPhrasesTemplate>
+                                        <!-- Hidden debug info -->
+                                        <!-- CharacterId: {{ entry.characterId }} -->
+                                    </ng-template>
+                                </div>
                             </div>
                             <button class="edit-btn" (click)="editCharacter(entry); $event.stopPropagation()"
                                 title="Edit in Characters & Subjects">
@@ -51,10 +66,21 @@
                                     }}</span>
 
                                 <!-- Word associations for this emoji -->
-                                <div class="word-associations" *ngIf="getEmojiWordPhrases(entry.emoji) as phrases">
+                                <div class="word-associations">
                                     <div class="associations-label">Represents:</div>
                                     <div class="phrases-chips">
-                                        <span *ngFor="let phrase of phrases" class="phrase-chip">{{ phrase }}</span>
+                                        <ng-container *ngFor="let phrase of getEmojiWordPhrases(entry.emoji)">
+                                            <span class="phrase-chip">{{ phrase }}</span>
+                                        </ng-container>
+                                        <span *ngIf="getEmojiWordPhrases(entry.emoji).length === 0" class="no-phrases">
+                                            <ng-container *ngIf="!emojiDictionary">Loading dictionary...</ng-container>
+                                            <ng-container
+                                                *ngIf="emojiDictionary && (!currentDocument || !currentDocument.sentences)">Loading
+                                                text...</ng-container>
+                                            <ng-container
+                                                *ngIf="emojiDictionary && currentDocument && currentDocument.sentences">No
+                                                specific words found</ng-container>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -89,6 +115,10 @@
                 <span class="icon">🤖</span>
                 <span class="label">{{ isGenerating ? 'Generating...' : 'Generate Emojis for All Sentences' }}</span>
             </button>
+            <button class="ai-btn secondary bulk" (click)="clearAllEmojis()" [disabled]="isGenerating">
+                <span class="icon">🧹</span>
+                <span class="label">Clear All Emojis</span>
+            </button>
             <p class="description">AI will analyze each sentence and add emojis automatically</p>
         </div>
 
@@ -104,8 +134,7 @@
                         (click)="removeEmoji(i)" title="Click to remove">
                         <span class="emoji">{{ emoji }}</span>
                     </div>
-                    <div *ngFor="let _ of [].constructor(maxEmojis - (selectedSentence.emojis.length || 0))"
-                        class="emoji-slot empty">
+                    <div *ngFor="let _ of getEmptySlots()" class="emoji-slot empty">
                         <span class="placeholder">+</span>
                     </div>
                 </div>

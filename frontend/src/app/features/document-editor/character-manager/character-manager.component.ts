@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, filter } from 'rxjs';
 import { DocumentService } from '../../../core/services/document.service';
 import { ApiService } from '../../../core/services/api.service';
 import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
@@ -72,6 +72,8 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
                     this.newEmoji = formData.emoji;
                     this.newName = formData.suggestedName || '';
                     this.newDescription = formData.description || '';
+                    // Pre-fill aliases with word phrases (comma-separated)
+                    this.newAliases = formData.suggestedAliases ? formData.suggestedAliases.join(', ') : '';
                     // Clear the request after handling
                     this.characterFormService.clearFormRequest();
                 }
@@ -129,11 +131,21 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
                     {}
                 ).subscribe({
                     next: (result: any) => {
-                        console.log(`✅ ${result.message}`);
+                        const message = result?.message || 'Character normalization completed';
+                        console.log(`✅ ${message}`);
                         this.resetForm();
                         this.showAddForm = false;
-                        // Reload document to get updated characters and sentences
-                        this.documentService.loadDocument(documentId).subscribe();
+                        // Reload document to get updated characters and sentences with emoji_mappings
+                        this.documentService.loadDocument(documentId).subscribe({
+                            next: () => {
+                                console.log('✅ Document reloaded with updated sentences');
+                                // Now refresh emoji dictionary to show updated data
+                                window.dispatchEvent(new CustomEvent('refreshEmojiDictionary', {
+                                    detail: { documentId }
+                                }));
+                            },
+                            error: (err) => console.error('Error reloading document:', err)
+                        });
                     },
                     error: (err) => console.error('Error normalizing character:', err)
                 });
@@ -169,11 +181,18 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
     onCharacterHover(characterId: string): void {
         const character = this.characters.find(c => c.id === characterId);
         if (character) {
+            console.log('🎯 [CHARACTER-MANAGER] Hovering character:', {
+                id: character.id,
+                name: character.name,
+                emoji: character.emoji,
+                color: character.color
+            });
             this.characterHighlightService.setHoveredEmoji(character.emoji, character.color);
         }
     }
 
     onCharacterLeave(): void {
+        console.log('👋 [CHARACTER-MANAGER] Leaving character hover');
         this.characterHighlightService.clearHover();
     }
 
@@ -194,7 +213,11 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
     }
 
     getEditablePhrases(characterId: string): string[] {
-        return this.editablePhrasesMap.get(characterId) || [];
+        if (!this.editablePhrasesMap.has(characterId)) {
+            // Initialize with empty array if not exists
+            this.editablePhrasesMap.set(characterId, []);
+        }
+        return this.editablePhrasesMap.get(characterId)!;
     }
 
     addNewPhrase(characterId: string): void {
@@ -207,6 +230,15 @@ export class CharacterManagerComponent implements OnInit, OnDestroy {
         const phrases = this.editablePhrasesMap.get(characterId) || [];
         phrases.splice(index, 1);
         this.editablePhrasesMap.set(characterId, phrases);
+    }
+
+    updatePhrase(characterId: string, index: number, value: string): void {
+        const phrases = this.getEditablePhrases(characterId);
+        phrases[index] = value;
+    }
+
+    trackByIndex(index: number, item: string): number {
+        return index;
     }
 
     savePhrases(characterId: string): void {

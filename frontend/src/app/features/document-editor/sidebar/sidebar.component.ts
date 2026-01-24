@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { Subject, takeUntil } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
@@ -134,6 +135,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   selectedSentence: Sentence | null = null;
   chapters: Chapter[] = [];
   emojiDictionary: any = null;  // Emoji dictionary data
+  private emojiPhrasesCache: Map<string, string[]> = new Map(); // Cache for emoji word phrases
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
@@ -217,8 +219,21 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private aiService: AiService,
     private characterHighlightService: CharacterHighlightService,
     private characterFormService: CharacterFormService,
-    private chapterStateService: ChapterStateService
+    private chapterStateService: ChapterStateService,
+    private http: HttpClient
   ) { }
+
+  getEmptySlots(): number[] {
+    if (!this.selectedSentence) return [];
+    const currentEmojis = this.selectedSentence.emojis?.length || 0;
+    const emptySlots = Math.max(0, this.maxEmojis - currentEmojis);
+    return Array(emptySlots).fill(0).map((_, i) => i);
+  }
+
+  clearEmojiPhrasesCache(): void {
+    this.emojiPhrasesCache.clear();
+  }
+
   private computeTextHash(text: string): string {
     const t = text || '';
     return `${t.length}_${t.substring(0, 50)}`;
@@ -277,6 +292,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   // ========== INIT ==========
   ngOnInit(): void {
+    // Listen for emoji dictionary refresh events
+    window.addEventListener('refreshEmojiDictionary', this.handleEmojiDictionaryRefresh as EventListener);
+
     this.documentService.selectedSentence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(sentence => this.selectedSentence = sentence);
@@ -396,8 +414,22 @@ export class SidebarComponent implements OnInit, OnDestroy {
       });
   }
 
+  private handleEmojiDictionaryRefresh = (event: Event) => {
+    const customEvent = event as CustomEvent;
+    if (customEvent.detail && customEvent.detail.documentId) {
+      const currentDoc = this.documentService.getCurrentDocument();
+      if (currentDoc?.id === customEvent.detail.documentId) {
+        console.log('🔄 Refreshing emoji dictionary after character changes');
+        this.loadEmojiDictionary(customEvent.detail.documentId);
+      }
+    }
+  };
+
   ngOnDestroy(): void {
     window.removeEventListener('showSectionForm', this.showSectionFormHandler);
+    // Remove emoji dictionary refresh listener
+    window.removeEventListener('refreshEmojiDictionary', this.handleEmojiDictionaryRefresh as EventListener);
+
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -407,6 +439,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.documentService.getEmojiDictionary(documentId).subscribe({
       next: (dictionary) => {
         this.emojiDictionary = dictionary;
+        // Clear cache when new dictionary is loaded
+        this.emojiPhrasesCache.clear();
       },
       error: (err) => console.error('Error loading emoji dictionary:', err)
     });
@@ -432,23 +466,104 @@ export class SidebarComponent implements OnInit, OnDestroy {
     return this.emojiDictionary.entries.filter((e: any) => e.characterId === null);
   }
 
+  getCharacterWordPhrases(entry: any): string[] {
+    // For characters, show name + aliases + wordPhrases
+    const phrases: string[] = [];
+
+    // Find the actual character object
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc || !entry.characterId) return phrases;
+
+    const character = doc.characters?.find(c => c.id === entry.characterId);
+    if (!character) return phrases;
+
+    // Add character name
+    phrases.push(character.name);
+
+    // Add aliases
+    if (character.aliases && character.aliases.length > 0) {
+      phrases.push(...character.aliases);
+    }
+
+    // Add wordPhrases 
+    if (character.wordPhrases && character.wordPhrases.length > 0) {
+      phrases.push(...character.wordPhrases);
+    }
+
+    // Remove duplicates and return
+    return [...new Set(phrases.filter(p => p.trim().length > 0))];
+  }
+
   getEmojiWordPhrases(emoji: string): string[] {
+    // Check cache first (but skip cache in debug mode)
+    if (this.emojiPhrasesCache.has(emoji)) {
+      return this.emojiPhrasesCache.get(emoji)!;
+    }
+
     // Collect all word phrases for this emoji from all sentences
     const doc = this.documentService.getCurrentDocument();
-    if (!doc) return [];
+    if (!doc || !doc.sentences || !this.emojiDictionary) {
+      // Cache empty result if data not ready
+      this.emojiPhrasesCache.set(emoji, []);
+      return [];
+    }
 
     const phrasesSet = new Set<string>();
 
+    // Get only character names (not word phrases) to filter them out
+    const characterNames = new Set<string>();
+    for (const character of doc.characters || []) {
+      characterNames.add(character.name.toLowerCase());
+      // Only add aliases, not word phrases - word phrases should still show in emoji dictionary
+      (character.aliases || []).forEach(alias => characterNames.add(alias.toLowerCase()));
+    }
+
+    let foundAnyMappings = false;
     for (const sentence of doc.sentences) {
-      if (sentence.emojiMappings && emoji in sentence.emojiMappings) {
-        const phrases = sentence.emojiMappings[emoji];
-        if (Array.isArray(phrases)) {
-          phrases.forEach(p => phrasesSet.add(p));
+      if (sentence.emojiMappings) {
+        const emojiMappings = sentence.emojiMappings;
+        let foundPhrases: string[] | undefined;
+
+        // Try multiple matching strategies
+        // 1. Direct match
+        if (emoji in emojiMappings) {
+          foundPhrases = emojiMappings[emoji];
+          foundAnyMappings = true;
+        } else {
+          // 2. Try exact normalized unicode match only (no partial matches)
+          for (const [key, value] of Object.entries(emojiMappings)) {
+            // Only exact matches - no partial matching to avoid false positives
+            if (key === emoji || this.normalizeEmoji(key) === this.normalizeEmoji(emoji)) {
+              foundPhrases = value as string[];
+              foundAnyMappings = true;
+              break;
+            }
+          }
+        }
+
+        if (foundPhrases && Array.isArray(foundPhrases)) {
+          foundPhrases.forEach(phrase => {
+            const isCharacterName = characterNames.has(phrase.toLowerCase());
+            // Only filter out exact character names, not descriptive phrases
+            if (!isCharacterName) {
+              phrasesSet.add(phrase);
+            }
+          });
         }
       }
     }
 
-    return Array.from(phrasesSet);
+    const result = Array.from(phrasesSet);
+    // Cache the result
+    this.emojiPhrasesCache.set(emoji, result);
+
+    return result;
+  }
+
+  // Helper method to normalize emoji for comparison
+  private normalizeEmoji(emoji: string): string {
+    // Convert emoji to consistent unicode representation
+    return Array.from(emoji).map(char => char.charCodeAt(0).toString(16)).join('-');
   }
 
   // Drag and drop to merge emojis
@@ -497,24 +612,37 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   promoteToCharacter(entry: any): void {
+    // Get word phrases for this emoji to use as aliases
+    const wordPhrases = this.getEmojiWordPhrases(entry.emoji);
+
     // The character manager is already visible in the same tab (emojis)
     // Just trigger the character form with pre-filled data
     this.characterFormService.openCharacterForm({
       emoji: entry.emoji,
-      suggestedName: this.inferCharacterName(entry.meaning),
-      description: entry.meaning
+      suggestedName: this.inferCharacterName(entry.meaning, wordPhrases),
+      description: entry.meaning,
+      suggestedAliases: wordPhrases  // Use word phrases as aliases
     });
   }
 
-  private inferCharacterName(meaning: string): string {
-    // Try to extract a good default name from the meaning
+  private inferCharacterName(meaning: string, wordPhrases: string[] = []): string {
+    // Use the first/shortest word phrase as the suggested name
+    if (wordPhrases.length > 0) {
+      // Sort by length and pick shortest (most likely to be the main name)
+      return wordPhrases.sort((a, b) => a.length - b.length)[0];
+    }
+
+    // Fallback to extracting from meaning
     if (meaning.includes('Represents')) {
       return meaning.split('Represents')[1].split(':')[0].trim();
     }
     return 'New Character';
   }
 
-  editCharacter(entry: any): void { }
+  editCharacter(entry: any): void {
+    // Switch to the characters tab to edit the character
+    this.activeTab = 'characters';
+  }
 
   addEmoji(emoji: string): void {
     if (!this.selectedSentence) return;
@@ -557,7 +685,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         if (updatedDoc) {
           const updatedSentence = updatedDoc.sentences.find(s => s.id === this.selectedSentence!.id);
           if (updatedSentence && (!activeChapterId || updatedSentence.chapterId === activeChapterId)) {
-            this.documentService.updateSentenceEmojis(this.selectedSentence!.id, response.emojis);
+            // Reload full document to get updated sentences with emoji_mappings
+            this.documentService.loadDocument(doc.id).subscribe({
+              next: () => {
+                console.log('✅ Document reloaded after emoji generation');
+                // Now refresh emoji dictionary to show new phrase mappings
+                this.loadEmojiDictionary(doc.id);
+              },
+              error: (err) => console.error('Error reloading document:', err)
+            });
           }
         }
         this.isGenerating = false;
@@ -623,6 +759,30 @@ export class SidebarComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  clearAllEmojis(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+
+    if (confirm('Are you sure you want to clear all emojis? This cannot be undone.')) {
+      this.isGenerating = true;
+
+      this.http.delete(`http://localhost:8000/api/ai/clear-emojis/${doc.id}`)
+        .subscribe({
+          next: () => {
+            // Reload the document to reflect the cleared emojis
+            this.documentService.loadDocument(doc.id).subscribe(() => {
+              this.isGenerating = false;
+              this.loadEmojiDictionary(doc.id.toString());
+            });
+          },
+          error: (err) => {
+            console.error('Error clearing emojis:', err);
+            this.isGenerating = false;
+          }
+        });
+    }
   }
 
   generateTextFromEmojis(): void {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../core/services/document.service';
 import { NavigationService } from '../../core/services/navigation.service';
-import { DocumentDetail } from '../../core/models/document.model';
+import { DocumentDetail, DocumentMetadata } from '../../core/models/document.model';
 import { TextViewerComponent } from './text-viewer/text-viewer.component';
 import { SidebarComponent } from './sidebar/sidebar.component';
 
@@ -55,19 +55,30 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
   private createSampleDocument(): void {
     // Create sample document if none exists
     if (!this.currentDocument) {
-      this.documentService.createDocument(
-        'Sample Story',
-        'Once upon a time in a distant land, a brave hero embarked on an epic journey. ' +
-        'The hero traveled through dark forests and crossed raging rivers. ' +
-        'In a mysterious castle, the hero discovered an ancient treasure. ' +
-        'A fierce dragon guarded the treasure with flames and fury. ' +
-        'The hero fought bravely against the dragon in an epic battle. ' +
-        'Magic filled the air as the hero cast powerful spells. ' +
-        'A wise wizard appeared and offered guidance to the hero. ' +
-        'The dragon finally retreated into the shadows of the castle. ' +
-        'The hero claimed the treasure and became a legend. ' +
-        'The kingdom celebrated the hero with a grand festival.'
-      ).subscribe();
+      // First check if a Sample Story already exists
+      this.documentService.listDocuments().subscribe((documents: DocumentMetadata[]) => {
+        const existingSample = documents.find((doc: DocumentMetadata) => doc.title === 'Sample Story');
+
+        if (existingSample) {
+          // Load the existing Sample Story instead of creating a new one
+          this.documentService.loadDocument(existingSample.id).subscribe();
+        } else {
+          // Only create new Sample Story if none exists
+          this.documentService.createDocument(
+            'Sample Story',
+            'Once upon a time in a distant land, a brave hero embarked on an epic journey. ' +
+            'The hero traveled through dark forests and crossed raging rivers. ' +
+            'In a mysterious castle, the hero discovered an ancient treasure. ' +
+            'A fierce dragon guarded the treasure with flames and fury. ' +
+            'The hero fought bravely against the dragon in an epic battle. ' +
+            'Magic filled the air as the hero cast powerful spells. ' +
+            'A wise wizard appeared and offered guidance to the hero. ' +
+            'The dragon finally retreated into the shadows of the castle. ' +
+            'The hero claimed the treasure and became a legend. ' +
+            'The kingdom celebrated the hero with a grand festival.'
+          ).subscribe();
+        }
+      });
     }
   }
 

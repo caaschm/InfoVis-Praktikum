@@ -150,7 +150,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     this.characterHighlightService.hoveredEmoji$
       .pipe(takeUntil(this.destroy$))
       .subscribe(emoji => {
-        console.log('👁️ [TEXT-VIEWER] Received hovered emoji:', emoji);
+        if (emoji !== this.hoveredEmoji) {
+          // Only log when actually changing
+          console.log('👁️ [TEXT-VIEWER] Hovered emoji changed to:', emoji);
+        }
         this.hoveredEmoji = emoji;
         this.cdr.markForCheck();
       });
@@ -853,9 +856,17 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     const charactersWithEmoji = this.characters.filter(c => c.emoji === this.hoveredEmoji);
 
     if (charactersWithEmoji.length > 0) {
-      // This emoji IS a character - use character's word phrases
-      // Combines all phrases from all characters using this emoji (e.g., "Hero" and "Red Hero" both use 🦸)
+      // This emoji IS a character - use character's word phrases AND character name/aliases
       for (const character of charactersWithEmoji) {
+        // ALWAYS add character name first (this ensures "dragon" is highlighted for dragon character)
+        phrases.push(character.name);
+
+        // Add aliases
+        if (character.aliases && character.aliases.length > 0) {
+          phrases.push(...character.aliases);
+        }
+
+        // Add character's stored word phrases (from when it was created)
         if (character.wordPhrases && character.wordPhrases.length > 0) {
           phrases.push(...character.wordPhrases);
         }
@@ -873,33 +884,44 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       return [{ text: sentence.text, isHighlighted: false }];
     }
 
+    // Remove duplicates, empty strings, and sort by length (longest first to avoid partial matches)
+    phrases = [...new Set(phrases.map(p => p.trim()).filter(p => p.length > 0))]
+      .sort((a, b) => b.length - a.length);
+
     // Find all phrase occurrences in the text using word boundaries
     const segments: Array<{ text: string, isHighlighted: boolean }> = [];
-
-    // Build a list of matches with positions
     const matches: Array<{ start: number, end: number, phrase: string }> = [];
+
     for (const phrase of phrases) {
-      // Use word boundary regex to avoid false matches (e.g., "hero" shouldn't match "heroic")
+      // Escape special regex characters
       const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use word boundary regex to avoid false matches (e.g., "hero" shouldn't match "heroic")
       const regex = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
       let match;
+      // Reset regex lastIndex to ensure we find all matches
+      regex.lastIndex = 0;
       while ((match = regex.exec(sentence.text)) !== null) {
         matches.push({
           start: match.index,
           end: match.index + match[0].length,
           phrase: match[0]
         });
+        // Prevent infinite loop on zero-length matches
+        if (match.index === regex.lastIndex) {
+          regex.lastIndex++;
+        }
       }
     }
 
-    // Sort matches by position and remove overlaps
-    matches.sort((a, b) => a.start - b.start);
+    // Sort matches by position and remove overlaps (keep longest matches)
+    matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
     const filteredMatches: Array<{ start: number, end: number }> = [];
     for (const match of matches) {
-      const overlaps = filteredMatches.some(existing =>
-        (match.start >= existing.start && match.start < existing.end) ||
-        (match.end > existing.start && match.end <= existing.end)
-      );
+      // Check if this match truly overlaps with any existing match
+      const overlaps = filteredMatches.some(existing => {
+        // Two matches overlap if one starts before the other ends and vice versa
+        return (match.start < existing.end && match.end > existing.start);
+      });
       if (!overlaps) {
         filteredMatches.push(match);
       }
@@ -909,6 +931,9 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     if (filteredMatches.length === 0) {
       return [{ text: sentence.text, isHighlighted: false }];
     }
+
+    // Sort final matches by position
+    filteredMatches.sort((a, b) => a.start - b.start);
 
     let lastIndex = 0;
     for (const match of filteredMatches) {

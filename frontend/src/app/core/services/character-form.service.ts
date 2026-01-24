@@ -5,6 +5,7 @@ export interface CharacterFormData {
     emoji: string;
     suggestedName?: string;
     description?: string;
+    suggestedAliases?: string[];  // Word phrases to use as aliases
 }
 
 /**
