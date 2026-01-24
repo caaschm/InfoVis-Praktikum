@@ -235,6 +235,27 @@
                     border-radius: 4px;
                     padding: 2px 4px;
                     transition: all 0.2s ease;
+
+                    /* Category overrides */
+                    &.ai-category-drama {
+                        background-color: rgba(139, 92, 246, 0.25);
+                        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.8); // Purple
+                    }
+
+                    &.ai-category-humor {
+                        background-color: rgba(245, 158, 11, 0.25);
+                        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.8); // Amber/Orange
+                    }
+
+                    &.ai-category-conflict {
+                        background-color: rgba(239, 68, 68, 0.25);
+                        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.8); // Red
+                    }
+
+                    &.ai-category-mystery {
+                        background-color: rgba(59, 130, 246, 0.25);
+                        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8); // Blue
+                    }
                 }
 
                 &.non-ai {
@@ -259,15 +280,36 @@
             box-shadow: 0 0 0 3px rgba(255, 237, 179, 0.4);
         }
 
-      &.ai-generated {
-        background-color: rgba(255, 230, 140, 0.6);
-        box-shadow: 0 0 0 2px rgba(255, 230, 140, 0.4);
-        border-radius: 4px;
-        -webkit-box-decoration-break: clone;
-        box-decoration-break: clone;
-      }
+        &.ai-generated {
+            background-color: rgba(255, 230, 140, 0.6);
+            box-shadow: 0 0 0 2px rgba(255, 230, 140, 0.4);
+            border-radius: 4px;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
 
-      &.hovered-sentence {
+            /* Category overrides */
+            &.ai-category-drama {
+                background-color: rgba(139, 92, 246, 0.25);
+                box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.8); // Purple border
+            }
+
+            &.ai-category-humor {
+                background-color: rgba(245, 158, 11, 0.25);
+                box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.8); // Amber/Orange border
+            }
+
+            &.ai-category-conflict {
+                background-color: rgba(239, 68, 68, 0.25);
+                box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.8); // Red border
+            }
+
+            &.ai-category-mystery {
+                background-color: rgba(59, 130, 246, 0.25);
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8); // Blue border
+            }
+        }
+
+        &.hovered-sentence {
             border-radius: 4px;
             padding: 2px 4px;
             margin: -2px -4px;
@@ -426,6 +468,27 @@
                     border-radius: 8px;
                     padding: 0.5rem;
                     transition: all 0.2s ease;
+
+                    /* Category overrides */
+                    &.ai-category-drama {
+                        background-color: rgba(139, 92, 246, 0.25);
+                        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.8);
+                    }
+
+                    &.ai-category-humor {
+                        background-color: rgba(245, 158, 11, 0.25);
+                        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.8);
+                    }
+
+                    &.ai-category-conflict {
+                        background-color: rgba(239, 68, 68, 0.25);
+                        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.8);
+                    }
+
+                    &.ai-category-mystery {
+                        background-color: rgba(59, 130, 246, 0.25);
+                        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8);
+                    }
                 }
 
                 &.non-ai {
