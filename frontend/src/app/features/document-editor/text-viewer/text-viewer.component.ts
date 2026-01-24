@@ -1414,8 +1414,8 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   /**
    * Calculate and update line numbers based on actual rendered text lines
-   * Excludes chapter titles and only counts flowing text content
-   * Aligns line numbers with the first line of flowing text
+   * For "All Chapters" view: Extends line numbers to cover full height and indents text
+   * For single chapter view: Aligns line numbers with flowing text only
    */
   private updateLineNumbers(): void {
     // Debounce updates to avoid excessive recalculations
@@ -1431,113 +1431,154 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         return;
       }
 
-      // Get all chapter-sentences containers (excludes chapter titles)
-      const chapterSentencesContainers = textContentEl.querySelectorAll('.chapter-sentences');
-
       // Get computed styles for accurate line height calculation
       const computedStyle = window.getComputedStyle(textContentEl);
       const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 2;
 
-      let totalTextHeight = 0;
-      let firstTextLineOffset = 0;
+      // Check if we're in "All Chapters" view (selectedChapterId is null and we have multiple chapters)
+      const isAllChaptersView = !this.selectedChapterId && this.chapters.length > 1;
 
-      if (chapterSentencesContainers.length > 0) {
-        // Measure chapter-sentences containers (excludes chapter titles)
-        let isFirstContainer = true;
-        chapterSentencesContainers.forEach((container: Element) => {
-          const htmlContainer = container as HTMLElement;
-          // Get the actual rendered height of the text content
-          const containerHeight = htmlContainer.scrollHeight || htmlContainer.offsetHeight;
-          totalTextHeight += containerHeight;
-
-          // Calculate offset to first text line (account for chapter title if it's the first chapter)
-          if (isFirstContainer && this.chapters.length > 0) {
-            const chapterSection = htmlContainer.closest('.chapter-section');
-            if (chapterSection) {
-              const titleWrapper = chapterSection.querySelector('.chapter-title-wrapper');
-              if (titleWrapper) {
-                const titleHeight = (titleWrapper as HTMLElement).offsetHeight;
-                firstTextLineOffset = titleHeight;
-              }
-            }
-            isFirstContainer = false;
-          }
-        });
-      } else {
-        // Fallback: measure sentence elements directly (for documents without chapters)
-        const sentenceElements = textContentEl.querySelectorAll('.sentence-text');
-        if (sentenceElements.length === 0) {
-          this.lineNumbers = [];
-          return;
-        }
-
-        // Create a temporary container to measure wrapped text accurately
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.visibility = 'hidden';
-        tempContainer.style.width = (textContentEl.clientWidth - parseFloat(computedStyle.paddingLeft) - parseFloat(computedStyle.paddingRight)) + 'px';
-        tempContainer.style.fontSize = computedStyle.fontSize;
-        tempContainer.style.fontFamily = computedStyle.fontFamily;
-        tempContainer.style.lineHeight = computedStyle.lineHeight;
-        tempContainer.style.whiteSpace = 'normal';
-        tempContainer.style.wordWrap = 'break-word';
-
-        // Collect all sentence text
-        const allText = Array.from(sentenceElements)
-          .map((el: Element) => (el as HTMLElement).textContent || '')
-          .join(' ');
-
-        tempContainer.textContent = allText;
-        document.body.appendChild(tempContainer);
-        totalTextHeight = tempContainer.offsetHeight;
-        document.body.removeChild(tempContainer);
-      }
-
-      // Calculate number of lines based on actual text height
-      // Use the actual scrollHeight of the text content for accurate line counting
-      let actualContentHeight = totalTextHeight;
-
-      // Get the actual scrollable height of the text content
-      // This accounts for all padding, margins, and actual rendered content
-      const textScrollHeight = textContentEl.scrollHeight;
-      const textPaddingTop = parseFloat(getComputedStyle(textContentEl).paddingTop) || 0;
-      const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom) || 0;
-
-      // Calculate the actual content height (excluding padding)
-      actualContentHeight = textScrollHeight - textPaddingTop - textPaddingBottom;
-
-      // Calculate number of lines - each line is exactly lineHeight tall
-      const numberOfLines = Math.max(1, Math.ceil(actualContentHeight / lineHeight));
-
-      // Generate line numbers array
-      this.lineNumbers = Array.from({ length: numberOfLines }, (_, i) => i + 1);
-
-      // Ensure line numbers container has the same total height as text content
-      // This ensures perfect scroll synchronization
-      if (lineNumbersEl && textContentEl) {
-        // Set padding-top to match any offset in text content (e.g., chapter titles)
-        if (firstTextLineOffset > 0) {
-          lineNumbersEl.style.paddingTop = `${firstTextLineOffset}px`;
-        } else {
+      if (isAllChaptersView) {
+        // NEW LOGIC FOR "ALL CHAPTERS" VIEW:
+        // Extend line numbers to cover full height (including chapter titles)
+        // Indent text content to align with line numbers
+        
+        // Get the total scrollable height of the text content (includes everything)
+        const textScrollHeight = textContentEl.scrollHeight;
+        const textPaddingTop = parseFloat(getComputedStyle(textContentEl).paddingTop) || 0;
+        const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom) || 0;
+        
+        // Calculate total content height (including chapter titles and spacing)
+        const totalContentHeight = textScrollHeight - textPaddingTop - textPaddingBottom;
+        
+        // Calculate number of lines to cover the entire height
+        const numberOfLines = Math.max(1, Math.ceil(totalContentHeight / lineHeight));
+        
+        // Generate line numbers array covering full height
+        this.lineNumbers = Array.from({ length: numberOfLines }, (_, i) => i + 1);
+        
+        if (lineNumbersEl && textContentEl) {
+          // No padding-top offset - line numbers start from the very top
           lineNumbersEl.style.paddingTop = '0px';
+          lineNumbersEl.style.paddingBottom = `${textPaddingBottom}px`;
+          
+          // Add a class to indicate "All Chapters" view for styling
+          lineNumbersEl.classList.add('all-chapters-view');
+          textContentEl.classList.add('all-chapters-view');
+        }
+      } else {
+        // ORIGINAL LOGIC FOR SINGLE CHAPTER VIEW:
+        // Align line numbers with flowing text only (excludes chapter titles)
+        
+        // Remove "All Chapters" view classes if present
+        if (lineNumbersEl) {
+          lineNumbersEl.classList.remove('all-chapters-view');
+        }
+        if (textContentEl) {
+          textContentEl.classList.remove('all-chapters-view');
+        }
+        
+        // Get all chapter-sentences containers (excludes chapter titles)
+        const chapterSentencesContainers = textContentEl.querySelectorAll('.chapter-sentences');
+
+        let totalTextHeight = 0;
+        let firstTextLineOffset = 0;
+
+        if (chapterSentencesContainers.length > 0) {
+          // Measure chapter-sentences containers (excludes chapter titles)
+          let isFirstContainer = true;
+          chapterSentencesContainers.forEach((container: Element) => {
+            const htmlContainer = container as HTMLElement;
+            // Get the actual rendered height of the text content
+            const containerHeight = htmlContainer.scrollHeight || htmlContainer.offsetHeight;
+            totalTextHeight += containerHeight;
+
+            // Calculate offset to first text line (account for chapter title if it's the first chapter)
+            if (isFirstContainer && this.chapters.length > 0) {
+              const chapterSection = htmlContainer.closest('.chapter-section');
+              if (chapterSection) {
+                const titleWrapper = chapterSection.querySelector('.chapter-title-wrapper');
+                if (titleWrapper) {
+                  const titleElement = titleWrapper as HTMLElement;
+                  // Get the actual rendered height including margins
+                  const titleRect = titleElement.getBoundingClientRect();
+                  const titleStyle = window.getComputedStyle(titleElement);
+                  const titleMarginBottom = parseFloat(titleStyle.marginBottom) || 0;
+                  firstTextLineOffset = titleRect.height + titleMarginBottom;
+                }
+              }
+              isFirstContainer = false;
+            }
+          });
+        } else {
+          // Fallback: measure sentence elements directly (for documents without chapters)
+          const sentenceElements = textContentEl.querySelectorAll('.sentence-text');
+          if (sentenceElements.length === 0) {
+            this.lineNumbers = [];
+            return;
+          }
+
+          // Create a temporary container to measure wrapped text accurately
+          const tempContainer = document.createElement('div');
+          tempContainer.style.position = 'absolute';
+          tempContainer.style.visibility = 'hidden';
+          tempContainer.style.width = (textContentEl.clientWidth - parseFloat(computedStyle.paddingLeft) - parseFloat(computedStyle.paddingRight)) + 'px';
+          tempContainer.style.fontSize = computedStyle.fontSize;
+          tempContainer.style.fontFamily = computedStyle.fontFamily;
+          tempContainer.style.lineHeight = computedStyle.lineHeight;
+          tempContainer.style.whiteSpace = 'normal';
+          tempContainer.style.wordWrap = 'break-word';
+
+          // Collect all sentence text
+          const allText = Array.from(sentenceElements)
+            .map((el: Element) => (el as HTMLElement).textContent || '')
+            .join(' ');
+
+          tempContainer.textContent = allText;
+          document.body.appendChild(tempContainer);
+          totalTextHeight = tempContainer.offsetHeight;
+          document.body.removeChild(tempContainer);
         }
 
-        // Ensure padding-bottom matches exactly
-        const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom);
-        lineNumbersEl.style.paddingBottom = `${textPaddingBottom}px`;
+        // Calculate number of lines based on actual text height (excluding chapter titles)
+        const textScrollHeight = textContentEl.scrollHeight;
+        const textPaddingTop = parseFloat(getComputedStyle(textContentEl).paddingTop) || 0;
+        const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom) || 0;
 
-        // Force a reflow to ensure heights are calculated
-        void lineNumbersEl.offsetHeight;
-        void textContentEl.offsetHeight;
+        // Calculate the actual content height (excluding padding)
+        const actualContentHeight = textScrollHeight - textPaddingTop - textPaddingBottom;
 
-        // After a brief delay, verify and sync scroll positions
-        setTimeout(() => {
-          // If scroll positions are out of sync, fix them
-          if (Math.abs(lineNumbersEl.scrollTop - textContentEl.scrollTop) > 1) {
-            // Sync to text content's scroll position (text content is the source of truth)
-            lineNumbersEl.scrollTop = textContentEl.scrollTop;
+        // Calculate number of lines - each line is exactly lineHeight tall
+        const numberOfLines = Math.max(1, Math.ceil(actualContentHeight / lineHeight));
+
+        // Generate line numbers array
+        this.lineNumbers = Array.from({ length: numberOfLines }, (_, i) => i + 1);
+
+        // Ensure line numbers container has the same total height as text content
+        if (lineNumbersEl && textContentEl) {
+          // Set padding-top to match any offset in text content (e.g., chapter titles)
+          if (firstTextLineOffset > 0) {
+            lineNumbersEl.style.paddingTop = `${firstTextLineOffset}px`;
+          } else {
+            lineNumbersEl.style.paddingTop = '0px';
           }
-        }, 0);
+
+          // Ensure padding-bottom matches exactly
+          lineNumbersEl.style.paddingBottom = `${textPaddingBottom}px`;
+
+          // Force a reflow to ensure heights are calculated
+          void lineNumbersEl.offsetHeight;
+          void textContentEl.offsetHeight;
+
+          // After a brief delay, verify and sync scroll positions
+          setTimeout(() => {
+            // If scroll positions are out of sync, fix them
+            if (Math.abs(lineNumbersEl.scrollTop - textContentEl.scrollTop) > 1) {
+              // Sync to text content's scroll position (text content is the source of truth)
+              lineNumbersEl.scrollTop = textContentEl.scrollTop;
+            }
+          }, 0);
+        }
       }
 
       this.cdr.markForCheck();

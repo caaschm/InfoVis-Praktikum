@@ -722,6 +722,7 @@
                      [class.dragging]="draggedChapter?.id === chapter.id"
                      [class.drag-over-above]="dragOverChapterId === chapter.id && dragOverPosition === 'above' && draggedChapter && draggedChapter.id !== chapter.id"
                      [class.drag-over-below]="dragOverChapterId === chapter.id && dragOverPosition === 'below' && draggedChapter && draggedChapter.id !== chapter.id"
+                     [class.emoji-picker-open]="editingChapterEmojiId === chapter.id"
                      draggable="true"
                      (dragstart)="onChapterDragStart($event, chapter)"
                      (dragover)="onChapterDragOver($event, chapter)"

@@ -148,9 +148,9 @@
     .line-numbers {
         background: #f6f8fa;
         border-right: 1px solid #e1e4e8;
-        padding: 0 0.75rem 1.5rem 0.75rem ; // Match text-content padding: 0 top, 1.5rem bottom
+        padding: 0 0.75rem 1.5rem 0.75rem; // Match text-content padding: 0 top, 1.5rem bottom
+        // padding-top will be set dynamically by JavaScript to account for chapter title offset
         display: flex;
-        //margin: 0; XXX
         flex-direction: column;
         min-width: 50px;
         user-select: none;
@@ -169,6 +169,12 @@
         &::-webkit-scrollbar {
             display: none; // Chrome, Safari, Opera
         }
+        
+        // "All Chapters" view: Line numbers extend to cover full height
+        &.all-chapters-view {
+            padding-top: 0 !important; // Start from the very top
+            // Line numbers will cover the entire height including chapter titles
+        }
 
         .line-number {
             // WICHTIG: Alle em-Werte entfernen und nur --lh nutzen
@@ -177,23 +183,20 @@
             max-height: var(--lh) !important;
             line-height: var(--lh) !important;
 
-            display: flex;
-            align-items: center; // Zentriert die Zahl vertikal exakt in den 32px
-            justify-content: flex-end;
+            display: block;
+            text-align: right;
             padding: 0 0.75rem 0 0 !important; // Kein Padding oben/unten
-            margin: 0;
+            margin: 0 !important;
             box-sizing: border-box;
 
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             font-size: 0.9rem;
             color: #6a737d;
 
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.4rem;
-
             .line-number-text {
                 display: inline-block;
+                line-height: var(--lh) !important;
+                vertical-align: top;
             }
 
             .ai-indicator {
@@ -207,6 +210,7 @@
     .text-content {
         flex: 1;
         padding: 0 1.5rem 1.5rem 1.5rem; // No top padding to align with line numbers
+        padding-top: 0; // Ensure no top padding
         margin: 0;
         font-size: 16px;
         line-height: var(--lh);
@@ -215,6 +219,23 @@
         font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
         overflow-y: auto; // Single scrollbar on the right
         overflow-x: hidden;
+        
+        // "All Chapters" view: Indent text to align with line numbers
+        &.all-chapters-view {
+            padding-left: calc(50px + 1.5rem); // Indent by line numbers width + original padding
+            margin-left: 0;
+            
+            .chapter-section {
+                position: relative;
+                
+                .chapter-title-wrapper {
+                    // Pull chapter title back to the left (outside the indent)
+                    margin-left: calc(-50px - 1.5rem);
+                    padding-left: calc(50px + 1.5rem);
+                    width: calc(100% + 50px + 1.5rem);
+                }
+            }
+        }
         // Remove scroll-behavior: smooth for better performance with touchpad/mouse
         // Native scrolling is smoother than CSS smooth scrolling
         // Scrollbar styling
@@ -272,8 +293,12 @@
         cursor: pointer;
         transition: background-color 0.2s ease;
         border-radius: 3px;
-        padding: 0;
+        padding: 0 !important;
+        margin: 0 !important;
         display: inline;
+        line-height: var(--lh) !important;
+        vertical-align: top;
+        box-sizing: border-box;
 
         &.selected {
             background-color: rgba(255, 237, 179, 0.4);
@@ -641,8 +666,14 @@
     .chapter-section {
         margin-bottom: 3rem; // Increased spacing for better visual separation in "All Chapters" view
         padding-bottom: 2rem;
+        padding-top: 0.5rem; // Add a little space above each chapter section
         border-bottom: 1px solid #e5e7eb;
         position: relative;
+        
+        // Add extra space for the first chapter
+        &:first-child {
+            padding-top: 1rem; // More space for the first chapter title
+        }
 
         // Add visual separation in "All Chapters" view
         &:not(:last-child) {
@@ -662,14 +693,16 @@
         }
 
         .chapter-title-wrapper {
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem; // Reduced margin to minimize spacing
             padding-bottom: 0.5rem;
             border-bottom: 2px solid #e5e7eb;
             position: relative; // Changed from sticky to prevent scroll jumps
             background: transparent;
             z-index: 10;
-            padding-top: 1.5rem; // Add top padding to account for container padding
-            margin-top: 0; // Reset margin to prevent extra spacing
+            padding-top: 1rem !important; // Add some space above the title for better aesthetics
+            margin-top: 0 !important; // Reset margin to prevent extra spacing
+            height: auto;
+            min-height: 0;
 
             .chapter-title-display {
                 font-size: 1.5rem;
@@ -954,6 +987,8 @@
 
         .chapter-sentences {
             padding-left: 1rem;
+            padding-top: 0 !important;
+            margin-top: 0 !important;
         }
 
         .ai-title-suggestion {
@@ -1072,10 +1107,13 @@
         // Wir machen die Sätze zu Block-Elementen, damit der Hintergrund die volle Breite füllt
 
         .sentence-inline, .sentence-wrapper {
-            display: flex;
+            display: inline-block;
             width: 100%;
             padding-left: 5px;
             transition: background-color 0.2s ease;
+            line-height: var(--lh) !important;
+            height: var(--lh) !important;
+            vertical-align: top;
 
             &:nth-child(even) {
                 background-color: rgba(0, 0, 0, 0.04) !important; // Dezentes Grau
@@ -1114,10 +1152,11 @@
 
         .sentence-text,
         .sentence-wrapper,
-        .highlight-overlay .sentence-inline {
+        .highlight-overlay .sentence-inline,
+        .sentence-inline {
             font-size: var(--font-size-base) !important;
             line-height: var(--lh) !important;
-            height: var(--lh) !important;
+            vertical-align: top;
         }
 
         .ai-overlay {

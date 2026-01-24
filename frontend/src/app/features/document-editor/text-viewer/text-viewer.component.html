@@ -32,11 +32,11 @@
 
   <!-- Text View -->
   <div class="text-editor-container" *ngIf="viewMode === 'text'">
-    <div class="line-numbers" #lineNumbersContainer>
+    <div class="line-numbers" #lineNumbersContainer [class.all-chapters-view]="!selectedChapterId && chapters.length > 1">
       <span *ngFor="let lineNum of lineNumbers" class="line-number">{{ lineNum }}</span>
     </div>
 
-    <div class="text-content" #textContentContainer [class.ai-highlight-mode]="showAiHighlight">
+    <div class="text-content" #textContentContainer [class.ai-highlight-mode]="showAiHighlight" [class.all-chapters-view]="!selectedChapterId && chapters.length > 1">
       <!-- Render by chapters if chapters exist -->
       <ng-container *ngIf="chapters.length > 0">
         <ng-container *ngFor="let chapter of chapters; trackBy: trackByChapterId">
