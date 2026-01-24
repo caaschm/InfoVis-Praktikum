@@ -100,6 +100,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
       setTimeout(() => this.analyzeDocument(), 100);
     }
+
+    // Load story arc
+    if (value === 'storyarc' && !this.arcLoading) {
+      const doc = this.documentService.getCurrentDocument();
+      if (doc && doc.sentences.length > 0) {
+        setTimeout(() => this.fetchStoryArc(), 100);
+      }
+    }
   }
 
   get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' {
@@ -328,7 +336,7 @@ ngOnInit(): void {
       .subscribe(({ dimension, current, baseline }) => {
         this.fetchIntentSuggestions(dimension, current, baseline);
       });
-        // Beat tension changes debounced
+    // Beat tension changes debounced
     this.beatChangeSubject
       .pipe(
         takeUntil(this.destroy$),
