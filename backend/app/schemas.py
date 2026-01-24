@@ -54,6 +54,8 @@ class ChapterBase(BaseModel):
     id: str
     document_id: str
     title: str
+    type: str = "chapter"  # chapter, prologue, epilogue, interlude, foreword, afterword, custom
+    emoji: Optional[str] = None
     index: int
     created_at: datetime
     updated_at: datetime
@@ -61,12 +63,21 @@ class ChapterBase(BaseModel):
 
 class ChapterCreate(BaseModel):
     """Schema for creating a new chapter."""
-    title: Optional[str] = None  # If not provided, will auto-generate "01 Title", "02 Title", etc.
+    title: Optional[str] = None  # If not provided, will auto-generate based on type
+    type: Optional[str] = "chapter"  # chapter, prologue, epilogue, interlude, foreword, afterword, custom
+    emoji: Optional[str] = None
 
 
 class ChapterUpdate(BaseModel):
     """Schema for updating a chapter."""
     title: Optional[str] = None
+    type: Optional[str] = None
+    emoji: Optional[str] = None
+
+
+class ChapterReorderRequest(BaseModel):
+    """Schema for reordering chapters."""
+    chapter_ids: List[str]  # List of chapter IDs in desired order
 
 
 class DocumentDetail(BaseModel):

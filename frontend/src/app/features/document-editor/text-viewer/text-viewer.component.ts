@@ -29,6 +29,13 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   activeChapterId: string | null = null; // The chapter currently being edited (active editor)
   editingChapterId: string | null = null; // Chapter title being edited
   editingChapterTitle: string = '';
+  editingChapterEmojiId: string | null = null; // Chapter emoji being edited
+  editingChapterEmoji: string = '';
+  commonEmojis = [
+    '📖', '📚', '📝', '✨', '⭐', '💫', '🔥', '💎',
+    '⚔️', '🛡️', '👑', '🏰', '🌙', '☀️', '🌈', '🌊',
+    '🌲', '🌺', '🌸', '🍃', '🍀', '🌍', '🗺️', '🎭'
+  ];
   private aiGeneratedSentenceIds = new Set<string>(); // Track AI-generated sentences
   private destroy$ = new Subject<void>();
   private sentenceUpdateTimer: any = null;
@@ -975,6 +982,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   /**
    * Add a new chapter
    */
+  addSection(): void {
+    // Dispatch event to show section creation form in sidebar
+    window.dispatchEvent(new CustomEvent('showSectionForm'));
+  }
+
   addChapter(): void {
     if (!this.currentDocument) return;
 
@@ -1063,6 +1075,78 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   cancelEditingChapter(): void {
     this.editingChapterId = null;
     this.editingChapterTitle = '';
+  }
+
+  /**
+   * Start editing chapter emoji
+   */
+  startEditChapterEmoji(chapter: Chapter): void {
+    this.editingChapterEmojiId = chapter.id;
+    this.editingChapterEmoji = chapter.emoji || '';
+  }
+
+  /**
+   * Cancel editing chapter emoji
+   */
+  cancelEditChapterEmoji(): void {
+    this.editingChapterEmojiId = null;
+    this.editingChapterEmoji = '';
+  }
+
+  /**
+   * Save chapter emoji
+   */
+  saveChapterEmoji(chapter: Chapter): void {
+    if (!this.currentDocument) {
+      this.cancelEditChapterEmoji();
+      return;
+    }
+
+    const newEmoji = this.editingChapterEmoji.trim() || undefined;
+
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      chapter.title,
+      chapter.type,
+      newEmoji
+    ).subscribe({
+      next: () => {
+        this.cancelEditChapterEmoji();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error updating chapter emoji:', err);
+        alert('Failed to update chapter emoji. Please try again.');
+        this.cancelEditChapterEmoji();
+      }
+    });
+  }
+
+  /**
+   * Select emoji for editing (auto-saves)
+   */
+  selectEmojiForEditing(emoji: string, chapter: Chapter): void {
+    const newEmoji = this.editingChapterEmoji === emoji ? '' : emoji;
+    this.editingChapterEmoji = newEmoji;
+    // Auto-save immediately
+    if (this.currentDocument) {
+      this.documentService.updateChapter(
+        this.currentDocument.id,
+        chapter.id,
+        chapter.title,
+        chapter.type,
+        newEmoji || undefined
+      ).subscribe({
+        next: () => {
+          this.cancelEditChapterEmoji();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('Error updating chapter emoji:', err);
+        }
+      });
+    }
   }
 
   /**
@@ -1460,8 +1544,76 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   trackBySentenceId(index: number, sentence: Sentence): string {
-  return sentence.id;
+    return sentence.id;
   }
 
+  /**
+   * Get chapter display title for workspace dropdown (shows "Chapter 1", "Chapter 2", etc.)
+   */
+  getChapterDisplayTitle(chapter: Chapter): string {
+    // Only chapters should have numbers - special sections should not
+    if (chapter.type === 'chapter') {
+      // For workspace dropdown, show just "Chapter 1", "Chapter 2", etc. (without title)
+      // Extract chapter number from title
+      const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
+      if (chapterMatch) {
+        return `Chapter ${chapterMatch[1]}`;
+      }
+      // Handle format like "01 Title" or "1 Title" - extract number
+      const numMatch = chapter.title.match(/^(\d+)\s+/);
+      if (numMatch) {
+        const num = parseInt(numMatch[1], 10);
+        return `Chapter ${num}`;
+      }
+      // Fallback: use index + 1
+      const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+      const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+      return `Chapter ${chapterIndex + 1}`;
+    } else {
+      // For special sections (prologue, epilogue, afterword, etc.) and custom sections, remove any numbers
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      return cleanedTitle || chapter.title;
+    }
+  }
 
+  /**
+   * Get chapter title for display in text editor (shows "01 Slay" format)
+   */
+  getChapterTitleDisplay(chapter: Chapter): string {
+    // Only chapters should have numbers - special sections should not
+    if (chapter.type === 'chapter') {
+      // For numbered chapters, show the full title with number (e.g., "01 Slay")
+      // Handle formats like "Chapter 1: Title" -> convert to "01 Title"
+      const chapterMatch = chapter.title.match(/Chapter\s+(\d+)\s*:?\s*(.*)$/i);
+      if (chapterMatch) {
+        const num = parseInt(chapterMatch[1], 10);
+        const titlePart = chapterMatch[2]?.trim() || '';
+        const paddedNum = num.toString().padStart(2, '0');
+        if (titlePart) {
+          return `${paddedNum} ${titlePart}`;
+        } else {
+          return paddedNum;
+        }
+      }
+      // Handle format like "01 Title" or "1 Title" - ensure padding
+      const numMatch = chapter.title.match(/^(\d+)\s+(.+)$/);
+      if (numMatch) {
+        const num = parseInt(numMatch[1], 10);
+        const titlePart = numMatch[2].trim();
+        const paddedNum = num.toString().padStart(2, '0');
+        return `${paddedNum} ${titlePart}`;
+      }
+      // If it's just a number, pad it
+      const justNum = chapter.title.match(/^(\d+)$/);
+      if (justNum) {
+        const num = parseInt(justNum[1], 10);
+        return num.toString().padStart(2, '0');
+      }
+      return chapter.title;
+    } else {
+      // For special sections (prologue, epilogue, afterword, etc.) and custom sections, remove any numbers
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      return cleanedTitle || chapter.title;
+    }
+  }
 }

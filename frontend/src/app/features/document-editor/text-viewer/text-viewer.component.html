@@ -6,9 +6,12 @@
       <div class="chapter-filter" *ngIf="chapters.length > 0">
         <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)" class="chapter-select">
           <option [ngValue]="null">All Chapters</option>
-          <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ chapter.title }}</option>
+                    <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ getChapterDisplayTitle(chapter) }}</option>
         </select>
       </div>
+      <button class="add-section-btn" (click)="addSection()" title="Add Section">
+        + Add Section
+      </button>
       <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
         + Add Chapter
       </button>
@@ -42,9 +45,51 @@
 
             <!-- Chapter Title -->
             <div class="chapter-title-wrapper">
-              <div *ngIf="editingChapterId !== chapter.id" class="chapter-title-display"
-                (click)="startEditingChapter(chapter)">
-                {{ chapter.title }}
+              <div *ngIf="editingChapterId !== chapter.id && editingChapterEmojiId !== chapter.id" class="chapter-title-display">
+                <span class="chapter-emoji" 
+                      *ngIf="chapter.emoji"
+                      (click)="startEditChapterEmoji(chapter)"
+                      [class.editable]="true"
+                      [title]="'Click to edit emoji'">{{ chapter.emoji }} </span>
+                <span class="emoji-placeholder" 
+                      *ngIf="!chapter.emoji"
+                      (click)="startEditChapterEmoji(chapter)"
+                      [class.editable]="true"
+                      [title]="'Click to add emoji'">➕ </span>
+                <span (click)="startEditingChapter(chapter)">{{ getChapterTitleDisplay(chapter) }}</span>
+              </div>
+              <!-- Emoji Picker -->
+              <div *ngIf="editingChapterEmojiId === chapter.id" class="emoji-picker-container">
+                <div class="emoji-picker-popup">
+                  <div class="emoji-picker-grid">
+                    <button 
+                      *ngFor="let emoji of commonEmojis"
+                      class="emoji-btn"
+                      [class.selected]="editingChapterEmoji === emoji"
+                      (click)="selectEmojiForEditing(emoji, chapter)"
+                      [title]="emoji">
+                      {{ emoji }}
+                    </button>
+                  </div>
+                  <input 
+                    type="text" 
+                    [(ngModel)]="editingChapterEmoji"
+                    (blur)="saveChapterEmoji(chapter)"
+                    (keyup.enter)="saveChapterEmoji(chapter)"
+                    (keyup.escape)="cancelEditChapterEmoji()"
+                    placeholder="Or type emoji"
+                    class="emoji-input"
+                    autofocus>
+                  <div class="emoji-picker-actions">
+                    <button class="emoji-delete-btn" 
+                            (click)="editingChapterEmoji = ''; saveChapterEmoji(chapter)"
+                            *ngIf="chapter.emoji"
+                            title="Delete emoji">🗑️</button>
+                    <button class="emoji-cancel-btn" 
+                            (click)="cancelEditChapterEmoji()"
+                            title="Cancel">✕</button>
+                  </div>
+                </div>
               </div>
               <input *ngIf="editingChapterId === chapter.id" type="text" [(ngModel)]="editingChapterTitle"
                 (keydown)="onChapterTitleKeyDown($event, chapter)" (blur)="saveChapterTitle(chapter)"

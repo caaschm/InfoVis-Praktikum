@@ -61,7 +61,9 @@ class Chapter(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     document_id = Column(String, ForeignKey("documents.id"), nullable=False)
-    title = Column(String, nullable=False)  # Chapter title (e.g., "01 Title", "02 Title")
+    title = Column(String, nullable=False)  # Chapter title (e.g., "01 Title", "Prologue", "Epilogue")
+    type = Column(String, nullable=False, default="chapter")  # Type: chapter, prologue, epilogue, interlude, foreword, afterword, custom
+    emoji = Column(String, nullable=True)  # Optional emoji for the chapter
     index = Column(Integer, nullable=False)  # Order within document
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

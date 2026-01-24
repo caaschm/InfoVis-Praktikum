@@ -120,6 +120,11 @@ export class DocumentService {
                     ch.updatedAt = ch.updated_at;
                     delete ch.updated_at;
                 }
+                // Ensure type and emoji are preserved (they should already be in camelCase from backend)
+                if (!('type' in ch)) {
+                    ch.type = 'chapter'; // Default to chapter if type is missing
+                }
+                // emoji can be null/undefined, that's fine
             });
         }
         // Transform document fields
@@ -393,8 +398,12 @@ export class DocumentService {
     /**
      * Create a new chapter
      */
-    createChapter(documentId: string, title?: string): Observable<Chapter> {
-        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { title })
+    createChapter(documentId: string, title?: string, type?: string, emoji?: string): Observable<Chapter> {
+        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { 
+            title, 
+            type: type || 'chapter',
+            emoji 
+        })
             .pipe(
                 switchMap((chapterResponse: any) => {
                     // Transform chapter response (snake_case to camelCase)
@@ -402,6 +411,8 @@ export class DocumentService {
                         id: chapterResponse.id,
                         documentId: chapterResponse.document_id || chapterResponse.documentId,
                         title: chapterResponse.title,
+                        type: chapterResponse.type || 'chapter',
+                        emoji: chapterResponse.emoji || null,
                         index: chapterResponse.index,
                         createdAt: chapterResponse.created_at || chapterResponse.createdAt,
                         updatedAt: chapterResponse.updated_at || chapterResponse.updatedAt
@@ -416,14 +427,53 @@ export class DocumentService {
     }
 
     /**
-     * Update a chapter title
+     * Update a chapter title, type, and emoji
      */
-    updateChapter(documentId: string, chapterId: string, title: string): Observable<Chapter> {
-        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, { title })
+    updateChapter(documentId: string, chapterId: string, title: string, type?: string, emoji?: string): Observable<Chapter> {
+        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, { 
+            title,
+            type,
+            emoji
+        })
             .pipe(
-                tap(() => {
+                switchMap(() => {
                     // Reload document to get updated chapters
-                    this.loadDocument(documentId).subscribe();
+                    return this.loadDocument(documentId).pipe(
+                        map((): Chapter => {
+                            const doc = this.getCurrentDocument();
+                            return doc?.chapters?.find(ch => ch.id === chapterId) as Chapter;
+                        })
+                    );
+                })
+            );
+    }
+
+    /**
+     * Delete a chapter
+     */
+    deleteChapter(documentId: string, chapterId: string): Observable<void> {
+        return this.apiService.delete<void>(`/api/documents/${documentId}/chapters/${chapterId}`)
+            .pipe(
+                switchMap(() => {
+                    // Reload document after deletion
+                    return this.loadDocument(documentId).pipe(
+                        map(() => undefined)
+                    );
+                })
+            );
+    }
+
+    /**
+     * Reorder chapters
+     */
+    reorderChapters(documentId: string, chapterIds: string[]): Observable<void> {
+        return this.apiService.post<void>(`/api/documents/${documentId}/chapters/reorder`, { chapter_ids: chapterIds })
+            .pipe(
+                switchMap(() => {
+                    // Reload document after reordering
+                    return this.loadDocument(documentId).pipe(
+                        map(() => undefined)
+                    );
                 })
             );
     }

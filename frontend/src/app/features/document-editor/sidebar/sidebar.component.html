@@ -633,8 +633,66 @@
     <div class="tab-content" *ngSwitchCase="'toc'">
         <div class="sidebar-group">
             <h2 class="group-title">📑 Table of Contents</h2>
+            
+            <!-- Section Creation Form -->
+            <div class="section-creation-form" *ngIf="showSectionForm">
+                <div class="form-header">
+                    <h3>Create New Section</h3>
+                    <button class="form-close" (click)="closeSectionForm()">×</button>
+                </div>
+                <div class="form-body">
+                    <!-- Section Type Selection -->
+                    <div class="form-group">
+                        <label>Section Type</label>
+                        <div class="type-options">
+                            <button 
+                                *ngFor="let type of ['chapter', 'prologue', 'epilogue', 'interlude', 'foreword', 'afterword', 'custom']"
+                                class="type-btn"
+                                [class.active]="newSectionType === type"
+                                (click)="newSectionType = type">
+                                {{ type === 'chapter' ? 'Chapter' : type.charAt(0).toUpperCase() + type.slice(1) }}
+                            </button>
+                        </div>
+                    </div>
 
-            <div class="toc-summary" *ngIf="chapters.length > 0">
+                    <!-- Custom Title (optional) -->
+                    <div class="form-group">
+                        <label>Custom Title (optional)</label>
+                        <input 
+                            type="text" 
+                            [(ngModel)]="newSectionTitle"
+                            placeholder="Leave empty for auto-generated title"
+                            class="form-input">
+                    </div>
+
+                    <!-- Emoji Selection -->
+                    <div class="form-group">
+                        <label>Emoji (optional)</label>
+                        <div class="emoji-picker-grid">
+                            <button 
+                                *ngFor="let emoji of commonEmojis"
+                                class="emoji-btn"
+                                [class.selected]="newSectionEmoji === emoji"
+                                (click)="newSectionEmoji = newSectionEmoji === emoji ? '' : emoji"
+                                [title]="emoji">
+                                {{ emoji }}
+                            </button>
+                        </div>
+                        <input 
+                            type="text" 
+                            [(ngModel)]="newSectionEmoji"
+                            placeholder="Or type emoji here"
+                            class="form-input emoji-input"
+                            maxlength="2">
+                    </div>
+                </div>
+                <div class="form-footer">
+                    <button class="btn-secondary" (click)="closeSectionForm()">Cancel</button>
+                    <button class="btn-primary" (click)="createSectionFromForm()">Create</button>
+                </div>
+            </div>
+            
+            <div class="toc-summary" *ngIf="chapters.length > 0 && !showSectionForm">
                 <p class="summary-text">
                     <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this
                     story
@@ -642,13 +700,112 @@
             </div>
 
             <div class="toc-list book-style" *ngIf="chapters.length > 0">
-                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId" class="toc-entry"
-                    [class.clickable]="isChapterAccessible(chapter)" [class.unclickable]="!isChapterAccessible(chapter)"
-                    (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
+                <!-- Drop indicator above first item -->
+                <div class="drop-indicator" 
+                     *ngIf="dragOverChapterId === chapters[0]?.id && dragOverPosition === 'above' && draggedChapter && draggedChapter.id !== chapters[0]?.id"
+                     [class.active]="true"></div>
+                
+                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId; let i = index" 
+                     class="toc-entry"
+                     [class.clickable]="isChapterAccessible(chapter)"
+                     [class.unclickable]="!isChapterAccessible(chapter)"
+                     [class.dragging]="draggedChapter?.id === chapter.id"
+                     [class.drag-over-above]="dragOverChapterId === chapter.id && dragOverPosition === 'above' && draggedChapter && draggedChapter.id !== chapter.id"
+                     [class.drag-over-below]="dragOverChapterId === chapter.id && dragOverPosition === 'below' && draggedChapter && draggedChapter.id !== chapter.id"
+                     draggable="true"
+                     (dragstart)="onChapterDragStart($event, chapter)"
+                     (dragover)="onChapterDragOver($event, chapter)"
+                     (dragleave)="onChapterDragLeave($event)"
+                     (drop)="onChapterDrop($event, chapter)"
+                     (dragend)="onChapterDragEnd($event)"
+                     (click)="isChapterAccessible(chapter) && navigateToChapter(chapter.id)">
                     <div class="toc-entry-left">
-                        <div class="chapter-number">{{ getChapterNumber(chapter) }}</div>
+                        <div class="chapter-header">
+                            <!-- Emoji Display/Edit -->
+                            <div class="emoji-container" *ngIf="editingChapterEmojiId !== chapter.id">
+                                <span class="chapter-emoji" 
+                                      *ngIf="chapter.emoji"
+                                      (click)="startEditChapterEmoji(chapter); $event.stopPropagation()"
+                                      [class.editable]="true"
+                                      [title]="'Click to edit emoji'">{{ chapter.emoji }}</span>
+                                <span class="emoji-placeholder" 
+                                      *ngIf="!chapter.emoji"
+                                      (click)="startEditChapterEmoji(chapter); $event.stopPropagation()"
+                                      [class.editable]="true"
+                                      [title]="'Click to add emoji'">➕</span>
+                            </div>
+                            <!-- Emoji Picker -->
+                            <div class="emoji-picker-container" *ngIf="editingChapterEmojiId === chapter.id">
+                                <div class="emoji-picker-popup">
+                                    <div class="emoji-picker-grid">
+                                        <button 
+                                            *ngFor="let emoji of commonEmojis"
+                                            class="emoji-btn"
+                                            [class.selected]="editingChapterEmoji === emoji"
+                                            (click)="selectEmojiForEditing(emoji, chapter); $event.stopPropagation()"
+                                            [title]="emoji">
+                                            {{ emoji }}
+                                        </button>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        [(ngModel)]="editingChapterEmoji"
+                                        (blur)="saveChapterEmoji(chapter)"
+                                        (keyup.enter)="saveChapterEmoji(chapter)"
+                                        (keyup.escape)="cancelEditChapterEmoji()"
+                                        placeholder="Or type emoji"
+                                        class="emoji-input"
+                                        (click)="$event.stopPropagation()"
+                                        autofocus>
+                                    <div class="emoji-picker-actions">
+                                        <button class="emoji-delete-btn" 
+                                                (click)="editingChapterEmoji = ''; saveChapterEmoji(chapter); $event.stopPropagation()"
+                                                *ngIf="chapter.emoji"
+                                                title="Delete emoji">🗑️</button>
+                                        <button class="emoji-cancel-btn" 
+                                                (click)="cancelEditChapterEmoji(); $event.stopPropagation()"
+                                                title="Cancel">✕</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chapter-number" 
+                                 *ngIf="editingSectionTypeId !== chapter.id"
+                                 (click)="startEditSectionType(chapter); $event.stopPropagation()"
+                                 [class.editable]="true"
+                                 [title]="'Click to change section type'">
+                                {{ getChapterDisplayName(chapter) }}
+                            </div>
+                            <select *ngIf="editingSectionTypeId === chapter.id"
+                                    [(ngModel)]="editingSectionType"
+                                    (change)="updateSectionType(chapter)"
+                                    (blur)="cancelEditSectionType()"
+                                    class="section-type-select"
+                                    (click)="$event.stopPropagation()">
+                                <option value="chapter">Chapter</option>
+                                <option value="prologue">Prologue</option>
+                                <option value="epilogue">Epilogue</option>
+                                <option value="interlude">Interlude</option>
+                                <option value="foreword">Foreword</option>
+                                <option value="afterword">Afterword</option>
+                                <option value="custom">Custom Section</option>
+                            </select>
+                        </div>
                         <div class="chapter-title-wrapper">
-                            <div class="chapter-title">{{ getChapterTitle(chapter) }}</div>
+                            <div class="chapter-title" 
+                                 *ngIf="editingChapterTitleId !== chapter.id"
+                                 (click)="startEditChapterTitle(chapter); $event.stopPropagation()"
+                                 [class.editable]="true"
+                                 [title]="'Click to edit title'">
+                                {{ getChapterTitle(chapter) }}
+                            </div>
+                            <input *ngIf="editingChapterTitleId === chapter.id"
+                                   [(ngModel)]="editingChapterTitle"
+                                   (blur)="saveChapterTitle(chapter)"
+                                   (keyup.enter)="saveChapterTitle(chapter)"
+                                   (keyup.escape)="cancelEditChapterTitle()"
+                                   class="chapter-title-input"
+                                   (click)="$event.stopPropagation()"
+                                   autofocus>
                             <div class="chapter-status" *ngIf="!isChapterAccessible(chapter)" title="No content yet">
                                 <span class="status-badge">Locked</span>
                             </div>
@@ -656,15 +813,24 @@
                     </div>
                     <div class="toc-entry-right">
                         <div class="chapter-meta" *ngIf="isChapterAccessible(chapter)">
-                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }}
-                                pg</span>
-                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id))
-                                }}
-                                chars</span>
+                            <span class="page-count">{{ estimatePageCount(getChapterCharacterCount(chapter.id)) }} pg</span>
+                            <span class="char-count">{{ formatCharacterCount(getChapterCharacterCount(chapter.id)) }} chars</span>
                         </div>
                         <div class="chapter-dots"></div>
-                        <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
+                        <div class="chapter-actions">
+                            <button class="delete-chapter-btn" 
+                                    (click)="deleteChapter(chapter); $event.stopPropagation()"
+                                    title="Delete chapter"
+                                    *ngIf="chapters.length > 1">
+                                🗑️
+                            </button>
+                            <div class="chapter-arrow" *ngIf="isChapterAccessible(chapter)">→</div>
+                        </div>
                     </div>
+                    <!-- Drop indicator below this item -->
+                    <div class="drop-indicator" 
+                         *ngIf="dragOverChapterId === chapter.id && dragOverPosition === 'below' && draggedChapter && draggedChapter.id !== chapter.id"
+                         [class.active]="true"></div>
                 </div>
             </div>
             

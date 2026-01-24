@@ -98,7 +98,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.selectedAnalysisChapterId = 'all';
       }
 
-      setTimeout(() => this.analyzeDocument(), 100);
+        setTimeout(() => this.analyzeDocument(), 100);
     }
 
     // Load story arc
@@ -138,6 +138,27 @@ export class SidebarComponent implements OnInit, OnDestroy {
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
 
+  // Section creation form state
+  showSectionForm: boolean = false;
+  newSectionType: string = 'chapter';
+  newSectionTitle: string = '';
+  newSectionEmoji: string = '';
+  
+  // Section type editing state
+  editingSectionTypeId: string | null = null;
+  editingSectionType: string = 'chapter';
+  // Chapter title editing state
+  editingChapterTitleId: string | null = null;
+  editingChapterTitle: string = '';
+  // Chapter emoji editing state
+  editingChapterEmojiId: string | null = null;
+  editingChapterEmoji: string = '';
+  
+  // Drag and drop for chapter reordering
+  draggedChapter: Chapter | null = null; // Made public for template access
+  dragOverChapterId: string | null = null; // Track which chapter is being dragged over
+  dragOverPosition: 'above' | 'below' | null = null; // Track drop position relative to target
+
   private destroy$ = new Subject<void>();
 
   // Enhanced emoji feature panels
@@ -148,10 +169,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   // Emoji management
   maxEmojis = 5;
   commonEmojis = [
-    '😀', '😊', '😢', '😱', '😡', '😍', '🤔', '😴',
-    '🎉', '🎨', '🎭', '🎪', '🎬', '📖', '✨', '🌟',
-    '🌙', '☀️', '⛈️', '🌈', '🔥', '💧', '💔', '💖',
-    '👑', '👻', '🦄', '🐉', '🧙‍♂️', '🧛‍♀️', '🧜‍♂️', '🏰'
+    '📖', '📚', '📝', '✨', '⭐', '💫', '🔥', '💎',
+    '⚔️', '🛡️', '👑', '🏰', '🌙', '☀️', '🌈', '🌊',
+    '🌲', '🌺', '🌸', '🍃', '🍀', '🌍', '🗺️', '🎭'
   ];
 
   // ===== SPIDER CHART VALUES =====
@@ -229,11 +249,32 @@ storyStages: { name: string; description: string; sentenceIndices: number[]; sta
     stage_name: 'denouement'
   }];
 
+  // Event handler for showing section form (defined as arrow function to preserve 'this' context)
+  private showSectionFormHandler = (): void => {
+    // Always show sidebar and switch to ToC tab when Add Section is clicked
+    this.switchTab.emit('toc');
+    
+    // Toggle the form visibility
+    if (this.showSectionForm) {
+      // If form is open, close it
+      this.closeSectionForm();
+    } else {
+      // If form is closed, open it
+      this.showSectionForm = true;
+      this.newSectionType = 'chapter';
+      this.newSectionTitle = '';
+      this.newSectionEmoji = '';
+    }
+  };
+
   // ========== INIT ==========
-ngOnInit(): void {
-  this.documentService.selectedSentence$
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(sentence => this.selectedSentence = sentence);
+  ngOnInit(): void {
+    this.documentService.selectedSentence$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(sentence => this.selectedSentence = sentence);
+
+    // Listen for show section form event
+    window.addEventListener('showSectionForm', this.showSectionFormHandler);
 
     // Load emoji dictionary when document changes
     this.documentService.currentDocument$
@@ -308,14 +349,14 @@ ngOnInit(): void {
 
           let currentText: string;
           const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
-
+          
           if (targetChapterId) {
             const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
             currentText = activeChapterSentences.map(s => s.text).join(' ').trim();
           } else {
             currentText = doc.sentences.map(s => s.text).join(' ').trim();
           }
-
+          
           if (currentText) {
             const textHash = this.computeTextHash(currentText);
             if (textHash !== this.lastAnalyzedTextHash) {
@@ -347,10 +388,11 @@ ngOnInit(): void {
       });
   }
 
-ngOnDestroy(): void {
-  this.destroy$.next();
-  this.destroy$.complete();
-}
+  ngOnDestroy(): void {
+  window.removeEventListener('showSectionForm', this.showSectionFormHandler);
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
 
   private loadEmojiDictionary(documentId: string): void {
@@ -650,17 +692,17 @@ ngOnDestroy(): void {
     // CRITICAL: Only update the active chapter's content
     // CRITICAL: Only update the selected analysis chapter's content
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
-
+    
     if (targetChapterId) {
       // Get selected chapter's sentences (sorted by index)
       const activeChapterSentences = doc.sentences
         .filter(s => s.chapterId === targetChapterId)
         .sort((a, b) => a.index - b.index);
-
+      
       // Try to get cursor position for cursor-based insertion
       const cursorState = this.chapterStateService.getCursor(targetChapterId);
       let newChapterContent: string;
-
+      
       if (cursorState && cursorState.sentenceId && cursorState.offset !== undefined) {
         // Insert at cursor position
         const cursorSentence = activeChapterSentences.find(s => s.id === cursorState.sentenceId);
@@ -668,10 +710,10 @@ ngOnDestroy(): void {
           const sentenceText = cursorSentence.text;
           const beforeCursor = sentenceText.substring(0, cursorState.offset);
           const afterCursor = sentenceText.substring(cursorState.offset);
-
+          
           // Insert the preview text at cursor position
           const updatedSentence = `${beforeCursor}${this.intentPreview}${afterCursor}`;
-
+          
           // Reconstruct chapter content with updated sentence
           const chapterParts: string[] = [];
           for (const sentence of activeChapterSentences) {
@@ -681,21 +723,21 @@ ngOnDestroy(): void {
         } else {
           // Cursor sentence not found, fall back to appending
           const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-          newChapterContent = activeChapterContent
-            ? `${activeChapterContent} ${this.intentPreview}`
+          newChapterContent = activeChapterContent 
+            ? `${activeChapterContent} ${this.intentPreview}` 
             : this.intentPreview;
         }
       } else {
         // No cursor position available, append to end
         const activeChapterContent = activeChapterSentences.map(s => s.text).join(' ').trim();
-        newChapterContent = activeChapterContent
-          ? `${activeChapterContent} ${this.intentPreview}`
+        newChapterContent = activeChapterContent 
+          ? `${activeChapterContent} ${this.intentPreview}` 
           : this.intentPreview;
       }
-
+      
       // Update chapter history
       this.chapterStateService.addHistoryEntry(targetChapterId, newChapterContent);
-
+      
       // CRITICAL: Update only active chapter's content, preserving others
       // Pass intentPreview as ai_suggestion_text to mark matching sentences as AI-generated
       // Pass currentIntentDimension as ai_suggestion_category to mark the category
@@ -816,7 +858,7 @@ ngOnDestroy(): void {
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
 
     let textToAnalyze: string;
-
+    
     if (targetChapterId) {
       // Analyze only selected chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
@@ -828,7 +870,7 @@ ngOnDestroy(): void {
       this.analyzeAllChapters();
       return;
     }
-
+    
     if (!textToAnalyze) return;
 
     const textHash = this.computeTextHash(textToAnalyze);
@@ -874,10 +916,10 @@ ngOnDestroy(): void {
           // This prevents "jumping" values after applying an edit
           this.preserveSlidersOnNextAnalysis = false;
         } else {
-          this.drama = response.drama;
-          this.humor = response.humor;
-          this.conflict = response.conflict;
-          this.mystery = response.mystery;
+        this.drama = response.drama;
+        this.humor = response.humor;
+        this.conflict = response.conflict;
+        this.mystery = response.mystery;
         }
 
         this.lastAnalyzedTextHash = textHash;
@@ -1104,7 +1146,7 @@ ngOnDestroy(): void {
     // Use selected chapter for intent suggestions
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
     let text: string;
-
+    
     if (targetChapterId) {
       // Use only selected chapter
       const activeChapterSentences = doc.sentences.filter(s => s.chapterId === targetChapterId);
@@ -1113,7 +1155,7 @@ ngOnDestroy(): void {
       // Fallback: use all content
       text = doc.sentences.map(s => s.text).join(' ').trim();
     }
-
+    
     if (!text) return;
 
     this.intentLoading = true;
@@ -1150,7 +1192,7 @@ ngOnDestroy(): void {
   }
 
   // ========== TABLE OF CONTENTS ==========
-
+  
   /**
    * Navigate to a specific chapter
    */
@@ -1185,8 +1227,40 @@ ngOnDestroy(): void {
    * Get chapter title without number (e.g., "01 Title" -> "Title")
    */
   getChapterTitle(chapter: Chapter): string {
-    const match = chapter.title.match(/^\d+\s+(.+)$/);
-    return match ? match[1] : chapter.title;
+    // For special types (prologue, epilogue, afterword, etc.) and custom sections, remove any numbers
+    if (chapter.type !== 'chapter') {
+      // Remove leading numbers if present (e.g., "02 KING" -> "KING")
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      return cleanedTitle || chapter.title;
+    }
+    // For numbered chapters, show the full title with number (e.g., "01 Slay")
+    // Handle formats like "Chapter 1: Title" -> convert to "01 Title"
+    const chapterMatch = chapter.title.match(/Chapter\s+(\d+)\s*:?\s*(.*)$/i);
+    if (chapterMatch) {
+      const num = parseInt(chapterMatch[1], 10);
+      const titlePart = chapterMatch[2]?.trim() || '';
+      const paddedNum = num.toString().padStart(2, '0');
+      if (titlePart) {
+        return `${paddedNum} ${titlePart}`;
+      } else {
+        return paddedNum;
+      }
+    }
+    // Handle format like "01 Title" or "1 Title" - ensure padding
+    const numMatch = chapter.title.match(/^(\d+)\s+(.+)$/);
+    if (numMatch) {
+      const num = parseInt(numMatch[1], 10);
+      const titlePart = numMatch[2].trim();
+      const paddedNum = num.toString().padStart(2, '0');
+      return `${paddedNum} ${titlePart}`;
+    }
+    // If it's just a number, pad it
+    const justNum = chapter.title.match(/^(\d+)$/);
+    if (justNum) {
+      const num = parseInt(justNum[1], 10);
+      return num.toString().padStart(2, '0');
+    }
+    return chapter.title;
   }
 
   /**
@@ -1526,5 +1600,478 @@ ngOnDestroy(): void {
         console.error('Error reformulating sentence:', err);
       }
     });
+  }
+
+  /**
+   * Close section creation form
+   */
+  closeSectionForm(): void {
+    this.showSectionForm = false;
+    this.newSectionType = 'chapter';
+    this.newSectionTitle = '';
+    this.newSectionEmoji = '';
+  }
+
+  /**
+   * Create section from form
+   */
+  createSectionFromForm(): void {
+    if (!this.currentDocument) return;
+
+    // Determine title based on type
+    let title = this.newSectionTitle;
+    if (!title) {
+      if (this.newSectionType === 'prologue') title = 'Prologue';
+      else if (this.newSectionType === 'epilogue') title = 'Epilogue';
+      else if (this.newSectionType === 'interlude') title = 'Interlude';
+      else if (this.newSectionType === 'foreword') title = 'Foreword';
+      else if (this.newSectionType === 'afterword') title = 'Afterword';
+      else if (this.newSectionType === 'custom') title = 'Custom Section';
+      // For 'chapter' type, title will be auto-generated by backend
+    }
+
+    this.documentService.createChapter(
+      this.currentDocument.id,
+      title || undefined,
+      this.newSectionType,
+      this.newSectionEmoji || undefined
+    ).subscribe({
+      next: (newChapter) => {
+        console.log('Section created successfully');
+        this.closeSectionForm();
+        // Dispatch event to navigate to the new chapter
+        window.dispatchEvent(new CustomEvent('navigateToChapter', { detail: { chapterId: newChapter.id } }));
+      },
+      error: (err) => {
+        console.error('Error creating section:', err);
+        alert('Failed to create section. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Get chapter display name for type label (e.g., "Chapter 1", "Prologue", "Title")
+   */
+  getChapterDisplayName(chapter: Chapter): string {
+    if (chapter.type === 'prologue') return 'Prologue';
+    if (chapter.type === 'epilogue') return 'Epilogue';
+    if (chapter.type === 'interlude') return 'Interlude';
+    if (chapter.type === 'foreword') return 'Foreword';
+    if (chapter.type === 'afterword') return 'Afterword';
+    if (chapter.type === 'custom') return 'Title';  // Always show "Title" for custom sections
+    
+    // For numbered chapters, extract number from title
+    const match = chapter.title.match(/Chapter\s+(\d+)/i);
+    if (match) {
+      return `Chapter ${match[1]}`;
+    }
+    // Fallback: use index + 1
+    const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+    const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+    return `Chapter ${chapterIndex + 1}`;
+  }
+
+  /**
+   * Delete a chapter
+   */
+  deleteChapter(chapter: Chapter): void {
+    if (!this.currentDocument) return;
+    
+    if (confirm(`Are you sure you want to delete "${chapter.title}"? This will unassign all sentences in this chapter.`)) {
+      this.documentService.deleteChapter(this.currentDocument.id, chapter.id).subscribe({
+        next: () => {
+          console.log('Chapter deleted successfully');
+        },
+        error: (err) => {
+          console.error('Error deleting chapter:', err);
+          alert('Failed to delete chapter. Please try again.');
+        }
+      });
+    }
+  }
+
+  // Drag and drop for chapter reordering
+  onChapterDragStart(event: DragEvent, chapter: Chapter): void {
+    this.draggedChapter = chapter;
+    event.dataTransfer!.effectAllowed = 'move';
+    event.dataTransfer!.setData('text/plain', chapter.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  onChapterDragOver(event: DragEvent, targetChapter: Chapter): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+
+    if (!this.draggedChapter || this.draggedChapter.id === targetChapter.id) {
+      this.dragOverChapterId = null;
+      this.dragOverPosition = null;
+      return;
+    }
+
+    // Determine if drop should be above or below the target
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const mouseY = event.clientY;
+    const elementCenterY = rect.top + rect.height / 2;
+    
+    this.dragOverChapterId = targetChapter.id;
+    this.dragOverPosition = mouseY < elementCenterY ? 'above' : 'below';
+  }
+
+  onChapterDragLeave(event: DragEvent): void {
+    // Only clear if we're actually leaving the element (not just moving to a child)
+    const relatedTarget = event.relatedTarget as HTMLElement;
+    const currentTarget = event.currentTarget as HTMLElement;
+    
+    if (!currentTarget.contains(relatedTarget)) {
+      this.dragOverChapterId = null;
+      this.dragOverPosition = null;
+    }
+  }
+
+  onChapterDrop(event: DragEvent, targetChapter: Chapter): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!this.draggedChapter || !this.currentDocument || this.draggedChapter.id === targetChapter.id) {
+      this.draggedChapter = null;
+      this.dragOverChapterId = null;
+      this.dragOverPosition = null;
+      return;
+    }
+
+    // Get current chapter order
+    const currentOrder = [...this.chapters].sort((a, b) => a.index - b.index).map(ch => ch.id);
+    const draggedIndex = currentOrder.indexOf(this.draggedChapter!.id);
+    const targetIndex = currentOrder.indexOf(targetChapter.id);
+
+    // Remove dragged item from its current position
+    currentOrder.splice(draggedIndex, 1);
+    
+    // Calculate new insertion index
+    // If dragging from before target, target index decreases by 1 after removal
+    let newIndex: number;
+    if (this.dragOverPosition === 'above') {
+      // Insert above target
+      if (draggedIndex < targetIndex) {
+        // Dragged from before target, target index shifted down by 1
+        newIndex = targetIndex - 1;
+      } else {
+        // Dragged from after target, target index unchanged
+        newIndex = targetIndex;
+      }
+    } else {
+      // Insert below target
+      if (draggedIndex < targetIndex) {
+        // Dragged from before target, target index shifted down by 1
+        newIndex = targetIndex;
+      } else {
+        // Dragged from after target, target index unchanged
+        newIndex = targetIndex + 1;
+      }
+    }
+    
+    // Insert at new position
+    currentOrder.splice(newIndex, 0, this.draggedChapter!.id);
+
+    console.log('Reordering chapters:', {
+      dragged: this.draggedChapter.id,
+      target: targetChapter.id,
+      position: this.dragOverPosition,
+      oldOrder: [...this.chapters].sort((a, b) => a.index - b.index).map(ch => ch.id),
+      newOrder: currentOrder
+    });
+
+    // Update backend
+    this.documentService.reorderChapters(this.currentDocument.id, currentOrder).subscribe({
+      next: () => {
+        console.log('Chapters reordered successfully');
+        // Force reload of document to get updated chapter numbers
+        if (this.currentDocument) {
+          this.documentService.loadDocument(this.currentDocument.id).subscribe({
+            next: (doc) => {
+              // Update local chapters list
+              this.chapters = (doc.chapters || []).sort((a, b) => a.index - b.index);
+              console.log('Document reloaded after reorder, chapters:', this.chapters.map(ch => ({ id: ch.id, title: ch.title, index: ch.index })));
+            },
+            error: (err) => {
+              console.error('Error reloading document after reorder:', err);
+            }
+          });
+        }
+      },
+      error: (err) => {
+        console.error('Error reordering chapters:', err);
+        console.error('Error details:', JSON.stringify(err, null, 2));
+        alert('Failed to reorder chapters. Please try again.');
+      }
+    });
+
+    this.draggedChapter = null;
+    this.dragOverChapterId = null;
+    this.dragOverPosition = null;
+  }
+
+  onChapterDragEnd(event: DragEvent): void {
+    this.draggedChapter = null;
+    this.dragOverChapterId = null;
+    this.dragOverPosition = null;
+  }
+
+  /**
+   * Start editing section type
+   */
+  startEditSectionType(chapter: Chapter): void {
+    this.editingSectionTypeId = chapter.id;
+    this.editingSectionType = chapter.type || 'chapter';
+  }
+
+  /**
+   * Cancel editing section type
+   */
+  cancelEditSectionType(): void {
+    this.editingSectionTypeId = null;
+    this.editingSectionType = 'chapter';
+  }
+
+  /**
+   * Update section type
+   */
+  updateSectionType(chapter: Chapter): void {
+    if (!this.currentDocument) return;
+
+    const newType = this.editingSectionType;
+    const oldType = chapter.type || 'chapter';
+
+    // Determine new title based on type
+    let newTitle = chapter.title;
+    
+    if (newType === 'prologue') {
+      newTitle = 'Prologue';
+    } else if (newType === 'epilogue') {
+      newTitle = 'Epilogue';
+    } else if (newType === 'interlude') {
+      newTitle = 'Interlude';
+    } else if (newType === 'foreword') {
+      newTitle = 'Foreword';
+    } else if (newType === 'afterword') {
+      newTitle = 'Afterword';
+    } else if (newType === 'custom') {
+      // For custom sections, remove any numbers and keep the title as-is if it's not a standard pattern
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      if (cleanedTitle.match(/^(Prologue|Epilogue|Interlude|Foreword|Afterword|Chapter)/i)) {
+        newTitle = 'Custom Section';
+      } else {
+        newTitle = cleanedTitle || 'Custom Section';
+      }
+    } else if (newType === 'chapter') {
+      // If changing TO chapter from another type, need to assign a number
+      if (oldType !== 'chapter') {
+        // Count existing numbered chapters to determine new number
+        const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+        const chapterNum = numberedChapters.length + 1;
+        newTitle = `Chapter ${chapterNum}`;
+      } else {
+        // Already a chapter, keep the title (but ensure it has a number)
+        // Remove any existing numbers and re-add the correct one
+        const match = chapter.title.match(/Chapter\s+(\d+)\s*:?\s*(.*)$/i);
+        if (match) {
+          const chapterNum = match[1];
+          const titlePart = match[2] ? match[2].trim() : '';
+          newTitle = titlePart ? `Chapter ${chapterNum}: ${titlePart}` : `Chapter ${chapterNum}`;
+        } else {
+          // Title doesn't have proper format, use index
+          const chapterNum = (chapter.index + 1).toString().padStart(2, '0');
+          newTitle = `Chapter ${chapterNum}`;
+        }
+      }
+    }
+
+    // Update chapter
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      newTitle,
+      newType,
+      chapter.emoji || undefined
+    ).subscribe({
+      next: () => {
+        console.log('Section type updated successfully');
+        // Reload document to get updated chapter numbers
+        if (this.currentDocument) {
+          this.documentService.loadDocument(this.currentDocument.id).subscribe();
+        }
+        this.cancelEditSectionType();
+      },
+      error: (err) => {
+        console.error('Error updating section type:', err);
+        alert('Failed to update section type. Please try again.');
+        this.cancelEditSectionType();
+      }
+    });
+  }
+
+  /**
+   * Start editing chapter title
+   */
+  startEditChapterTitle(chapter: Chapter): void {
+    this.editingChapterTitleId = chapter.id;
+    // For custom sections, remove leading numbers if present
+    if (chapter.type === 'custom') {
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      this.editingChapterTitle = cleanedTitle || chapter.title;
+    } else if (chapter.type === 'chapter') {
+      // For chapters, extract just the title part (after the number)
+      // Handle formats like "Chapter 1: Title" or "01 Title"
+      const chapterMatch = chapter.title.match(/Chapter\s+\d+\s*:?\s*(.+)$/i);
+      if (chapterMatch) {
+        this.editingChapterTitle = chapterMatch[1].trim();
+      } else {
+        const numMatch = chapter.title.match(/^\d+\s+(.+)$/);
+        this.editingChapterTitle = numMatch ? numMatch[1].trim() : chapter.title;
+      }
+    } else {
+      // For special sections, remove any numbers
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      this.editingChapterTitle = cleanedTitle || chapter.title;
+    }
+  }
+
+  /**
+   * Cancel editing chapter title
+   */
+  cancelEditChapterTitle(): void {
+    this.editingChapterTitleId = null;
+    this.editingChapterTitle = '';
+  }
+
+  /**
+   * Save chapter title
+   */
+  saveChapterTitle(chapter: Chapter): void {
+    if (!this.currentDocument || !this.editingChapterTitle.trim()) {
+      this.cancelEditChapterTitle();
+      return;
+    }
+
+    let newTitle: string;
+
+    // Only chapters should be numbered - special sections should not
+    if (chapter.type === 'chapter') {
+      // Extract current chapter number from title
+      const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
+      const numMatch = chapter.title.match(/^(\d+)\s+/);
+      
+      let chapterNum: string;
+      if (chapterMatch) {
+        chapterNum = chapterMatch[1];
+      } else if (numMatch) {
+        chapterNum = numMatch[1];
+      } else {
+        // Fallback: use index + 1
+        const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+        const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+        chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
+      }
+      
+      const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
+      newTitle = `${paddedNum} ${this.editingChapterTitle.trim()}`;
+    } else {
+      // For special sections and custom sections, use title as-is (no numbering)
+      newTitle = this.editingChapterTitle.trim();
+    }
+
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      newTitle,
+      chapter.type,
+      chapter.emoji || undefined
+    ).subscribe({
+      next: () => {
+        this.cancelEditChapterTitle();
+      },
+      error: (err) => {
+        console.error('Error updating chapter title:', err);
+        alert('Failed to update chapter title. Please try again.');
+        this.cancelEditChapterTitle();
+      }
+    });
+  }
+
+  /**
+   * Start editing chapter emoji
+   */
+  startEditChapterEmoji(chapter: Chapter): void {
+    this.editingChapterEmojiId = chapter.id;
+    this.editingChapterEmoji = chapter.emoji || '';
+  }
+
+  /**
+   * Cancel editing chapter emoji
+   */
+  cancelEditChapterEmoji(): void {
+    this.editingChapterEmojiId = null;
+    this.editingChapterEmoji = '';
+  }
+
+  /**
+   * Save chapter emoji
+   */
+  saveChapterEmoji(chapter: Chapter): void {
+    if (!this.currentDocument) {
+      this.cancelEditChapterEmoji();
+      return;
+    }
+
+    // Use empty string to delete emoji, or the selected emoji
+    const newEmoji = this.editingChapterEmoji.trim() || undefined;
+
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      chapter.title,
+      chapter.type,
+      newEmoji
+    ).subscribe({
+      next: () => {
+        this.cancelEditChapterEmoji();
+      },
+      error: (err) => {
+        console.error('Error updating chapter emoji:', err);
+        alert('Failed to update chapter emoji. Please try again.');
+        this.cancelEditChapterEmoji();
+      }
+    });
+  }
+
+  /**
+   * Select emoji for editing (auto-saves)
+   */
+  selectEmojiForEditing(emoji: string, chapter: Chapter): void {
+    // Toggle: if same emoji is clicked, remove it; otherwise set it
+    const newEmoji = this.editingChapterEmoji === emoji ? '' : emoji;
+    this.editingChapterEmoji = newEmoji;
+    // Auto-save immediately
+    if (this.currentDocument) {
+      this.documentService.updateChapter(
+        this.currentDocument.id,
+        chapter.id,
+        chapter.title,
+        chapter.type,
+        newEmoji || undefined
+      ).subscribe({
+        next: () => {
+          this.cancelEditChapterEmoji();
+        },
+        error: (err) => {
+          console.error('Error updating chapter emoji:', err);
+        }
+      });
+    }
   }
 }

@@ -33,6 +33,7 @@ def create_document(
     default_chapter = models.Chapter(
         document_id=db_document.id,
         title="01 Title",
+        type="chapter",
         index=0
     )
     db.add(default_chapter)
@@ -133,6 +134,7 @@ async def upload_pdf_document(
     default_chapter = models.Chapter(
         document_id=db_document.id,
         title="01 Title",
+        type="chapter",
         index=0
     )
     db.add(default_chapter)
@@ -424,6 +426,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             id=ch.id,
             document_id=ch.document_id,
             title=ch.title,
+            type=getattr(ch, 'type', 'chapter'),
+            emoji=getattr(ch, 'emoji', None),
             index=ch.index,
             created_at=ch.created_at,
             updated_at=ch.updated_at

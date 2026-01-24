@@ -32,6 +32,8 @@ export interface Chapter {
     id: string;
     documentId: string;
     title: string;
+    type?: string;
+    emoji?: string | null;
     index: number;
     createdAt: string;
     updatedAt: string;
