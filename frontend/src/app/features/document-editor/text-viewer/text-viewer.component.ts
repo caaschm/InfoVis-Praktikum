@@ -1500,11 +1500,13 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
                 const titleWrapper = chapterSection.querySelector('.chapter-title-wrapper');
                 if (titleWrapper) {
                   const titleElement = titleWrapper as HTMLElement;
-                  // Get the actual rendered height including margins
+                  // Get the actual rendered height including margins and padding
                   const titleRect = titleElement.getBoundingClientRect();
                   const titleStyle = window.getComputedStyle(titleElement);
                   const titleMarginBottom = parseFloat(titleStyle.marginBottom) || 0;
-                  firstTextLineOffset = titleRect.height + titleMarginBottom;
+                  const titlePaddingTop = parseFloat(titleStyle.paddingTop) || 0;
+                  // Include padding-top in the offset calculation to account for the added space
+                  firstTextLineOffset = titleRect.height + titleMarginBottom + titlePaddingTop;
                 }
               }
               isFirstContainer = false;
