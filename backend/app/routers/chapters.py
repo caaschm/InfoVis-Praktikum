@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+import re
 
 from app.database import get_db
 from app import models, schemas
@@ -18,7 +19,8 @@ def create_chapter(
 ):
     """
     Create a new chapter in a document.
-    Auto-generates chapter number (01, 02, etc.) if title not provided.
+    Supports different types: chapter, prologue, epilogue, interlude, foreword, afterword, custom.
+    Auto-generates title if not provided based on type.
     If no chapters exist, inserts at beginning. Otherwise appends after last chapter.
     If sentences exist without a chapter, assigns them to the first created chapter.
     """
@@ -32,14 +34,37 @@ def create_chapter(
         models.Chapter.document_id == document_id
     ).order_by(models.Chapter.index).all()
     
-    # Determine chapter number and title
-    if chapter.title:
-        # Use provided title, but ensure it has numbering
+    # Determine chapter type
+    chapter_type = chapter.type or "chapter"
+    
+    # Determine title based on type
+    # IMPORTANT: For custom sections, always use the provided title as-is (no numbering)
+    if chapter_type == "custom":
+        # Custom sections should never be numbered - use title exactly as provided
+        if chapter.title:
+            title = chapter.title  # Use provided title exactly (e.g., "Girl" stays "Girl")
+        else:
+            title = "Custom Section"  # Default if no title provided
+    elif chapter.title:
+        # For other types, use provided title
         title = chapter.title
     else:
-        # Auto-generate title with number
-        chapter_num = len(existing_chapters) + 1
-        title = f"{chapter_num:02d} Title"
+        # Auto-generate title based on type
+        if chapter_type == "prologue":
+            title = "Prologue"
+        elif chapter_type == "epilogue":
+            title = "Epilogue"
+        elif chapter_type == "interlude":
+            title = "Interlude"
+        elif chapter_type == "foreword":
+            title = "Foreword"
+        elif chapter_type == "afterword":
+            title = "Afterword"
+        else:  # chapter
+            # Count only numbered chapters for numbering
+            numbered_chapters = [ch for ch in existing_chapters if ch.type == "chapter"]
+            chapter_num = len(numbered_chapters) + 1
+            title = f"Chapter {chapter_num}"
     
     # Determine index (insert at beginning if no chapters, otherwise append)
     if len(existing_chapters) == 0:
@@ -60,6 +85,8 @@ def create_chapter(
     db_chapter = models.Chapter(
         document_id=document_id,
         title=title,
+        type=chapter_type,
+        emoji=chapter.emoji,
         index=new_index
     )
     db.add(db_chapter)
@@ -149,6 +176,8 @@ def create_chapter(
         id=db_chapter.id,
         document_id=db_chapter.document_id,
         title=db_chapter.title,
+        type=getattr(db_chapter, 'type', 'chapter'),
+        emoji=getattr(db_chapter, 'emoji', None),
         index=db_chapter.index,
         created_at=db_chapter.created_at,
         updated_at=db_chapter.updated_at
@@ -172,6 +201,8 @@ def list_chapters(document_id: str, db: Session = Depends(get_db)):
             id=c.id,
             document_id=c.document_id,
             title=c.title,
+            type=getattr(c, 'type', 'chapter'),
+            emoji=getattr(c, 'emoji', None),
             index=c.index,
             created_at=c.created_at,
             updated_at=c.updated_at
@@ -186,7 +217,7 @@ def update_chapter(
     chapter_update: schemas.ChapterUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update a chapter title."""
+    """Update a chapter title, type, or emoji."""
     # Verify document exists
     document = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not document:
@@ -201,9 +232,97 @@ def update_chapter(
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
     
-    # Update title if provided
+    # Track type change for renumbering logic
+    old_type = getattr(chapter, 'type', None) or 'chapter'
+    new_type = chapter_update.type if chapter_update.type is not None else old_type
+    type_changing = old_type != new_type
+    
+    # List of special section types that should not be numbered
+    special_section_types = ['prologue', 'epilogue', 'interlude', 'foreword', 'afterword', 'custom']
+    
+    # Update fields if provided
+    # IMPORTANT: Only chapters should have numbers - special sections should not
     if chapter_update.title is not None:
-        chapter.title = chapter_update.title
+        current_type = chapter_update.type if chapter_update.type is not None else chapter.type
+        if current_type == "custom":
+            # Custom sections: use title exactly as provided (no numbering)
+            chapter.title = chapter_update.title
+        elif current_type != "chapter":
+            # Special sections (prologue, epilogue, etc.): remove any numbers from title
+            cleaned_title = re.sub(r'^\d+\s+', '', chapter_update.title).strip()
+            chapter.title = cleaned_title or chapter_update.title
+        else:
+            # Chapters: use title as provided (may contain numbers)
+            chapter.title = chapter_update.title
+    if chapter_update.type is not None:
+        chapter.type = chapter_update.type
+    if chapter_update.emoji is not None:
+        chapter.emoji = chapter_update.emoji
+    
+    # If type changed from "chapter" to any special section, renumber remaining chapters
+    # This applies to: prologue, epilogue, interlude, foreword, afterword, custom
+    if type_changing:
+        db.flush()  # Ensure type change is visible
+        
+        # If changing FROM chapter TO any special section type, renumber remaining chapters
+        if old_type == "chapter" and new_type in special_section_types:
+            # Chapter was converted to a special section - renumber remaining chapters
+            numbered_chapters = db.query(models.Chapter).filter(
+                models.Chapter.document_id == document_id,
+                models.Chapter.type == "chapter"
+            ).order_by(models.Chapter.index).all()
+            
+            for idx, ch in enumerate(numbered_chapters, start=1):
+                current_title = ch.title
+                custom_part = ""
+                # Try to extract custom title part (text after "Chapter X:" or "Chapter X " or just a number like "02 Title")
+                # Pattern 1: "Chapter 2: Title" or "Chapter 2 Title"
+                title_match = re.match(r'^Chapter\s+\d+\s*:?\s*(.+)$', current_title, re.IGNORECASE)
+                if title_match:
+                    custom_part = title_match.group(1).strip()
+                else:
+                    # Pattern 2: "02 Title" or "2 Title" (number at start)
+                    title_match2 = re.match(r'^\d+\s+(.+)$', current_title)
+                    if title_match2:
+                        custom_part = title_match2.group(1).strip()
+                
+                if custom_part:
+                    ch.title = f"Chapter {idx}: {custom_part}"
+                else:
+                    ch.title = f"Chapter {idx}"
+            db.flush()
+            for ch in numbered_chapters:
+                db.refresh(ch)
+        
+        # If changing FROM any special section TO chapter, renumber all chapters
+        elif old_type in special_section_types and new_type == "chapter":
+            # Special section was converted to a chapter - renumber all chapters
+            numbered_chapters = db.query(models.Chapter).filter(
+                models.Chapter.document_id == document_id,
+                models.Chapter.type == "chapter"
+            ).order_by(models.Chapter.index).all()
+            
+            for idx, ch in enumerate(numbered_chapters, start=1):
+                current_title = ch.title
+                custom_part = ""
+                # Try to extract custom title part (text after "Chapter X:" or "Chapter X " or just a number like "02 Title")
+                # Pattern 1: "Chapter 2: Title" or "Chapter 2 Title"
+                title_match = re.match(r'^Chapter\s+\d+\s*:?\s*(.+)$', current_title, re.IGNORECASE)
+                if title_match:
+                    custom_part = title_match.group(1).strip()
+                else:
+                    # Pattern 2: "02 Title" or "2 Title" (number at start)
+                    title_match2 = re.match(r'^\d+\s+(.+)$', current_title)
+                    if title_match2:
+                        custom_part = title_match2.group(1).strip()
+                
+                if custom_part:
+                    ch.title = f"Chapter {idx}: {custom_part}"
+                else:
+                    ch.title = f"Chapter {idx}"
+            db.flush()
+            for ch in numbered_chapters:
+                db.refresh(ch)
     
     db.commit()
     db.refresh(chapter)
@@ -212,6 +331,8 @@ def update_chapter(
         id=chapter.id,
         document_id=chapter.document_id,
         title=chapter.title,
+        type=getattr(chapter, 'type', 'chapter') or 'chapter',
+        emoji=getattr(chapter, 'emoji', None),
         index=chapter.index,
         created_at=chapter.created_at,
         updated_at=chapter.updated_at
@@ -224,7 +345,10 @@ def delete_chapter(
     chapter_id: str,
     db: Session = Depends(get_db)
 ):
-    """Delete a chapter. Sentences in the chapter become unassigned."""
+    """
+    Delete a chapter. Sentences in the chapter become unassigned.
+    Automatically renumbers subsequent chapters to maintain sequential order.
+    """
     # Verify document exists
     document = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not document:
@@ -239,13 +363,150 @@ def delete_chapter(
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
     
-    # Unassign sentences from this chapter
-    db.query(models.Sentence).filter(
+    # Get the index of the chapter being deleted
+    deleted_index = chapter.index
+    
+    # Delete all sentences belonging to this chapter
+    # This ensures they don't appear in "All Chapters" view after deletion
+    sentences_to_delete = db.query(models.Sentence).filter(
         models.Sentence.chapter_id == chapter_id
-    ).update({models.Sentence.chapter_id: None})
+    ).all()
+    
+    for sentence in sentences_to_delete:
+        db.delete(sentence)
     
     # Delete chapter
     db.delete(chapter)
+    db.flush()  # Flush deletion so subsequent queries don't see the deleted chapter
+    
+    # Renumber subsequent chapters (decrease index by 1)
+    subsequent_chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document_id,
+        models.Chapter.index > deleted_index
+    ).all()
+    
+    for ch in subsequent_chapters:
+        ch.index -= 1
+    
+    db.flush()  # Flush index changes before renumbering titles
+    
+    # If deleted chapter was a numbered chapter, renumber ALL remaining numbered chapters
+    # This ensures Chapter 2 becomes Chapter 1, Chapter 3 becomes Chapter 2, etc.
+    # IMPORTANT: This only applies to numbered chapters (type == "chapter"), not special sections
+    deleted_type = getattr(chapter, 'type', None) or 'chapter'
+    if deleted_type == "chapter":
+        # Get all remaining numbered chapters, ordered by their index (after deletion and index adjustment)
+        numbered_chapters = db.query(models.Chapter).filter(
+            models.Chapter.document_id == document_id,
+            models.Chapter.type == "chapter"
+        ).order_by(models.Chapter.index).all()
+        
+        # Update titles to reflect new sequential numbering starting from 1
+        # Chapter 2 becomes Chapter 1, Chapter 3 becomes Chapter 2, etc.
+        for idx, ch in enumerate(numbered_chapters, start=1):
+            # Preserve any custom title text after the chapter number if it exists
+            current_title = ch.title
+            custom_part = ""
+            
+            # Try to extract custom title part (text after "Chapter X:" or "Chapter X ")
+            # Pattern matches: "Chapter 2", "Chapter 2: Title", "Chapter 2 Title", etc.
+            title_match = re.match(r'^Chapter\s+(\d+)\s*:?\s*(.*)$', current_title, re.IGNORECASE)
+            if title_match:
+                # Check if there's a custom part after the number
+                if len(title_match.groups()) > 1 and title_match.group(2).strip():
+                    custom_part = title_match.group(2).strip()
+            
+            # Update title with new number, preserving custom part if it exists
+            if custom_part:
+                ch.title = f"Chapter {idx}: {custom_part}"
+            else:
+                ch.title = f"Chapter {idx}"
+        
+        # Flush the title changes
+        db.flush()
+    
+    # Rebuild document content to reflect changes (deleted chapter's sentences are removed)
+    all_remaining_chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document_id
+    ).order_by(models.Chapter.index).all()
+    
+    document_content_parts = []
+    for ch in all_remaining_chapters:
+        chapter_sentences = db.query(models.Sentence).filter(
+            models.Sentence.chapter_id == ch.id
+        ).order_by(models.Sentence.index).all()
+        if chapter_sentences:
+            chapter_text = ' '.join(s.text for s in chapter_sentences)
+            document_content_parts.append(chapter_text)
+    
+    # Add unassigned sentences (if any exist - deleted chapter's sentences are removed, not unassigned)
+    unassigned_sentences = db.query(models.Sentence).filter(
+        models.Sentence.document_id == document_id,
+        models.Sentence.chapter_id.is_(None)
+    ).order_by(models.Sentence.index).all()
+    if unassigned_sentences:
+        unassigned_text = ' '.join(s.text for s in unassigned_sentences)
+        document_content_parts.append(unassigned_text)
+    
+    # Update document content (deleted chapter's sentences are removed, so they won't appear in "All Chapters")
+    document.content = ' '.join(document_content_parts)
+    
     db.commit()
     
     return None
+
+
+@router.post("/reorder", status_code=status.HTTP_200_OK)
+def reorder_chapters(
+    document_id: str,
+    reorder_request: schemas.ChapterReorderRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Reorder chapters by providing a list of chapter IDs in the desired order.
+    Updates indices automatically.
+    """
+    chapter_order = reorder_request.chapter_order
+    
+    # Verify document exists
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get all chapters for this document
+    chapters = db.query(models.Chapter).filter(
+        models.Chapter.document_id == document_id
+    ).all()
+    
+    # Create a mapping of chapter ID to chapter object
+    chapter_map = {ch.id: ch for ch in chapters}
+    
+    # Verify all provided chapter IDs exist and belong to this document
+    for chapter_id in chapter_order:
+        if chapter_id not in chapter_map:
+            raise HTTPException(status_code=400, detail=f"Chapter {chapter_id} not found")
+    
+    # Verify we have all chapters (no extras, no missing)
+    if len(chapter_order) != len(chapters):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chapter order must include all chapters. Expected {len(chapters)}, got {len(chapter_order)}"
+        )
+    
+    # Update indices based on new order
+    for new_index, chapter_id in enumerate(chapter_order):
+        chapter_map[chapter_id].index = new_index
+    
+    # If any numbered chapters were reordered, update their titles
+    numbered_chapters = [ch for ch in chapters if ch.type == "chapter"]
+    if numbered_chapters:
+        # Sort by new index
+        numbered_chapters.sort(key=lambda ch: chapter_order.index(ch.id))
+        # Update titles
+        for idx, ch in enumerate(numbered_chapters, start=1):
+            if ch.title.startswith("Chapter "):
+                ch.title = f"Chapter {idx}"
+    
+    db.commit()
+    
+    return {"message": "Chapters reordered successfully"}

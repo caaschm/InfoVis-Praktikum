@@ -103,6 +103,9 @@ export class DocumentService {
                     ch.documentId = ch.document_id;
                     delete ch.document_id;
                 }
+                // Ensure type and emoji are set (default to 'chapter' if not present)
+                if (!ch.type) ch.type = 'chapter';
+                if (!ch.emoji) ch.emoji = null;
                 if ('created_at' in ch) {
                     ch.createdAt = ch.created_at;
                     delete ch.created_at;
@@ -365,8 +368,12 @@ export class DocumentService {
     /**
      * Create a new chapter
      */
-    createChapter(documentId: string, title?: string): Observable<Chapter> {
-        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { title })
+    createChapter(documentId: string, title?: string, type?: string, emoji?: string): Observable<Chapter> {
+        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { 
+            title, 
+            type: type || 'chapter',
+            emoji 
+        })
             .pipe(
                 switchMap((chapterResponse: any) => {
                     // Transform chapter response (snake_case to camelCase)
@@ -374,6 +381,8 @@ export class DocumentService {
                         id: chapterResponse.id,
                         documentId: chapterResponse.document_id || chapterResponse.documentId,
                         title: chapterResponse.title,
+                        type: chapterResponse.type || 'chapter',
+                        emoji: chapterResponse.emoji || null,
                         index: chapterResponse.index,
                         createdAt: chapterResponse.created_at || chapterResponse.createdAt,
                         updatedAt: chapterResponse.updated_at || chapterResponse.updatedAt
@@ -388,10 +397,47 @@ export class DocumentService {
     }
 
     /**
-     * Update a chapter title
+     * Update a chapter
      */
-    updateChapter(documentId: string, chapterId: string, title: string): Observable<Chapter> {
-        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, { title })
+    updateChapter(documentId: string, chapterId: string, title?: string, type?: string, emoji?: string): Observable<Chapter> {
+        const updateData: any = {};
+        if (title !== undefined) updateData.title = title;
+        if (type !== undefined) updateData.type = type;
+        if (emoji !== undefined) updateData.emoji = emoji;
+        
+        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, updateData)
+            .pipe(
+                switchMap(() => {
+                    // Reload document to get updated chapters (including renumbered ones)
+                    return this.loadDocument(documentId).pipe(
+                        map(() => {
+                            // Return the updated chapter from the reloaded document
+                            const doc = this.currentDocumentSubject.value;
+                            return doc?.chapters.find(ch => ch.id === chapterId) || {} as Chapter;
+                        })
+                    );
+                })
+            );
+    }
+
+    /**
+     * Delete a chapter
+     */
+    deleteChapter(documentId: string, chapterId: string): Observable<void> {
+        return this.apiService.delete<void>(`/api/documents/${documentId}/chapters/${chapterId}`)
+            .pipe(
+                tap(() => {
+                    // Reload document to get updated chapters
+                    this.loadDocument(documentId).subscribe();
+                })
+            );
+    }
+
+    /**
+     * Reorder chapters
+     */
+    reorderChapters(documentId: string, chapterOrder: string[]): Observable<void> {
+        return this.apiService.post<void>(`/api/documents/${documentId}/chapters/reorder`, { chapter_order: chapterOrder })
             .pipe(
                 tap(() => {
                     // Reload document to get updated chapters

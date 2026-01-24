@@ -342,6 +342,8 @@ def _build_document_detail(document: models.Document, db: Session) -> schemas.Do
             id=ch.id,
             document_id=ch.document_id,
             title=ch.title,
+            type=getattr(ch, 'type', 'chapter'),
+            emoji=getattr(ch, 'emoji', None),
             index=ch.index,
             created_at=ch.created_at,
             updated_at=ch.updated_at

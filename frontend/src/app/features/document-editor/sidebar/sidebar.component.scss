@@ -1565,94 +1565,9 @@
         }
 
     }
-}
-
-/* Ganz unten in deiner sidebar.component.scss einfügen */
-
-:host-context(body.protanopia-mode) {
-    .sidebar {
-
-        // 1. Die lila AI-Buttons (jetzt Blau)
-        .tab-content .ai-actions .action-card .ai-btn {
-            background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
-            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3) !important;
-
-            &:hover {
-                background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%) !important;
-            }
-        }
-
-        // 2. Charakter-Karten & Sentiment
-        .tab-content .character-list .character-card {
-            .character-header .character-avatar {
-                background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
-            }
-
-            .sentiment-timeline {
-                background: linear-gradient(90deg, #D81B60 0%, #FB8C00 50%, #26C6DA 100%) !important;
-
-                .timeline-point {
-                    &.positive {
-                        background: #26C6DA !important;
-                    }
-
-                    &.neutral {
-                        background: #FB8C00 !important;
-                    }
-
-                    &.negative {
-                        background: #D81B60 !important;
-                    }
-                }
-            }
-
-            .sentiment-summary .sentiment-bar .bar-segment {
-                &.positive {
-                    background: #26C6DA !important;
-                }
-
-                &.neutral {
-                    background: #FB8C00 !important;
-                }
-
-                &.negative {
-                    background: #D81B60 !important;
-                }
-            }
-        }
-
-        // 3. Analyse-Metriken (Drama, Humor, Mystery)
-        .tab-content .analysis-section .metric-card {
-            &.drama .metric-info .metric-bar .metric-fill {
-                background: #D81B60 !important;
-            }
-
-            &.humor .metric-info .metric-bar .metric-fill {
-                background: #FB8C00 !important;
-            }
-
-            &.mystery .metric-info .metric-bar .metric-fill {
-                background: #00ACC1 !important;
-            }
-
-            &.conflict .metric-info .metric-bar .metric-fill {
-                background: #1E88E5 !important;
-            }
-        }
-
-        // 4. Sankey Graph (Verbindungen)
-        .tab-content .graph-section .sankey-graph {
-            .flow-connections .flow-path {
-                stroke: #1E88E5 !important; // Blau statt Grau für bessere Sichtbarkeit
-
-                &:hover {
-                    stroke: #0D47A1 !important;
-                }
-            }
-        }
-    }
 
     // ========== TABLE OF CONTENTS ==========
+    // Table of Contents styling - works regardless of color correction mode
     .toc-summary {
         margin-bottom: 1.5rem;
         padding: 1rem;
@@ -1750,6 +1665,18 @@
             margin-left: 1rem;
         }
 
+        .chapter-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .chapter-emoji {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
         .chapter-number {
             font-size: 0.75rem;
             font-weight: 600;
@@ -1757,7 +1684,23 @@
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
             letter-spacing: 0.5px;
             text-transform: uppercase;
-            margin-bottom: 0.125rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+
+            &.editable {
+                &:hover {
+                    background: #f3f4f6;
+                    border-color: #e5e7eb;
+                    color: #111827;
+                }
+
+                &:active {
+                    background: #e5e7eb;
+                }
+            }
         }
 
         .chapter-title-wrapper {
@@ -1775,6 +1718,44 @@
             word-wrap: break-word;
             flex: 1;
             min-width: 0;
+            padding: 0.375rem 0.5rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            cursor: text;
+            border: 2px solid transparent;
+
+            &.editable {
+                &:hover {
+                    background: #f3f4f6;
+                    border-color: #e5e7eb;
+                    color: #111827;
+                }
+
+                &:active {
+                    background: #e5e7eb;
+                }
+            }
+        }
+
+        .chapter-title-input {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #1f2937;
+            padding: 0.375rem 0.75rem;
+            border: 2px solid #3b82f6;
+            border-radius: 6px;
+            background: white;
+            width: 100%;
+            min-width: 150px;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            transition: all 0.2s ease;
+            line-height: 1.5;
+
+            &:focus {
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+                border-color: #2563eb;
+            }
         }
 
         .chapter-status {
@@ -1833,6 +1814,77 @@
             white-space: nowrap;
         }
 
+        .chapter-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .edit-type-btn {
+            background: none;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            &:hover {
+                opacity: 1;
+                background: #e0f2fe;
+                transform: scale(1.1);
+            }
+
+            &:active {
+                transform: scale(0.95);
+            }
+        }
+
+        .section-type-select {
+            font-size: 0.9rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            background: white;
+            color: #1f2937;
+            cursor: pointer;
+            min-width: 120px;
+            font-weight: 500;
+
+            &:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+            }
+        }
+
+        .delete-chapter-btn {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            &:hover {
+                opacity: 1;
+                background: #fee2e2;
+                transform: scale(1.1);
+            }
+
+            &:active {
+                transform: scale(0.95);
+            }
+        }
+
         .chapter-arrow {
             font-size: 1rem;
             color: #3b82f6;
@@ -1840,6 +1892,20 @@
             transition: all 0.2s ease;
             flex-shrink: 0;
             margin-left: 0.25rem;
+        }
+
+        &.clickable:hover {
+            .delete-chapter-btn {
+                opacity: 0.8;
+            }
+        }
+    }
+
+    .toc-entry[draggable="true"] {
+        cursor: move;
+
+        &.dragging {
+            opacity: 0.5;
         }
     }
 
@@ -1870,6 +1936,287 @@
                 font-size: 0.9rem;
                 color: #6b7280;
                 max-width: 250px;
+            }
+        }
+    }
+
+    // ========== SECTION CREATION FORM ==========
+    .section-creation-form {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+
+            h3 {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: #111827;
+            }
+
+            .form-close {
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                color: #6b7280;
+                cursor: pointer;
+                padding: 0;
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: #e5e7eb;
+                    color: #374151;
+                }
+            }
+        }
+
+        .form-body {
+            padding: 1.25rem;
+
+            .form-group {
+                margin-bottom: 1.25rem;
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+
+                label {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    color: #374151;
+                }
+
+                .form-input {
+                    width: 100%;
+                    padding: 0.625rem 0.75rem;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    font-size: 0.875rem;
+                    color: #111827;
+                    transition: all 0.2s ease;
+
+                    &:focus {
+                        outline: none;
+                        border-color: #3b82f6;
+                        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                    }
+
+                    &.emoji-input {
+                        margin-top: 0.5rem;
+                    }
+                }
+
+                .type-options {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 0.5rem;
+
+                    .type-btn {
+                        padding: 0.625rem 0.75rem;
+                        border: 1px solid #d1d5db;
+                        background: white;
+                        border-radius: 6px;
+                        font-size: 0.875rem;
+                        font-weight: 500;
+                        color: #374151;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+
+                        &:hover {
+                            border-color: #3b82f6;
+                            background: #eff6ff;
+                        }
+
+                        &.active {
+                            border-color: #3b82f6;
+                            background: #3b82f6;
+                            color: white;
+                        }
+                    }
+                }
+
+                .emoji-picker-grid {
+                    display: grid;
+                    grid-template-columns: repeat(8, 1fr);
+                    gap: 0.375rem;
+                    margin-bottom: 0.75rem;
+
+                    .emoji-btn {
+                        padding: 0.5rem;
+                        border: 1px solid #e5e7eb;
+                        background: white;
+                        border-radius: 6px;
+                        font-size: 1.25rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+
+                        &:hover {
+                            border-color: #3b82f6;
+                            background: #eff6ff;
+                            transform: scale(1.1);
+                        }
+
+                        &.selected {
+                            border-color: #3b82f6;
+                            background: #dbeafe;
+                            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+                        }
+                    }
+                }
+            }
+        }
+
+        .form-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-top: 1px solid #e5e7eb;
+            background: #f9fafb;
+
+            .btn-secondary {
+                padding: 0.625rem 1.25rem;
+                border: 1px solid #d1d5db;
+                background: white;
+                border-radius: 6px;
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: #374151;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: #f3f4f6;
+                    border-color: #9ca3af;
+                }
+            }
+
+            .btn-primary {
+                padding: 0.625rem 1.25rem;
+                border: none;
+                background: #3b82f6;
+                border-radius: 6px;
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: white;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: #2563eb;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+                }
+
+                &:active {
+                    transform: translateY(0);
+                }
+            }
+        }
+    }
+}
+
+/* Ganz unten in deiner sidebar.component.scss einfügen */
+
+:host-context(body.protanopia-mode) {
+    .sidebar {
+
+        // 1. Die lila AI-Buttons (jetzt Blau)
+        .tab-content .ai-actions .action-card .ai-btn {
+            background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
+            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3) !important;
+
+            &:hover {
+                background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%) !important;
+            }
+        }
+
+        // 2. Charakter-Karten & Sentiment
+        .tab-content .character-list .character-card {
+            .character-header .character-avatar {
+                background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%) !important;
+            }
+
+            .sentiment-timeline {
+                background: linear-gradient(90deg, #D81B60 0%, #FB8C00 50%, #26C6DA 100%) !important;
+
+                .timeline-point {
+                    &.positive {
+                        background: #26C6DA !important;
+                    }
+
+                    &.neutral {
+                        background: #FB8C00 !important;
+                    }
+
+                    &.negative {
+                        background: #D81B60 !important;
+                    }
+                }
+            }
+
+            .sentiment-summary .sentiment-bar .bar-segment {
+                &.positive {
+                    background: #26C6DA !important;
+                }
+
+                &.neutral {
+                    background: #FB8C00 !important;
+                }
+
+                &.negative {
+                    background: #D81B60 !important;
+                }
+            }
+        }
+
+        // 3. Analyse-Metriken (Drama, Humor, Mystery)
+        .tab-content .analysis-section .metric-card {
+            &.drama .metric-info .metric-bar .metric-fill {
+                background: #D81B60 !important;
+            }
+
+            &.humor .metric-info .metric-bar .metric-fill {
+                background: #FB8C00 !important;
+            }
+
+            &.mystery .metric-info .metric-bar .metric-fill {
+                background: #00ACC1 !important;
+            }
+
+            &.conflict .metric-info .metric-bar .metric-fill {
+                background: #1E88E5 !important;
+            }
+        }
+
+        // 4. Sankey Graph (Verbindungen)
+        .tab-content .graph-section .sankey-graph {
+            .flow-connections .flow-path {
+                stroke: #1E88E5 !important; // Blau statt Grau für bessere Sichtbarkeit
+
+                &:hover {
+                    stroke: #0D47A1 !important;
+                }
             }
         }
     }

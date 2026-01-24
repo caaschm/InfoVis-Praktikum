@@ -6,9 +6,12 @@
             <div class="chapter-filter" *ngIf="chapters.length > 0">
                 <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)" class="chapter-select">
                     <option [ngValue]="null">All Chapters</option>
-                    <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ chapter.title }}</option>
+                    <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ getChapterDisplayTitle(chapter) }}</option>
                 </select>
             </div>
+            <button class="add-section-btn" (click)="addSection()" title="Add Section">
+                + Add Section
+            </button>
             <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
                 + Add Chapter
             </button>
@@ -45,7 +48,8 @@
                         <div class="chapter-title-wrapper">
                             <div *ngIf="editingChapterId !== chapter.id" class="chapter-title-display"
                                 (click)="startEditingChapter(chapter)">
-                                {{ chapter.title }}
+                                <span class="chapter-emoji" *ngIf="chapter.emoji">{{ chapter.emoji }} </span>
+                                {{ getChapterTitleDisplay(chapter) }}
                             </div>
                             <input *ngIf="editingChapterId === chapter.id" 
                                 type="text" 
@@ -88,7 +92,8 @@
                                 class="chapter-placeholder"
                                 [attr.data-chapter-placeholder]="chapter.id"
                                 contenteditable="true"
-                                (click)="onPlaceholderClick(chapter.id)"
+                                (focus)="onPlaceholderClick(chapter.id, $event)"
+                                (click)="onPlaceholderClick(chapter.id, $event)"
                                 (input)="onPlaceholderInput($event, chapter.id)"
                                 (blur)="onPlaceholderBlur($event, chapter.id)">
                                 Start typing here...
@@ -159,6 +164,8 @@
                 <div *ngIf="sentences.length === 0" 
                     class="chapter-placeholder"
                     contenteditable="true"
+                    (focus)="onPlaceholderClick(null, $event)"
+                    (click)="onPlaceholderClick(null, $event)"
                     (input)="onPlaceholderInput($event, null)"
                     (blur)="onPlaceholderBlur($event, null)">
                     Start typing here...
@@ -187,6 +194,66 @@
     </div>
 
     <div class="hint" *ngIf="sentences.length === 0 && chapters.length === 0">
-        <p>No sentences yet. Click "Add Chapter" to get started or paste your story.</p>
+        <p>No sentences yet. Click "Add Section" or "Add Chapter" to get started or paste your story.</p>
+    </div>
+</div>
+
+<!-- Chapter Creation Modal -->
+<div class="modal-overlay" *ngIf="showChapterModal" (click)="closeChapterModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Create New Section</h3>
+            <button class="modal-close" (click)="closeChapterModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <!-- Section Type Selection -->
+            <div class="form-group">
+                <label>Section Type</label>
+                <div class="type-options">
+                    <button 
+                        *ngFor="let type of ['chapter', 'prologue', 'epilogue', 'interlude', 'foreword', 'afterword', 'custom']"
+                        class="type-btn"
+                        [class.active]="newChapterType === type"
+                        (click)="newChapterType = type">
+                        {{ type === 'chapter' ? 'Chapter' : type.charAt(0).toUpperCase() + type.slice(1) }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Title (optional) -->
+            <div class="form-group">
+                <label>Custom Title (optional)</label>
+                <input 
+                    type="text" 
+                    [(ngModel)]="newChapterTitle"
+                    placeholder="Leave empty for auto-generated title"
+                    class="form-input">
+            </div>
+
+            <!-- Emoji Selection -->
+            <div class="form-group">
+                <label>Emoji (optional)</label>
+                <div class="emoji-picker-grid">
+                    <button 
+                        *ngFor="let emoji of commonEmojis"
+                        class="emoji-btn"
+                        [class.selected]="newChapterEmoji === emoji"
+                        (click)="newChapterEmoji = newChapterEmoji === emoji ? '' : emoji"
+                        [title]="emoji">
+                        {{ emoji }}
+                    </button>
+                </div>
+                <input 
+                    type="text" 
+                    [(ngModel)]="newChapterEmoji"
+                    placeholder="Or type emoji here"
+                    class="form-input emoji-input"
+                    maxlength="2">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" (click)="closeChapterModal()">Cancel</button>
+            <button class="btn-primary" (click)="createChapterFromModal()">Create</button>
+        </div>
     </div>
 </div>

@@ -74,8 +74,40 @@ export class SidebarComponent implements OnInit, OnDestroy {
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
+  
+  // Section creation form state
+  showSectionForm: boolean = false;
+  newSectionType: string = 'chapter';
+  newSectionTitle: string = '';
+  newSectionEmoji: string = '';
+  
+  // Section type editing state
+  editingSectionTypeId: string | null = null;
+  editingSectionType: string = 'chapter';
+  // Chapter title editing state
+  editingChapterTitleId: string | null = null;
+  editingChapterTitle: string = '';
 
   private destroy$ = new Subject<void>();
+
+  // Event handler for showing section form (defined as arrow function to preserve 'this' context)
+  private showSectionFormHandler = (): void => {
+    // Always show sidebar and switch to ToC tab when Add Section is clicked
+    // Emit switchTab event which will make the sidebar visible in document-editor
+    this.switchTab.emit('toc');
+    
+    // Toggle the form visibility
+    if (this.showSectionForm) {
+      // If form is open, close it
+      this.closeSectionForm();
+    } else {
+      // If form is closed, open it
+      this.showSectionForm = true;
+      this.newSectionType = 'chapter';
+      this.newSectionTitle = '';
+      this.newSectionEmoji = '';
+    }
+  }
 
   // Enhanced emoji feature panels
   showWordMappingPanel = false;
@@ -122,6 +154,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.documentService.selectedSentence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(sentence => this.selectedSentence = sentence);
+
+    // Listen for show section form event
+    window.addEventListener('showSectionForm', this.showSectionFormHandler);
 
     // Load emoji dictionary when document changes
     this.documentService.currentDocument$
@@ -187,6 +222,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('showSectionForm', this.showSectionFormHandler);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -793,24 +829,147 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Get chapter display name based on type
+   */
+  getChapterDisplayName(chapter: Chapter): string {
+    if (chapter.type === 'prologue') return 'Prologue';
+    if (chapter.type === 'epilogue') return 'Epilogue';
+    if (chapter.type === 'interlude') return 'Interlude';
+    if (chapter.type === 'foreword') return 'Foreword';
+    if (chapter.type === 'afterword') return 'Afterword';
+    if (chapter.type === 'custom') return 'Title';  // Always show "Title" for custom sections
+    
+    // For numbered chapters, extract number from title
+    const match = chapter.title.match(/Chapter\s+(\d+)/i);
+    if (match) {
+      return `Chapter ${match[1]}`;
+    }
+    // Fallback: use index + 1
+    const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+    const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+    return `Chapter ${chapterIndex + 1}`;
+  }
+
+  /**
    * Get chapter number from title (e.g., "01 Title" -> "Chapter 1")
    */
   getChapterNumber(chapter: Chapter): string {
-    const match = chapter.title.match(/^(\d+)/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      return `Chapter ${num}`;
-    }
-    // Fallback: use index + 1
-    return `Chapter ${chapter.index + 1}`;
+    return this.getChapterDisplayName(chapter);
   }
 
   /**
    * Get chapter title without number (e.g., "01 Title" -> "Title")
    */
   getChapterTitle(chapter: Chapter): string {
-    const match = chapter.title.match(/^\d+\s+(.+)$/);
-    return match ? match[1] : chapter.title;
+    // For special types (prologue, epilogue, afterword, etc.) and custom sections, remove any numbers
+    if (chapter.type !== 'chapter') {
+      // Remove leading numbers if present (e.g., "02 KING" -> "KING")
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      return cleanedTitle || chapter.title;
+    }
+    // For numbered chapters, show the full title with number (e.g., "01 Slay")
+    // Handle formats like "Chapter 1: Title" -> convert to "01 Title"
+    const chapterMatch = chapter.title.match(/Chapter\s+(\d+)\s*:?\s*(.*)$/i);
+    if (chapterMatch) {
+      const num = parseInt(chapterMatch[1], 10);
+      const titlePart = chapterMatch[2]?.trim() || '';
+      const paddedNum = num.toString().padStart(2, '0');
+      if (titlePart) {
+        return `${paddedNum} ${titlePart}`;
+      } else {
+        return paddedNum;
+      }
+    }
+    // Handle format like "01 Title" or "1 Title" - ensure padding
+    const numMatch = chapter.title.match(/^(\d+)\s+(.+)$/);
+    if (numMatch) {
+      const num = parseInt(numMatch[1], 10);
+      const titlePart = numMatch[2].trim();
+      const paddedNum = num.toString().padStart(2, '0');
+      return `${paddedNum} ${titlePart}`;
+    }
+    // If it's just a number, pad it
+    const justNum = chapter.title.match(/^(\d+)$/);
+    if (justNum) {
+      const num = parseInt(justNum[1], 10);
+      return num.toString().padStart(2, '0');
+    }
+    return chapter.title;
+  }
+
+  /**
+   * Delete a chapter
+   */
+  deleteChapter(chapter: Chapter): void {
+    if (!this.currentDocument) return;
+    
+    if (confirm(`Are you sure you want to delete "${chapter.title}"? This will unassign all sentences in this chapter.`)) {
+      this.documentService.deleteChapter(this.currentDocument.id, chapter.id).subscribe({
+        next: () => {
+          console.log('Chapter deleted successfully');
+        },
+        error: (err) => {
+          console.error('Error deleting chapter:', err);
+          alert('Failed to delete chapter. Please try again.');
+        }
+      });
+    }
+  }
+
+  // Drag and drop for chapter reordering
+  private draggedChapter: Chapter | null = null;
+
+  onChapterDragStart(event: DragEvent, chapter: Chapter): void {
+    this.draggedChapter = chapter;
+    event.dataTransfer!.effectAllowed = 'move';
+    event.dataTransfer!.setData('text/plain', chapter.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  onChapterDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onChapterDrop(event: DragEvent, targetChapter: Chapter): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!this.draggedChapter || !this.currentDocument || this.draggedChapter.id === targetChapter.id) {
+      this.draggedChapter = null;
+      return;
+    }
+
+    // Get current chapter order
+    const currentOrder = this.chapters.map(ch => ch.id);
+    const draggedIndex = currentOrder.indexOf(this.draggedChapter!.id);
+    const targetIndex = currentOrder.indexOf(targetChapter.id);
+
+    // Reorder array
+    currentOrder.splice(draggedIndex, 1);
+    currentOrder.splice(targetIndex, 0, this.draggedChapter!.id);
+
+    // Update backend
+    this.documentService.reorderChapters(this.currentDocument.id, currentOrder).subscribe({
+      next: () => {
+        console.log('Chapters reordered successfully');
+      },
+      error: (err) => {
+        console.error('Error reordering chapters:', err);
+        alert('Failed to reorder chapters. Please try again.');
+      }
+    });
+
+    this.draggedChapter = null;
+  }
+
+  onChapterDragEnd(event: DragEvent): void {
+    this.draggedChapter = null;
   }
 
   /**
@@ -855,5 +1014,233 @@ export class SidebarComponent implements OnInit, OnDestroy {
    */
   trackByChapterId(index: number, chapter: Chapter): string {
     return chapter.id;
+  }
+
+  /**
+   * Close section creation form
+   */
+  closeSectionForm(): void {
+    this.showSectionForm = false;
+    this.newSectionType = 'chapter';
+    this.newSectionTitle = '';
+    this.newSectionEmoji = '';
+  }
+
+  /**
+   * Create section from form
+   */
+  createSectionFromForm(): void {
+    if (!this.currentDocument) return;
+
+    // Determine title based on type
+    let title = this.newSectionTitle;
+    if (!title) {
+      if (this.newSectionType === 'prologue') title = 'Prologue';
+      else if (this.newSectionType === 'epilogue') title = 'Epilogue';
+      else if (this.newSectionType === 'interlude') title = 'Interlude';
+      else if (this.newSectionType === 'foreword') title = 'Foreword';
+      else if (this.newSectionType === 'afterword') title = 'Afterword';
+      else if (this.newSectionType === 'custom') title = 'Custom Section';
+      // For 'chapter' type, title will be auto-generated by backend
+    }
+
+    this.documentService.createChapter(
+      this.currentDocument.id,
+      title || undefined,
+      this.newSectionType,
+      this.newSectionEmoji || undefined
+    ).subscribe({
+      next: (newChapter) => {
+        console.log('Section created successfully');
+        this.closeSectionForm();
+        // Dispatch event to navigate to the new chapter
+        window.dispatchEvent(new CustomEvent('navigateToChapter', { detail: { chapterId: newChapter.id } }));
+      },
+      error: (err) => {
+        console.error('Error creating section:', err);
+        alert('Failed to create section. Please try again.');
+      }
+    });
+  }
+
+  /**
+   * Start editing section type
+   */
+  startEditSectionType(chapter: Chapter): void {
+    this.editingSectionTypeId = chapter.id;
+    this.editingSectionType = chapter.type || 'chapter';
+  }
+
+  /**
+   * Cancel editing section type
+   */
+  cancelEditSectionType(): void {
+    this.editingSectionTypeId = null;
+    this.editingSectionType = 'chapter';
+  }
+
+  /**
+   * Update section type
+   */
+  updateSectionType(chapter: Chapter): void {
+    if (!this.currentDocument) return;
+
+    const newType = this.editingSectionType;
+    const oldType = chapter.type || 'chapter';
+
+    // Determine new title based on type
+    let newTitle = chapter.title;
+    
+    if (newType === 'prologue') {
+      newTitle = 'Prologue';
+    } else if (newType === 'epilogue') {
+      newTitle = 'Epilogue';
+    } else if (newType === 'interlude') {
+      newTitle = 'Interlude';
+    } else if (newType === 'foreword') {
+      newTitle = 'Foreword';
+    } else if (newType === 'afterword') {
+      newTitle = 'Afterword';
+    } else if (newType === 'custom') {
+      // For custom sections, remove any numbers and keep the title as-is if it's not a standard pattern
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      if (cleanedTitle.match(/^(Prologue|Epilogue|Interlude|Foreword|Afterword|Chapter)/i)) {
+        newTitle = 'Custom Section';
+      } else {
+        newTitle = cleanedTitle || 'Custom Section';
+      }
+    } else if (newType === 'chapter') {
+      // If changing TO chapter from another type, need to assign a number
+      if (oldType !== 'chapter') {
+        // Count existing numbered chapters to determine new number
+        const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+        const chapterNum = numberedChapters.length + 1;
+        newTitle = `Chapter ${chapterNum}`;
+      } else {
+        // Already a chapter, keep the title (but ensure it has a number)
+        // Remove any existing numbers and re-add the correct one
+        const match = chapter.title.match(/Chapter\s+(\d+)\s*:?\s*(.*)$/i);
+        if (match) {
+          const chapterNum = match[1];
+          const titlePart = match[2] ? match[2].trim() : '';
+          newTitle = titlePart ? `Chapter ${chapterNum}: ${titlePart}` : `Chapter ${chapterNum}`;
+        } else {
+          // Title doesn't have proper format, use index
+          const chapterNum = (chapter.index + 1).toString().padStart(2, '0');
+          newTitle = `Chapter ${chapterNum}`;
+        }
+      }
+    }
+
+    // Update chapter
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      newTitle,
+      newType,
+      chapter.emoji || undefined
+    ).subscribe({
+      next: () => {
+        console.log('Section type updated successfully');
+        // Reload document to get updated chapter numbers
+        if (this.currentDocument) {
+          this.documentService.loadDocument(this.currentDocument.id).subscribe();
+        }
+        this.cancelEditSectionType();
+      },
+      error: (err) => {
+        console.error('Error updating section type:', err);
+        alert('Failed to update section type. Please try again.');
+        this.cancelEditSectionType();
+      }
+    });
+  }
+
+  /**
+   * Start editing chapter title
+   */
+  startEditChapterTitle(chapter: Chapter): void {
+    this.editingChapterTitleId = chapter.id;
+    // For custom sections, remove leading numbers if present
+    if (chapter.type === 'custom') {
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      this.editingChapterTitle = cleanedTitle || chapter.title;
+    } else if (chapter.type === 'chapter') {
+      // For chapters, extract just the title part (after the number)
+      // Handle formats like "Chapter 1: Title" or "01 Title"
+      const chapterMatch = chapter.title.match(/Chapter\s+\d+\s*:?\s*(.+)$/i);
+      if (chapterMatch) {
+        this.editingChapterTitle = chapterMatch[1].trim();
+      } else {
+        const numMatch = chapter.title.match(/^\d+\s+(.+)$/);
+        this.editingChapterTitle = numMatch ? numMatch[1].trim() : chapter.title;
+      }
+    } else {
+      // For special sections, remove any numbers
+      const cleanedTitle = chapter.title.replace(/^\d+\s+/, '').trim();
+      this.editingChapterTitle = cleanedTitle || chapter.title;
+    }
+  }
+
+  /**
+   * Cancel editing chapter title
+   */
+  cancelEditChapterTitle(): void {
+    this.editingChapterTitleId = null;
+    this.editingChapterTitle = '';
+  }
+
+  /**
+   * Save chapter title
+   */
+  saveChapterTitle(chapter: Chapter): void {
+    if (!this.currentDocument || !this.editingChapterTitle.trim()) {
+      this.cancelEditChapterTitle();
+      return;
+    }
+
+    let newTitle: string;
+
+    // Only chapters should be numbered - special sections should not
+    if (chapter.type === 'chapter') {
+      // Extract current chapter number from title
+      const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
+      const numMatch = chapter.title.match(/^(\d+)\s+/);
+      
+      let chapterNum: string;
+      if (chapterMatch) {
+        chapterNum = chapterMatch[1];
+      } else if (numMatch) {
+        chapterNum = numMatch[1];
+      } else {
+        // Fallback: use index + 1
+        const numberedChapters = this.chapters.filter(ch => ch.type === 'chapter');
+        const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
+        chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
+      }
+      
+      const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
+      newTitle = `${paddedNum} ${this.editingChapterTitle.trim()}`;
+    } else {
+      // For special sections and custom sections, use title as-is (no numbering)
+      newTitle = this.editingChapterTitle.trim();
+    }
+
+    this.documentService.updateChapter(
+      this.currentDocument.id,
+      chapter.id,
+      newTitle,
+      chapter.type,
+      chapter.emoji || undefined
+    ).subscribe({
+      next: () => {
+        this.cancelEditChapterTitle();
+      },
+      error: (err) => {
+        console.error('Error updating chapter title:', err);
+        alert('Failed to update chapter title. Please try again.');
+        this.cancelEditChapterTitle();
+      }
+    });
   }
 }

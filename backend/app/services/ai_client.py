@@ -17,7 +17,7 @@ def get_api_key() -> str:
     return os.getenv("OPENROUTER_API_KEY", "")
 
 # Use Mistral's Devstral model - optimized for code and creative tasks
-MODEL_NAME = "mistralai/devstral-small-2505"
+MODEL_NAME = "xiaomi/mimo-v2-flash:free"
 
 
 def _extract_character_names(text: str) -> list[str]:
