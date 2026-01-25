@@ -17,7 +17,7 @@ import { AiService } from '../../../core/services/ai.service';
 import { CharacterFormService } from '../../../core/services/character-form.service';
 import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
 import { ChapterStateService } from '../../../core/services/chapter-state.service';
-import { Sentence, Chapter, DocumentDetail, SentenceClassification } from '../../../core/models/document.model';
+import { Sentence, Chapter, DocumentDetail, SentenceClassification, CharacterSentimentResponse, Character, CharacterSentimentMention } from '../../../core/models/document.model';
 import { CharacterManagerComponent } from '../character-manager/character-manager.component';
 
 type Dimension = 'drama' | 'humor' | 'conflict' | 'mystery';
@@ -109,6 +109,25 @@ export class SidebarComponent implements OnInit, OnDestroy {
         setTimeout(() => this.fetchStoryArc(), 100);
       }
     }
+
+    // Load character sentiment
+    if (value === 'characters') {
+      const doc = this.documentService.getCurrentDocument();
+      if (doc) {
+        // Initialize chapter selector
+        if (this.chapters.length > 0) {
+          // Default to first chapter if only one, otherwise 'all'
+          if (this.chapters.length === 1) {
+            this.selectedSentimentChapterId = this.chapters[0].id;
+          } else {
+            this.selectedSentimentChapterId = 'all';
+          }
+        } else {
+          this.selectedSentimentChapterId = 'all';
+        }
+        setTimeout(() => this.fetchCharacterSentiment(), 100);
+      }
+    }
   }
 
   get activeTab(): 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' {
@@ -139,6 +158,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
   isGenerating = false;
   isGeneratingEmojisForAll = false;
   lastSuggestion: string | null = null;
+
+  // Character sentiment state
+  characterSentiments: CharacterSentimentResponse[] = [];
+  characterSentimentLoading = false;
+  selectedSentimentChapterId: string | null = 'all';
+  highlightedCharacterId: string | null = null; // Track which character is currently highlighted
 
   // Section creation form state
   showSectionForm: boolean = false;
@@ -309,6 +334,25 @@ export class SidebarComponent implements OnInit, OnDestroy {
         if (doc) {
           this.chapters = doc?.chapters?.sort((a, b) => a.index - b.index) ?? [];
           this.loadEmojiDictionary(doc.id);
+          
+          // Refresh character sentiment if characters tab is active
+          if (this.activeTab === 'characters') {
+            // Reset chapter selector based on available chapters
+            if (this.chapters.length > 0) {
+              if (this.chapters.length === 1) {
+                this.selectedSentimentChapterId = this.chapters[0].id;
+              } else {
+                // If current selection is invalid, reset to 'all'
+                if (this.selectedSentimentChapterId !== 'all' && 
+                    !this.chapters.find(c => c.id === this.selectedSentimentChapterId)) {
+                  this.selectedSentimentChapterId = 'all';
+                }
+              }
+            } else {
+              this.selectedSentimentChapterId = 'all';
+            }
+            setTimeout(() => this.fetchCharacterSentiment(), 100);
+          }
         }
       });
 
@@ -1572,6 +1616,287 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.arcLoading = false;
       }
     });
+  }
+
+  /**
+   * Fetch character sentiment analysis for all characters in the document
+   */
+  fetchCharacterSentiment(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc || !doc.id) {
+      this.characterSentiments = [];
+      return;
+    }
+
+    // If no characters exist, show empty state
+    if (!doc.characters || doc.characters.length === 0) {
+      this.characterSentiments = [];
+      return;
+    }
+
+    this.characterSentimentLoading = true;
+
+    // Determine which chapter to analyze (null = all chapters)
+    const chapterId = this.selectedSentimentChapterId === 'all' ? null : this.selectedSentimentChapterId;
+
+    this.aiService.analyzeCharacterSentiment({
+      documentId: doc.id,
+      characterIds: undefined, // Analyze all characters
+      chapterId: chapterId // Filter by chapter if specified
+    }).subscribe({
+      next: (response) => {
+        this.characterSentiments = response.characters || [];
+        this.characterSentimentLoading = false;
+        this.clearCharacterHighlight(); // Clear highlighting when new data is loaded
+        console.log('Character sentiment analysis:', this.characterSentiments);
+      },
+      error: (err) => {
+        console.error('Error fetching character sentiment:', err);
+        this.characterSentimentLoading = false;
+        this.characterSentiments = [];
+      }
+    });
+  }
+
+  /**
+   * Handle chapter selection change for sentiment analysis
+   */
+  onSentimentChapterChange(chapterId: string | null): void {
+    this.selectedSentimentChapterId = chapterId;
+    this.clearCharacterHighlight(); // Clear highlighting when switching chapters
+    this.fetchCharacterSentiment();
+  }
+
+  /**
+   * Get sentiment timeline path for a character
+   */
+  getSentimentTimelinePath(character: CharacterSentimentResponse): string {
+    if (!character.mentions || character.mentions.length === 0) {
+      return '';
+    }
+
+    // Sort mentions by position
+    const sortedMentions = [...character.mentions].sort((a, b) => a.position - b.position);
+    
+    if (sortedMentions.length === 0) {
+      return '';
+    }
+
+    const width = 100;
+    const height = 40;
+    
+    // Map sentiment to Y position (positive = higher, negative = lower, neutral = middle)
+    const getYForSentiment = (sentiment: string): number => {
+      if (sentiment === 'positive') return height * 0.3; // Top area (positive)
+      if (sentiment === 'negative') return height * 0.7; // Bottom area (negative)
+      return height * 0.5; // Middle (neutral)
+    };
+
+    // Start path at first mention
+    const firstMention = sortedMentions[0];
+    let path = `M ${firstMention.position * width} ${getYForSentiment(firstMention.sentiment)}`;
+    
+    // Connect to subsequent mentions
+    for (let i = 1; i < sortedMentions.length; i++) {
+      const mention = sortedMentions[i];
+      const x = mention.position * width;
+      const y = getYForSentiment(mention.sentiment);
+      path += ` L ${x} ${y}`;
+    }
+
+    return path;
+  }
+
+  /**
+   * Get sentiment class for timeline point
+   */
+  getSentimentClass(sentiment: string): string {
+    return sentiment.toLowerCase(); // 'positive', 'neutral', or 'negative'
+  }
+
+  /**
+   * Get tooltip text for sentiment point
+   */
+  getSentimentTooltip(mention: CharacterSentimentMention): string {
+    const sentenceNum = mention.sentenceIndex !== undefined && mention.sentenceIndex !== null 
+      ? mention.sentenceIndex + 1 
+      : '?';
+    const text = mention.sentenceText || 'Unknown sentence';
+    const sentiment = mention.sentiment || 'unknown';
+    return `Sentence ${sentenceNum} (${sentiment}): ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`;
+  }
+
+  /**
+   * Get character by ID from current document
+   */
+  getCharacterById(characterId: string): Character | null {
+    const doc = this.currentDocument;
+    if (!doc || !doc.characters) return null;
+    return doc.characters.find(c => c.id === characterId) || null;
+  }
+
+  /**
+   * Handle click on character card - highlight all mentions of this character
+   */
+  onCharacterCardClick(character: CharacterSentimentResponse): void {
+    // Toggle: if already highlighted, clear; otherwise highlight
+    if (this.highlightedCharacterId === character.characterId) {
+      this.clearCharacterHighlight();
+      this.highlightedCharacterId = null;
+      return;
+    }
+
+    // Clear any sentence-specific highlighting when clicking character card
+    this.characterHighlightService.clearSentenceHighlight();
+
+    const char = this.getCharacterById(character.characterId);
+    if (char) {
+      // Highlight the character using its emoji and color
+      this.characterHighlightService.setHoveredEmoji(char.emoji, char.color);
+      this.highlightedCharacterId = character.characterId;
+    } else {
+      // If character not found in document (discovered character), use the emoji from sentiment response
+      this.characterHighlightService.setHoveredEmoji(character.emoji, '#667eea'); // Default color
+      this.highlightedCharacterId = character.characterId;
+    }
+  }
+
+  /**
+   * Get sentiment color based on sentiment type
+   */
+  getSentimentColor(sentiment: string): string {
+    switch (sentiment.toLowerCase()) {
+      case 'positive':
+        return '#10b981'; // Green
+      case 'negative':
+        return '#ef4444'; // Red
+      case 'neutral':
+        return '#f59e0b'; // Yellow/Orange
+      default:
+        return '#999999'; // Gray fallback
+    }
+  }
+
+  /**
+   * Handle click on sentiment timeline point - highlight only that specific sentence with sentiment color
+   */
+  onSentimentPointClick(character: CharacterSentimentResponse, mention: CharacterSentimentMention): void {
+    const doc = this.currentDocument;
+    if (!doc || !doc.sentences) {
+      console.warn('No document or sentences available');
+      return;
+    }
+
+    console.log('Clicking sentiment point:', { 
+      character: character.characterName, 
+      mention: mention,
+      selectedChapter: this.selectedSentimentChapterId 
+    });
+
+    // Get filtered sentences based on selected chapter (same scope as sentiment analysis)
+    const filteredSentences = this.selectedSentimentChapterId === 'all' 
+      ? [...doc.sentences].sort((a, b) => a.index - b.index)
+      : [...doc.sentences]
+          .filter(s => s.chapterId === this.selectedSentimentChapterId)
+          .sort((a, b) => a.index - b.index);
+
+    let sentence: Sentence | null = null;
+
+    // PRIORITY 1: Use index-based lookup first (most reliable when sentences are identical)
+    // The mention.sentenceIndex is relative to the filtered scope used in analysis
+    if (mention.sentenceIndex !== undefined && mention.sentenceIndex !== null) {
+      const index = Number(mention.sentenceIndex);
+      if (!isNaN(index) && index >= 0 && index < filteredSentences.length) {
+        sentence = filteredSentences[index];
+        console.log(`Found sentence by index ${index}:`, sentence.text.substring(0, 50));
+      }
+    }
+
+    // PRIORITY 2: If index lookup failed, try text matching with position context
+    // When analyzing "Entire Story", we need to match within the correct chapter context
+    if (!sentence && mention.sentenceText) {
+      const mentionText = mention.sentenceText.trim();
+      
+      // If we have a position, use it to narrow down the search
+      if (mention.position !== undefined && mention.position !== null) {
+        const targetPosition = mention.position;
+        // Find sentence closest to the expected position
+        let closestSentence: Sentence | null = null;
+        let closestDistance = Infinity;
+        
+        filteredSentences.forEach((s, idx) => {
+          const sentencePosition = idx / Math.max(1, filteredSentences.length - 1);
+          const distance = Math.abs(sentencePosition - targetPosition);
+          
+          const textMatches = s.text.trim() === mentionText || 
+                             s.text.includes(mentionText) || 
+                             mentionText.includes(s.text.trim());
+          
+          if (textMatches && distance < closestDistance) {
+            closestDistance = distance;
+            closestSentence = s;
+          }
+        });
+        
+        if (closestSentence) {
+          sentence = closestSentence;
+          console.log(`Found sentence by position ${targetPosition}:`, sentence.text.substring(0, 50));
+        }
+      } else {
+        // Fallback: exact text match (but this will find first occurrence)
+        sentence = filteredSentences.find(s => {
+          const sText = s.text.trim();
+          return sText === mentionText || 
+                 sText.includes(mentionText) || 
+                 mentionText.includes(sText);
+        }) || null;
+      }
+    }
+
+    if (sentence) {
+      console.log('Found sentence:', sentence.id, sentence.text.substring(0, 50));
+      
+      // Select the sentence
+      this.documentService.selectSentence(sentence);
+
+      // Get sentiment color (green for positive, red for negative, yellow for neutral)
+      const sentimentColor = this.getSentimentColor(mention.sentiment);
+
+      // Highlight ONLY this specific sentence with the sentiment color
+      this.characterHighlightService.highlightSentence(sentence.id, sentimentColor);
+      
+      // Update highlighted character for visual feedback
+      this.highlightedCharacterId = character.characterId;
+
+      // Scroll to the sentence in the text viewer
+      setTimeout(() => {
+        const sentenceElement = document.querySelector(`[data-sentence-id="${sentence!.id}"]`);
+        if (sentenceElement) {
+          sentenceElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    } else {
+      console.warn('Could not find sentence for mention:', mention);
+      // Still try to highlight with what we have
+      if (mention.sentenceText) {
+        alert(`Could not find the exact sentence in the document. Looking for: "${mention.sentenceText.substring(0, 50)}..."`);
+      }
+    }
+  }
+
+  /**
+   * Clear character highlighting
+   */
+  clearCharacterHighlight(): void {
+    this.characterHighlightService.clearHover();
+    this.highlightedCharacterId = null;
+  }
+
+  /**
+   * Check if a character is currently highlighted
+   */
+  isCharacterHighlighted(characterId: string): boolean {
+    return this.highlightedCharacterId === characterId;
   }
 
   computeArcPath(arc: number[]): string {

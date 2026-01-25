@@ -193,111 +193,77 @@
     <div class="tab-content" *ngSwitchCase="'characters'">
         <h3>Character Sentiment</h3>
 
-        <div class="character-list">
-            <div class="character-card">
-                <div class="character-header">
-                    <div class="character-avatar">🧙‍♂️</div>
-                    <div class="character-info">
-                        <h4>Hero</h4>
-                        <p class="mentions">Mentioned 8 times</p>
-                    </div>
-                </div>
-                <div class="sentiment-timeline">
-                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                        <path d="M 10 20 L 25 18 L 45 20 L 60 28 L 85 15" />
-                    </svg>
-                    <div class="timeline-point positive" style="left: 10%;"
-                        title="Sentence 1: 'The brave hero set out on a quest'"></div>
-                    <div class="timeline-point positive" style="left: 25%;"
-                        title="Sentence 3: 'She found a magical sword'"></div>
-                    <div class="timeline-point neutral" style="left: 45%;"
-                        title="Sentence 5: 'The journey continued through forests'"></div>
-                    <div class="timeline-point negative" style="left: 60%;"
-                        title="Sentence 7: 'Dark clouds gathered as danger approached'"></div>
-                    <div class="timeline-point positive" style="left: 85%;"
-                        title="Sentence 10: 'Victory! The kingdom was saved'"></div>
-                </div>
-                <div class="sentiment-summary">
-                    <div class="sentiment-bar">
-                        <div class="bar-segment positive" style="width: 50%;"></div>
-                        <div class="bar-segment neutral" style="width: 20%;"></div>
-                        <div class="bar-segment negative" style="width: 30%;"></div>
-                    </div>
-                    <div class="sentiment-labels">
-                        <span class="label positive">😊 50%</span>
-                        <span class="label neutral">😐 20%</span>
-                        <span class="label negative">😢 30%</span>
-                    </div>
-                </div>
+        <div class="chapter-analysis-selector">
+            <label>Analyzing:</label>
+            <select [(ngModel)]="selectedSentimentChapterId" (ngModelChange)="onSentimentChapterChange($event)"
+                [disabled]="chapters.length <= 1">
+                <option value="all" *ngIf="chapters.length > 1">Entire Story (Overview)</option>
+                <option *ngFor="let ch of chapters" [value]="ch.id">{{ ch.title }}</option>
+            </select>
+        </div>
+
+        <div class="character-list" *ngIf="!characterSentimentLoading">
+            <!-- Loading state -->
+            <div *ngIf="characterSentiments.length === 0 && currentDocument?.characters?.length === 0" class="empty-state">
+                <p>No characters defined yet. Define characters in the Character Manager to see sentiment analysis.</p>
             </div>
 
-            <div class="character-card">
+            <!-- Character sentiment cards -->
+            <div class="character-card" *ngFor="let character of characterSentiments"
+                 [class.highlighted]="isCharacterHighlighted(character.characterId)"
+                 (click)="onCharacterCardClick(character)"
+                 style="cursor: pointer;">
                 <div class="character-header">
-                    <div class="character-avatar">🧛‍♀️</div>
+                    <div class="character-avatar">{{ character.emoji }}</div>
                     <div class="character-info">
-                        <h4>Villain</h4>
-                        <p class="mentions">Mentioned 5 times</p>
+                        <h4>{{ character.characterName }}</h4>
+                        <p class="mentions">Mentioned {{ character.mentionCount }} time{{ character.mentionCount !== 1 ? 's' : '' }}</p>
                     </div>
                 </div>
-                <div class="sentiment-timeline">
+                
+                <!-- Sentiment Timeline -->
+                <div class="sentiment-timeline" *ngIf="character.mentions.length > 0">
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                        <path d="M 20 25 L 50 28 L 70 22 L 90 30" />
+                        <path [attr.d]="getSentimentTimelinePath(character)" 
+                              stroke="#667eea" 
+                              stroke-width="2" 
+                              fill="none" />
                     </svg>
-                    <div class="timeline-point negative" style="left: 20%;"
-                        title="Sentence 2: 'The dark sorcerer plotted revenge'"></div>
-                    <div class="timeline-point negative" style="left: 50%;"
-                        title="Sentence 6: 'Her fury knew no bounds'"></div>
-                    <div class="timeline-point neutral" style="left: 70%;"
-                        title="Sentence 8: 'Confusion swept over the villain'"></div>
-                    <div class="timeline-point negative" style="left: 90%;"
-                        title="Sentence 11: 'Defeated and broken, she fled'"></div>
-                </div>
-                <div class="sentiment-summary">
-                    <div class="sentiment-bar">
-                        <div class="bar-segment positive" style="width: 10%;"></div>
-                        <div class="bar-segment neutral" style="width: 15%;"></div>
-                        <div class="bar-segment negative" style="width: 75%;"></div>
-                    </div>
-                    <div class="sentiment-labels">
-                        <span class="label positive">😊 10%</span>
-                        <span class="label neutral">😐 15%</span>
-                        <span class="label negative">😢 75%</span>
+                    <div *ngFor="let mention of character.mentions; let i = index" 
+                         class="timeline-point" 
+                         [ngClass]="getSentimentClass(mention.sentiment)"
+                         [style.left.%]="mention.position * 100"
+                         [title]="getSentimentTooltip(mention)"
+                         (click)="onSentimentPointClick(character, mention); $event.stopPropagation()"
+                         style="cursor: pointer;">
                     </div>
                 </div>
-            </div>
 
-            <div class="character-card">
-                <div class="character-header">
-                    <div class="character-avatar">🦄</div>
-                    <div class="character-info">
-                        <h4>Companion</h4>
-                        <p class="mentions">Mentioned 4 times</p>
-                    </div>
-                </div>
-                <div class="sentiment-timeline">
-                    <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                        <path d="M 30 17 L 55 16 L 75 21" />
-                    </svg>
-                    <div class="timeline-point positive" style="left: 30%;"
-                        title="Sentence 4: 'The magical unicorn danced joyfully'"></div>
-                    <div class="timeline-point positive" style="left: 55%;"
-                        title="Sentence 7: 'Loyal and true, she stood by her friend'"></div>
-                    <div class="timeline-point neutral" style="left: 75%;"
-                        title="Sentence 9: 'Cautiously, she approached the cave'"></div>
-                </div>
-                <div class="sentiment-summary">
+                <!-- Sentiment Summary -->
+                <div class="sentiment-summary" *ngIf="character.mentionCount > 0">
                     <div class="sentiment-bar">
-                        <div class="bar-segment positive" style="width: 65%;"></div>
-                        <div class="bar-segment neutral" style="width: 25%;"></div>
-                        <div class="bar-segment negative" style="width: 10%;"></div>
+                        <div class="bar-segment positive" [style.width.%]="character.positivePercentage"></div>
+                        <div class="bar-segment neutral" [style.width.%]="character.neutralPercentage"></div>
+                        <div class="bar-segment negative" [style.width.%]="character.negativePercentage"></div>
                     </div>
                     <div class="sentiment-labels">
-                        <span class="label positive">😊 65%</span>
-                        <span class="label neutral">😐 25%</span>
-                        <span class="label negative">😢 10%</span>
+                        <span class="label positive" *ngIf="character.positivePercentage > 0">😊 {{ character.positivePercentage }}%</span>
+                        <span class="label neutral" *ngIf="character.neutralPercentage > 0">😐 {{ character.neutralPercentage }}%</span>
+                        <span class="label negative" *ngIf="character.negativePercentage > 0">😢 {{ character.negativePercentage }}%</span>
                     </div>
                 </div>
+
+                <!-- No mentions message -->
+                <div class="no-mentions" *ngIf="character.mentionCount === 0">
+                    <p>This character is not mentioned in the document yet.</p>
+                </div>
             </div>
+        </div>
+
+        <!-- Loading indicator -->
+        <div class="loading-state" *ngIf="characterSentimentLoading">
+            <div class="loading-spinner"></div>
+            <span>Analyzing character sentiment...</span>
         </div>
     </div>
 

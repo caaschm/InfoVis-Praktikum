@@ -531,6 +531,7 @@
             background: transparent;
             z-index: 1;
             color: #24292e;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
             // Match highlight overlay properties exactly
             font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
             font-size: 1.05rem;
@@ -544,6 +545,25 @@
             font-style: normal;
             text-transform: none;
             font-variant: normal;
+
+            // Sentence-specific sentiment highlighting
+            &.sentence-sentiment-highlight {
+                border-radius: 4px;
+                padding: 2px 4px;
+                margin: 0 -2px;
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+                animation: pulseHighlight 1.5s ease-in-out;
+            }
+        }
+
+        @keyframes pulseHighlight {
+            0%, 100% {
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.5);
+            }
+        }
 
             &:focus {
                 background-color: rgba(251, 191, 36, 0.1);

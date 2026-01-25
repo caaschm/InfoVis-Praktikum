@@ -1162,6 +1162,389 @@ def _fallback_title_suggestion(content: str) -> str:
     return words[0].capitalize() if words else "Untitled"
 
 
+async def analyze_character_sentiment(
+    text: str,
+    character_name: str,
+    character_aliases: list[str] = None
+) -> dict:
+    """
+    Analyze sentiment for a specific character in the text.
+    
+    Args:
+        text: The full document text
+        character_name: The name of the character to analyze
+        character_aliases: Optional list of aliases for the character
+        
+    Returns:
+        Dictionary with:
+        - mentions: List of dicts with sentence_index, sentence_text, sentiment, position
+        - positive_percentage: Percentage of positive mentions (0-100)
+        - neutral_percentage: Percentage of neutral mentions (0-100)
+        - negative_percentage: Percentage of negative mentions (0-100)
+        - trend_points: List of sentiment values over time for visualization
+    """
+    api_key = get_api_key()
+    character_aliases = character_aliases or []
+    
+    # Build character search terms
+    search_terms = [character_name.lower()] + [alias.lower() for alias in character_aliases]
+    search_terms_str = ", ".join([f'"{term}"' for term in search_terms])
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using fallback sentiment analysis")
+        return _fallback_character_sentiment(text, character_name, search_terms)
+    
+    prompt = f"""Analyze the sentiment associated with the character "{character_name}" in the following text.
+    
+The character may be referred to as: {search_terms_str}
+
+For each sentence that mentions this character, determine the sentiment:
+- "positive": The character is portrayed positively, heroically, or in a favorable light
+- "neutral": The character is mentioned factually without strong emotional tone
+- "negative": The character is portrayed negatively, villainously, or in an unfavorable light
+
+Text to analyze:
+"{text}"
+
+Respond with ONLY a JSON array where each object represents a sentence mentioning the character:
+[
+  {{
+    "sentence_index": 0,
+    "sentence_text": "The hero bravely faced the dragon.",
+    "sentiment": "positive",
+    "position": 0.1
+  }},
+  {{
+    "sentence_index": 5,
+    "sentence_text": "The hero was uncertain about the path.",
+    "sentiment": "neutral",
+    "position": 0.5
+  }}
+]
+
+- sentence_index: The 0-based index of the sentence in the text
+- sentence_text: The full text of the sentence
+- sentiment: One of "positive", "neutral", or "negative"
+- position: A value between 0.0 and 1.0 representing where this sentence appears in the document (0.0 = beginning, 1.0 = end)
+
+Only include sentences that actually mention the character. If the character is not mentioned, return an empty array [].
+No explanations, no markdown, just the JSON array."""
+
+    try:
+        # Reduced timeout to 30 seconds for faster fallback to keyword-based analysis
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 2000
+                }
+            )
+            
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using fallback sentiment.")
+                return _fallback_character_sentiment(text, character_name, search_terms)
+            
+            if response.status_code != 200:
+                print(f"❌ Error analyzing character sentiment: {response.text}")
+                return _fallback_character_sentiment(text, character_name, search_terms)
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            print(f"🧠 Character Sentiment Analysis for {character_name}:", content[:200])
+            
+            # Clean up the response
+            content = re.sub(r'```json\s*', '', content)
+            content = re.sub(r'```\s*', '', content)
+            content = content.strip()
+            
+            try:
+                mentions = json.loads(content)
+                if not isinstance(mentions, list):
+                    mentions = []
+                
+                # Calculate percentages
+                total = len(mentions)
+                if total == 0:
+                    return {
+                        "mentions": [],
+                        "positive_percentage": 0,
+                        "neutral_percentage": 0,
+                        "negative_percentage": 0,
+                        "trend_points": []
+                    }
+                
+                positive_count = sum(1 for m in mentions if m.get("sentiment") == "positive")
+                neutral_count = sum(1 for m in mentions if m.get("sentiment") == "neutral")
+                negative_count = sum(1 for m in mentions if m.get("sentiment") == "negative")
+                
+                # Generate trend points (simplified: map sentiment to numeric values)
+                trend_points = []
+                for mention in sorted(mentions, key=lambda x: x.get("position", 0)):
+                    sentiment = mention.get("sentiment", "neutral")
+                    if sentiment == "positive":
+                        trend_points.append(0.7)  # High value for positive
+                    elif sentiment == "negative":
+                        trend_points.append(0.3)  # Low value for negative
+                    else:
+                        trend_points.append(0.5)  # Medium for neutral
+                
+                return {
+                    "mentions": mentions,
+                    "positive_percentage": int((positive_count / total) * 100),
+                    "neutral_percentage": int((neutral_count / total) * 100),
+                    "negative_percentage": int((negative_count / total) * 100),
+                    "trend_points": trend_points
+                }
+            except json.JSONDecodeError as e:
+                print(f"❌ Failed to parse JSON: {e}")
+                return _fallback_character_sentiment(text, character_name, search_terms)
+                
+    except Exception as e:
+        print(f"Error analyzing character sentiment: {e}")
+        return _fallback_character_sentiment(text, character_name, search_terms)
+
+
+async def discover_characters_in_text(text: str) -> list[dict]:
+    """
+    Discover characters mentioned in the text using LLM.
+    
+    Args:
+        text: The document text to analyze
+        
+    Returns:
+        List of dicts with 'name' and optionally 'emoji' and 'aliases'
+    """
+    api_key = get_api_key()
+    
+    if not api_key:
+        print("⚠️  OPENROUTER_API_KEY not found - using fallback character discovery")
+        return _fallback_character_discovery(text)
+    
+    prompt = f"""Analyze the following text and identify the main characters mentioned.
+    
+Text:
+"{text}"
+
+Identify the main characters (people, creatures, or entities that play significant roles in the story).
+For each character, provide:
+- name: The primary name or identifier
+- aliases: Alternative names or ways the character is referred to (e.g., "the hero", "protagonist")
+- role: Brief description of their role (e.g., "hero", "villain", "companion", "mentor")
+
+Respond with ONLY a JSON array of character objects:
+[
+  {{
+    "name": "Hero",
+    "aliases": ["protagonist", "the hero", "main character"],
+    "role": "hero"
+  }},
+  {{
+    "name": "Dragon",
+    "aliases": ["the dragon", "beast"],
+    "role": "antagonist"
+  }}
+]
+
+Only include characters that are actually mentioned in the text. If no characters are found, return an empty array [].
+No explanations, no markdown, just the JSON array."""
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 1000
+                }
+            )
+            
+            if response.status_code == 429:
+                print("⚠️ OpenRouter free tier limit reached (429). Using fallback character discovery.")
+                return _fallback_character_discovery(text)
+            
+            if response.status_code != 200:
+                print(f"❌ Error discovering characters: {response.text}")
+                return _fallback_character_discovery(text)
+            
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            print(f"🧠 Character Discovery:", content[:200])
+            
+            # Clean up the response
+            content = re.sub(r'```json\s*', '', content)
+            content = re.sub(r'```\s*', '', content)
+            content = content.strip()
+            
+            try:
+                characters = json.loads(content)
+                if not isinstance(characters, list):
+                    characters = []
+                return characters
+            except json.JSONDecodeError as e:
+                print(f"❌ Failed to parse character discovery JSON: {e}")
+                return _fallback_character_discovery(text)
+                
+    except Exception as e:
+        print(f"Error discovering characters: {e}")
+        return _fallback_character_discovery(text)
+
+
+def _fallback_character_discovery(text: str) -> list[dict]:
+    """Simple fallback character discovery based on keywords."""
+    characters = []
+    text_lower = text.lower()
+    
+    # Common character roles
+    role_keywords = {
+        'hero': ['hero', 'heroine', 'protagonist', 'main character'],
+        'villain': ['villain', 'antagonist', 'enemy', 'foe', 'evil'],
+        'companion': ['companion', 'friend', 'ally', 'partner', 'sidekick'],
+        'mentor': ['mentor', 'teacher', 'guide', 'wizard', 'wise'],
+        'dragon': ['dragon', 'beast', 'monster', 'creature']
+    }
+    
+    for role, keywords in role_keywords.items():
+        for keyword in keywords:
+            if keyword in text_lower:
+                characters.append({
+                    "name": role.capitalize(),
+                    "aliases": keywords,
+                    "role": role
+                })
+                break
+    
+    # Also look for capitalized words (potential character names)
+    words = text.split()
+    seen_names = set()
+    for i, word in enumerate(words):
+        if i > 0:  # Skip first word of sentences
+            clean_word = re.sub(r'[^\w]', '', word)
+            if clean_word and clean_word[0].isupper() and len(clean_word) > 2:
+                name_lower = clean_word.lower()
+                if name_lower not in seen_names and name_lower not in ['the', 'this', 'that', 'there']:
+                    seen_names.add(name_lower)
+                    characters.append({
+                        "name": clean_word,
+                        "aliases": [name_lower],
+                        "role": "character"
+                    })
+    
+    # Remove duplicates
+    unique_characters = []
+    seen = set()
+    for char in characters:
+        name_key = char["name"].lower()
+        if name_key not in seen:
+            seen.add(name_key)
+            unique_characters.append(char)
+    
+    return unique_characters[:10]  # Limit to 10 characters
+
+
+def _fallback_character_sentiment(text: str, character_name: str, search_terms: list) -> dict:
+    """Simple fallback sentiment analysis based on keyword matching."""
+    import re
+    
+    # Split text into sentences
+    sentences = re.split(r'[.!?]+\s+', text)
+    mentions = []
+    
+    character_lower = character_name.lower()
+    search_terms_lower = [term.lower() for term in search_terms]
+    
+    for idx, sentence in enumerate(sentences):
+        sentence_lower = sentence.lower()
+        
+        # Check if character is mentioned
+        is_mentioned = False
+        for term in search_terms_lower:
+            if re.search(r'\b' + re.escape(term) + r'\b', sentence_lower):
+                is_mentioned = True
+                break
+        
+        if is_mentioned:
+            # Simple sentiment detection based on keywords
+            positive_words = ['brave', 'hero', 'good', 'kind', 'wise', 'strong', 'victory', 'save', 'help']
+            negative_words = ['evil', 'dark', 'fear', 'danger', 'attack', 'destroy', 'hate', 'angry']
+            
+            sentence_lower = sentence.lower()
+            positive_score = sum(1 for word in positive_words if word in sentence_lower)
+            negative_score = sum(1 for word in negative_words if word in sentence_lower)
+            
+            if positive_score > negative_score:
+                sentiment = "positive"
+            elif negative_score > positive_score:
+                sentiment = "negative"
+            else:
+                sentiment = "neutral"
+            
+            position = idx / max(1, len(sentences))
+            mentions.append({
+                "sentence_index": idx,
+                "sentence_text": sentence.strip(),
+                "sentiment": sentiment,
+                "position": position
+            })
+    
+    total = len(mentions)
+    if total == 0:
+        return {
+            "mentions": [],
+            "positive_percentage": 0,
+            "neutral_percentage": 0,
+            "negative_percentage": 0,
+            "trend_points": []
+        }
+    
+    positive_count = sum(1 for m in mentions if m["sentiment"] == "positive")
+    neutral_count = sum(1 for m in mentions if m["sentiment"] == "neutral")
+    negative_count = sum(1 for m in mentions if m["sentiment"] == "negative")
+    
+    trend_points = []
+    for mention in sorted(mentions, key=lambda x: x["position"]):
+        if mention["sentiment"] == "positive":
+            trend_points.append(0.7)
+        elif mention["sentiment"] == "negative":
+            trend_points.append(0.3)
+        else:
+            trend_points.append(0.5)
+    
+    return {
+        "mentions": mentions,
+        "positive_percentage": int((positive_count / total) * 100),
+        "neutral_percentage": int((neutral_count / total) * 100),
+        "negative_percentage": int((negative_count / total) * 100),
+        "trend_points": trend_points
+    }
+
+
 async def generate_chapter_emoji(chapter_content: str) -> str:
     """
     Generate a single emoji suggestion for a chapter based on its content.

@@ -285,3 +285,34 @@ export interface ReformulateSentenceResponse {
   sentenceId: string;
   reformulatedText: string;
 }
+
+// ========== Character Sentiment Analysis ==========
+
+export interface CharacterSentimentMention {
+  sentenceIndex: number;
+  sentenceText: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  position: number; // 0.0 to 1.0
+}
+
+export interface CharacterSentimentResponse {
+  characterId: string;
+  characterName: string;
+  emoji: string;
+  mentionCount: number;
+  positivePercentage: number;
+  neutralPercentage: number;
+  negativePercentage: number;
+  mentions: CharacterSentimentMention[];
+  trendPoints: number[]; // For timeline visualization
+}
+
+export interface CharacterSentimentAnalysisRequest {
+  documentId: string;
+  characterIds?: string[]; // If not provided, analyzes all characters
+  chapterId?: string | null; // If provided, analyzes only sentences from this chapter. If null, analyzes entire story
+}
+
+export interface CharacterSentimentAnalysisResponse {
+  characters: CharacterSentimentResponse[];
+}

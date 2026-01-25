@@ -313,6 +313,47 @@ class ReformulateSentenceResponse(BaseModel):
     reformulated_text: str = Field(alias='reformulatedText')
 
 
+# ========== Character Sentiment Analysis ==========
+
+class CharacterSentimentMention(BaseModel):
+    """A single mention of a character with its sentiment."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    sentence_index: int = Field(alias='sentenceIndex')
+    sentence_text: str = Field(alias='sentenceText')
+    sentiment: str  # 'positive', 'neutral', or 'negative'
+    position: float  # Position in document (0.0 to 1.0)
+
+class CharacterSentimentResponse(BaseModel):
+    """Response with character sentiment analysis."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    character_id: str = Field(alias='characterId')
+    character_name: str = Field(alias='characterName')
+    emoji: str
+    mention_count: int = Field(alias='mentionCount')
+    positive_percentage: int = Field(alias='positivePercentage', ge=0, le=100)
+    neutral_percentage: int = Field(alias='neutralPercentage', ge=0, le=100)
+    negative_percentage: int = Field(alias='negativePercentage', ge=0, le=100)
+    mentions: list[CharacterSentimentMention] = Field(default_factory=list)
+    trend_points: list[float] = Field(default_factory=list, alias='trendPoints')  # For timeline visualization
+
+class CharacterSentimentAnalysisRequest(BaseModel):
+    """Request to analyze character sentiment."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    document_id: str = Field(alias='documentId')
+    character_ids: Optional[list[str]] = Field(default=None, alias='characterIds')  # If None, analyze all characters
+    chapter_id: Optional[str] = Field(default=None, alias='chapterId')  # If provided, analyze only sentences from this chapter. If None, analyze entire story
+
+
+class CharacterSentimentAnalysisResponse(BaseModel):
+    """Response with sentiment analysis for all characters."""
+    model_config = ConfigDict(populate_by_name=True)
+    
+    characters: list[CharacterSentimentResponse]
+
+
 # ========== Health Check ==========
 
 class HealthResponse(BaseModel):

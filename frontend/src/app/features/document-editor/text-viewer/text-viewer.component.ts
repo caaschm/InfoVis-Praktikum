@@ -25,6 +25,8 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   generatingSentenceId: string | null = null; // Sentence currently generating emojis
   hoveredEmoji: string | null = null;
   highlightColor: string = '#999999';
+  highlightedSentenceId: string | null = null; // Sentence ID to highlight with specific color
+  sentenceHighlightColor: string = '#999999'; // Color for sentence-specific highlighting
   viewMode: 'text' | 'emoji' = 'text'; // Toggle between text and emoji-only view
   showAiHighlight: boolean = false; // Toggle for AI highlight mode
   selectedChapterId: string | null = null; // null means "All Chapters" (view filter)
@@ -163,6 +165,22 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       .pipe(takeUntil(this.destroy$))
       .subscribe(color => {
         this.highlightColor = color;
+      });
+
+    // Subscribe to sentence-specific highlighting
+    this.characterHighlightService.highlightedSentenceId$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(sentenceId => {
+        this.highlightedSentenceId = sentenceId;
+        this.cdr.markForCheck();
+      });
+
+    // Subscribe to sentence highlight color
+    this.characterHighlightService.sentenceHighlightColor$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(color => {
+        this.sentenceHighlightColor = color;
+        this.cdr.markForCheck();
       });
   }
 

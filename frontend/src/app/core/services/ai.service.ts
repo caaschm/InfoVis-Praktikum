@@ -14,7 +14,9 @@ import {
     SpiderChartAnalysisResponse, SpiderChartIntentRequest, SpiderChartIntentResponse,
     StoryArcResponse,
     ReformulateSentenceRequest,
-    ReformulateSentenceResponse
+    ReformulateSentenceResponse,
+    CharacterSentimentAnalysisRequest,
+    CharacterSentimentAnalysisResponse
 } from '../models/document.model';
 
 export interface SpiderIntentRequest {
@@ -102,6 +104,16 @@ export class AiService {
   reformulateSentenceForTension(request: ReformulateSentenceRequest): Observable<ReformulateSentenceResponse> {
     return this.apiService.post<ReformulateSentenceResponse>(
       '/api/ai/reformulate-sentence-tension',
+      request
+    );
+  }
+
+  /**
+   * Analyze character sentiment in the document
+   */
+  analyzeCharacterSentiment(request: CharacterSentimentAnalysisRequest): Observable<CharacterSentimentAnalysisResponse> {
+    return this.apiService.post<CharacterSentimentAnalysisResponse>(
+      '/api/ai/analyze-character-sentiment',
       request
     );
   }

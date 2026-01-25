@@ -7,7 +7,7 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_beats_for_arc, reformulate_sentence_for_tension
+from app.services.ai_client import generate_spider_intent, generate_beats_for_arc, reformulate_sentence_for_tension, analyze_character_sentiment, discover_characters_in_text
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -567,3 +567,180 @@ async def clear_document_emojis(
             status_code=500,
             detail=f"Failed to clear emoji mappings: {str(e)}"
         )
+
+
+@router.post("/analyze-character-sentiment", response_model=schemas.CharacterSentimentAnalysisResponse)
+async def analyze_character_sentiment_endpoint(
+    request: schemas.CharacterSentimentAnalysisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze sentiment for characters in the document.
+    If character_ids is provided, analyzes only those characters.
+    Otherwise, analyzes all characters in the document.
+    If no characters are defined, uses LLM to discover characters from the text.
+    """
+    # Verify document exists
+    document = db.query(models.Document).filter(models.Document.id == request.document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get sentences for the document, optionally filtered by chapter
+    sentence_query = db.query(models.Sentence).filter(
+        models.Sentence.document_id == request.document_id
+    )
+    
+    # Filter by chapter if specified
+    if request.chapter_id:
+        sentence_query = sentence_query.filter(
+            models.Sentence.chapter_id == request.chapter_id
+        )
+    
+    sentences = sentence_query.order_by(models.Sentence.index).all()
+    
+    # Build full text from sentences
+    full_text = " ".join([s.text for s in sentences])
+    
+    if not full_text.strip():
+        return schemas.CharacterSentimentAnalysisResponse(characters=[])
+    
+    # Calculate total sentences for position normalization
+    total_sentences_in_scope = len(sentences)
+    
+    # Get characters to analyze
+    if request.character_ids:
+        characters = db.query(models.Character).filter(
+            models.Character.document_id == request.document_id,
+            models.Character.id.in_(request.character_ids)
+        ).all()
+    else:
+        characters = db.query(models.Character).filter(
+            models.Character.document_id == request.document_id
+        ).all()
+    
+    # If no characters are defined, discover them using LLM
+    discovered_characters = []
+    if not characters:
+        print("No characters defined, discovering characters using LLM...")
+        discovered_chars = await discover_characters_in_text(full_text)
+        
+        # Create temporary character objects for discovered characters
+        for char_data in discovered_chars:
+            discovered_characters.append({
+                'id': f"discovered_{char_data.get('name', '').lower().replace(' ', '_')}",
+                'name': char_data.get('name', 'Unknown'),
+                'emoji': '👤',  # Default emoji
+                'aliases': char_data.get('aliases', [])
+            })
+        
+        characters_to_analyze = discovered_characters
+    else:
+        characters_to_analyze = [{
+            'id': char.id,
+            'name': char.name,
+            'emoji': char.emoji,
+            'aliases': json.loads(char.aliases) if char.aliases else []
+        } for char in characters]
+    
+    if not characters_to_analyze:
+        return schemas.CharacterSentimentAnalysisResponse(characters=[])
+    
+    # Analyze sentiment for each character IN PARALLEL for better performance
+    import asyncio
+    
+    async def analyze_single_character(char_data):
+        """Analyze sentiment for a single character and return the result."""
+        try:
+            # Analyze sentiment using AI
+            sentiment_result = await analyze_character_sentiment(
+                text=full_text,
+                character_name=char_data['name'],
+                character_aliases=char_data.get('aliases', [])
+            )
+            
+            # Build mentions list
+            mentions = []
+            for mention_data in sentiment_result.get("mentions", []):
+                sentence_text = mention_data.get("sentence_text", "")
+                ai_sentence_index = mention_data.get("sentence_index", 0)
+                ai_position = mention_data.get("position", 0.0)
+                
+                # PRIORITY 1: Use AI-provided sentence_index if it's valid
+                # The AI analyzes the text in order, so its index should match our filtered sentence order
+                actual_sentence_index = ai_sentence_index
+                
+                # Validate and clamp the index
+                if actual_sentence_index < 0 or actual_sentence_index >= total_sentences_in_scope:
+                    # If AI index is out of range, try to find by text matching
+                    # But use position to find the closest match when there are duplicates
+                    if sentence_text and ai_position is not None:
+                        # Find sentence closest to the expected position
+                        target_index = int(ai_position * (total_sentences_in_scope - 1)) if total_sentences_in_scope > 1 else 0
+                        target_index = max(0, min(target_index, total_sentences_in_scope - 1))
+                        
+                        # Search around the target position for text match
+                        search_range = min(5, total_sentences_in_scope)  # Search ±5 sentences
+                        start_idx = max(0, target_index - search_range)
+                        end_idx = min(total_sentences_in_scope, target_index + search_range + 1)
+                        
+                        for idx in range(start_idx, end_idx):
+                            if idx < len(sentences) and sentences[idx].text.strip() == sentence_text.strip():
+                                actual_sentence_index = idx
+                                break
+                        else:
+                            # If no match found, use target index as fallback
+                            actual_sentence_index = target_index
+                    else:
+                        # Last resort: try to find by text (will find first occurrence)
+                        for idx, s in enumerate(sentences):
+                            if s.text.strip() == sentence_text.strip():
+                                actual_sentence_index = idx
+                                break
+                
+                # Final clamp to valid range
+                actual_sentence_index = min(actual_sentence_index, total_sentences_in_scope - 1) if total_sentences_in_scope > 0 else 0
+                
+                # Calculate position relative to the selected scope (0.0 = first sentence, 1.0 = last sentence)
+                if total_sentences_in_scope > 1:
+                    position = actual_sentence_index / (total_sentences_in_scope - 1)
+                else:
+                    position = 0.0
+                
+                mentions.append(schemas.CharacterSentimentMention(
+                    sentence_index=actual_sentence_index,
+                    sentence_text=sentence_text,
+                    sentiment=mention_data.get("sentiment", "neutral"),
+                    position=position
+                ))
+            
+            return schemas.CharacterSentimentResponse(
+                character_id=char_data['id'],
+                character_name=char_data['name'],
+                emoji=char_data.get('emoji', '👤'),
+                mention_count=len(mentions),
+                positive_percentage=sentiment_result.get("positive_percentage", 0),
+                neutral_percentage=sentiment_result.get("neutral_percentage", 0),
+                negative_percentage=sentiment_result.get("negative_percentage", 0),
+                mentions=mentions,
+                trend_points=sentiment_result.get("trend_points", [])
+            )
+        except Exception as e:
+            print(f"❌ Error analyzing character {char_data.get('name', 'unknown')}: {e}")
+            # Return empty result on error
+            return schemas.CharacterSentimentResponse(
+                character_id=char_data['id'],
+                character_name=char_data['name'],
+                emoji=char_data.get('emoji', '👤'),
+                mention_count=0,
+                positive_percentage=0,
+                neutral_percentage=0,
+                negative_percentage=0,
+                mentions=[],
+                trend_points=[]
+            )
+    
+    # Process all characters in parallel
+    print(f"🚀 Analyzing sentiment for {len(characters_to_analyze)} characters in parallel...")
+    character_sentiments = await asyncio.gather(*[analyze_single_character(char_data) for char_data in characters_to_analyze])
+    
+    return schemas.CharacterSentimentAnalysisResponse(characters=character_sentiments)
