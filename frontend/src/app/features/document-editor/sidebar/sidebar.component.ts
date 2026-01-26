@@ -1840,7 +1840,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         
         if (closestSentence) {
           sentence = closestSentence;
-          console.log(`Found sentence by position ${targetPosition}:`, sentence.text.substring(0, 50));
+          console.log(`Found sentence by position ${targetPosition}:`, sentence);
         }
       } else {
         // Fallback: exact text match (but this will find first occurrence)
