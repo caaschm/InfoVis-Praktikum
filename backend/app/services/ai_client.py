@@ -922,15 +922,67 @@ async def generate_beats_for_arc(text: str) -> dict:
                 },
             )
 
+        # Check HTTP status code first
+        if res.status_code == 429:
+            print("⚠️ OpenRouter rate limit (429). Using fallback beats.")
+            return {"beats": beats}
+        
+        if res.status_code != 200:
+            print(f"❌ API error {res.status_code}: {res.text[:200]}")
+            return {"beats": beats}
+
         response_data = res.json()
         if "choices" in response_data and len(response_data["choices"]) > 0:
             content = response_data["choices"][0]["message"]["content"]
             # Delete possible ```json Blocks
             content = re.sub(r'```json\s*', '', content)
             content = re.sub(r'```\s*', '', content).strip()
+            
+            if not content:
+                print("⚠️ Empty content from API response")
+                return {"beats": beats}
+            
+            # Check if model returned reasoning instead of JSON
+            # (common with models that ignore JSON mode)
+            if not content.startswith('{'):
+                # Model returned explanatory text instead of JSON
+                print(f"⚠️ Model returned reasoning instead of JSON. First 100 chars: {content[:100]}")
+                print("⚠️ Using default beats structure")
+                return {"beats": beats}
+            
+            # Extract only the valid JSON object (handles extra text before/after and duplicate braces)
+            # Find first { and match it with its closing }
+            start_idx = content.find('{')
+            if start_idx == -1:
+                print(f"⚠️ No JSON object found in response. Content: {content}")
+                return {"beats": beats}
+            
+            # Find matching closing brace by counting
+            brace_count = 0
+            end_idx = -1
+            for i in range(start_idx, len(content)):
+                if content[i] == '{':
+                    brace_count += 1
+                elif content[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_idx = i
+                        break
+            
+            if end_idx == -1:
+                print("⚠️ Malformed JSON in response - could not find matching closing brace")
+                return {"beats": beats}
+            
+            json_str = content[start_idx:end_idx+1]
+            
             # Parse JSON
-            parsed = json.loads(content)
-            print("Raw AI response for story arc:", parsed)
+            try:
+                parsed = json.loads(json_str)
+                print("Raw AI response for story arc:", parsed)
+            except json.JSONDecodeError as e:
+                print(f"⚠️ JSON parse error: {e}")
+                print(f"Content: {json_str[:200]}")
+                return {"beats": beats}
         else:
             raise Exception(f"No 'choices' in response: {response_data}")
 
