@@ -1276,20 +1276,23 @@
 
         .sentence-inline,
         .sentence-wrapper {
-            display: inline-block;
-            width: 100%;
+            display: inline;
+            width: auto;
             padding-left: 5px;
             transition: background-color 0.2s ease;
             line-height: var(--lh) !important;
             height: var(--lh) !important;
             vertical-align: top;
+            
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
 
             &:nth-child(even) {
-                background-color: rgba(0, 0, 0, 0.04) !important; // Dezentes Grau
+                background-color: rgba(0, 0, 0, 0.06) !important; // Dezentes Grau
             }
 
             &:hover {
-                background-color: rgba(59, 130, 246, 0.05) !important; // Leichter Blaustich beim Drüberfahren
+                background-color: rgba(59, 131, 246, 0.16) !important; // Leichter Blaustich beim Drüberfahren
             }
         }
     }
