@@ -335,6 +335,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
           this.chapters = doc?.chapters?.sort((a, b) => a.index - b.index) ?? [];
           this.loadEmojiDictionary(doc.id);
 
+          // Auto-select chapter for analysis if there's only one
+          if (this.chapters.length === 1) {
+            this.selectedAnalysisChapterId = this.chapters[0].id;
+          } else if (this.chapters.length > 1 && this.selectedAnalysisChapterId !== 'all' &&
+            !this.chapters.find(c => c.id === this.selectedAnalysisChapterId)) {
+            // Reset to 'all' if selected chapter no longer exists
+            this.selectedAnalysisChapterId = 'all';
+          }
+
           // Refresh character sentiment if characters tab is active
           if (this.activeTab === 'characters') {
             // Reset chapter selector based on available chapters
