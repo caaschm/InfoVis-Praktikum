@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import json
 import re
+from pydantic import BaseModel
 
 from app.database import get_db
 from app import models, schemas
@@ -10,6 +11,24 @@ from app.services import ai_client
 from app.services.ai_client import generate_spider_intent, generate_beats_for_arc, reformulate_sentence_for_tension, analyze_character_sentiment, discover_characters_in_text
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+
+class ModelUpdate(BaseModel):
+    index: int
+
+@router.get("/get-models")
+async def get_models():
+    return {
+        "models": ai_client.AI_MODELS,
+        "current_index": ai_client.current_index
+    }
+
+@router.post("/set-model")
+async def set_model(data: ModelUpdate):
+    if 0 <= data.index < len(ai_client.AI_MODELS):
+        ai_client.current_index = data.index
+        ai_client.MODEL_NAME = ai_client.AI_MODELS[data.index]
+        return {"status": "success", "current_model": ai_client.MODEL_NAME}
+    raise HTTPException(status_code=400, detail="Invalid index")
 
 # Common function words to ignore when generating emojis
 IGNORE_WORDS = {

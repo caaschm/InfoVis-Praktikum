@@ -50,6 +50,16 @@
                             <span class="slider round"></span>
                         </label>
                     </div>
+                    <div class="dropdown-header">AI-Model</div>
+                    <div class="settings-group">
+                        <select class="model-select" 
+                            [ngModel]="aiModels[selectedModelIndex]" 
+                            (ngModelChange)="onModelChange($event)">
+                        <option *ngFor="let model of aiModels" [value]="model">
+                            {{ model }}
+                        </option>
+                    </select>
+                    </div>
                 </div>
             </div>
         </div>

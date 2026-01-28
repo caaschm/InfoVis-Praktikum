@@ -5,20 +5,22 @@ import httpx
 import json
 import re
 
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-# 🎭 CHARACTER-EMOJI CONSISTENCY MAPPING
-# This cache ensures the same character/noun always gets the same emoji
-# across different sentences in the document
 _character_emoji_cache: Dict[str, str] = {}
 
 def get_api_key() -> str:
     """Get API key dynamically to support hot reload."""
     return os.getenv("OPENROUTER_API_KEY", "")
 
-# Use Mistral's Devstral model - optimized for code and creative tasks
-MODEL_NAME = "minimax/minimax-m2-her"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+AI_MODELS = [
+    "minimax/minimax-m2-her",
+    "mistralai/mistral-7b-instruct", 
+    "anthropic/claude-3-haiku",
+    "openai/gpt-4o-mini"
+]
+current_index = 0
+MODEL_NAME = AI_MODELS[current_index]
 
 def _extract_character_names(text: str) -> list[str]:
     """🎭 Extract potential character names/nouns from text.

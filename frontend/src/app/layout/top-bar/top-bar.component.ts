@@ -7,14 +7,17 @@ import { CommonModule } from '@angular/common';
 import { takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { WorkflowTrackerComponent } from '../../core/components/workflow-tracker/workflow-tracker.component';
+import { HttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-top-bar',
   standalone: true,
-  imports: [CommonModule, WorkflowTrackerComponent],
+  imports: [CommonModule, WorkflowTrackerComponent, FormsModule],
   templateUrl: './top-bar.component.html',
   styleUrl: './top-bar.component.scss'
 })
+
 export class TopBarComponent implements OnInit, OnDestroy {
   appTitle = 'Plottery';
   private historyStack: string[] = []; // Kept for backward compatibility, but per-chapter undo is primary
@@ -23,15 +26,35 @@ export class TopBarComponent implements OnInit, OnDestroy {
   isZebraMode = false;
   isLargeFont = false;
   private destroy$ = new Subject<void>();
+  public aiModels: string[] = [];
+  public selectedModelIndex: number = 0;
 
   constructor(
     private documentService: DocumentService,
     private chapterStateService: ChapterStateService,
     private navigationService: NavigationService,
-    private location: Location
+    private location: Location,
+    private http: HttpClient
   ) { }
 
   ngOnInit(): void {
+    const url = 'http://localhost:8000/ai/get-models'; // Prüfe, ob das Präfix /ai/ stimmt
+    console.log('Versuche Modelle zu laden von:', url);
+
+    this.http.get<any>(url).subscribe({
+        next: (data) => {
+            console.log('Backend Antwort erhalten:', data);
+            this.aiModels = data.models || [];
+            this.selectedModelIndex = data.current_index || 0;
+        },
+        error: (err) => {
+            console.error('FEHLER beim Laden der Modelle:');
+            console.error('Status:', err.status);
+            console.error('Message:', err.message);
+            console.log('Vollständiger Fehler-Objekt:', err);
+            this.aiModels = ["Fallback-Model"];
+        }
+    });
     this.documentService.currentDocument$.subscribe(doc => {
       if (doc && doc.content) {
         if (this.historyStack.length === 0 || this.historyStack[this.historyStack.length - 1] !== doc.content) {
@@ -43,6 +66,19 @@ export class TopBarComponent implements OnInit, OnDestroy {
 
   onSettingsClick(): void {
     this.showSettingsDropdown = !this.showSettingsDropdown;
+  }
+
+  onModelChange(newModelName: string) {
+        // Finde den Index des gewählten Namens
+        const index = this.aiModels.indexOf(newModelName);
+        if (index === -1) return; // Sicherheitsscheck
+        
+        // Sende den Index an das Backend
+        this.http.post('http://localhost:5000/ai/set-model', { index: index })
+            .subscribe((res: any) => {
+                this.selectedModelIndex = res.index;
+                console.log("Modell erfolgreich auf Server geändert:", res.current_model);
+            });
   }
 
   toggleColorBlindMode(): void {
