@@ -920,19 +920,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // CRITICAL: Only update the selected analysis chapter's content
     const targetChapterId = this.selectedAnalysisChapterId === 'all' ? null : this.selectedAnalysisChapterId;
 
+    // Helper for robust comparison
+    const normalize = (t: string) => t.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
     if (targetChapterId) {
       // Get selected chapter's sentences (sorted by index)
       const activeChapterSentences = doc.sentences
         .filter(s => s.chapterId === targetChapterId)
         .sort((a, b) => a.index - b.index);
 
-      // Check duplicate for chapter
+      // Check duplicate for chapter using normalized comparison
       const activeChapterContentRaw = activeChapterSentences.map(s => s.text).join(' ').trim();
-      const previewTrimmed = this.intentPreview.trim();
+      const activeNormalized = normalize(activeChapterContentRaw);
+      const previewNormalized = normalize(this.intentPreview);
 
       // Prevent adding the same significant text multiple times (e.g. fallback sentences)
-      if (previewTrimmed.length > 15 && activeChapterContentRaw.includes(previewTrimmed)) {
-        console.warn('Skipping suggestion application: Text already exists in chapter.');
+      if (previewNormalized.length > 10 && activeNormalized.includes(previewNormalized)) {
+        console.warn('Skipping suggestion application: Text already exists in chapter (normalized check).');
         this.textApplied = true; // Mark as applied so button disables
         // No alert needed, just silently block duplication
         return;
@@ -1013,10 +1017,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
-      const previewTrimmed = this.intentPreview.trim();
+      const activeNormalized = normalize(currentContent);
+      const previewNormalized = normalize(this.intentPreview);
 
-      if (previewTrimmed.length > 15 && currentContent.includes(previewTrimmed)) {
-        console.warn('Skipping suggestion application: Text already exists in document.');
+      if (previewNormalized.length > 10 && activeNormalized.includes(previewNormalized)) {
+        console.warn('Skipping suggestion application: Text already exists in document (normalized check).');
         this.textApplied = true;
         return;
       }
