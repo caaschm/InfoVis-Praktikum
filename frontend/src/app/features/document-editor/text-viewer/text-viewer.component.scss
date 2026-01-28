@@ -487,40 +487,7 @@
             }
         }
 
-        /* AI prefix overlay - improved positioning */
-        .ai-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            user-select: none;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: 'Georgia', 'Cambria', 'Times New Roman', serif;
-            font-size: 1.05rem;
-            line-height: 2;
-            color: transparent;
-            z-index: 1; // Above highlight overlay but below text
-            // Match text properties exactly
-            letter-spacing: inherit;
-            word-spacing: inherit;
-            text-rendering: inherit;
-            -webkit-font-smoothing: inherit;
-            -moz-osx-font-smoothing: inherit;
-            padding: 0;
-            margin: 0;
-            border: 0;
 
-            .ai-prefix {
-                background: rgba(34, 197, 94, 0.25);
-                border-radius: 3px;
-                padding: 0;
-                margin: 0;
-                position: relative;
-            }
-        }
 
         // Editable text layer (on top of highlight)
         .sentence-text {
@@ -1283,7 +1250,7 @@
             line-height: var(--lh) !important;
             height: var(--lh) !important;
             vertical-align: top;
-            
+
             -webkit-box-decoration-break: clone;
             box-decoration-break: clone;
 

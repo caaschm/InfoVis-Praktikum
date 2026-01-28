@@ -143,17 +143,10 @@
                                     [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                                     (click)="onSentenceClick(sentence)">
 
-                                    <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                                    <span class="ai-overlay" aria-hidden="true"
-                                        *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                                        <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                            <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                            <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                                        </ng-container>
-                                    </span>
+
 
                                     <!-- Editable text with inline highlighting -->
-                                    <span class="sentence-text" 
+                                    <span class="sentence-text"
                                         [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                                         [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
                                         contenteditable="true"
@@ -209,17 +202,10 @@
                                 [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                                 (click)="onSentenceClick(sentence)">
 
-                                <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                                <span class="ai-overlay" aria-hidden="true"
-                                    *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                                    <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                        <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                        <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                                    </ng-container>
-                                </span>
+
 
                                 <!-- Editable text with inline highlighting -->
-                                <span class="sentence-text" 
+                                <span class="sentence-text"
                                     [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                                     [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
                                     contenteditable="true"
@@ -262,20 +248,13 @@
                         [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                         (click)="onSentenceClick(sentence)">
 
-                        <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                        <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                            <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                            </ng-container>
-                        </span>
+
 
                         <!-- Editable text with inline highlighting -->
-                        <span class="sentence-text" 
+                        <span class="sentence-text"
                             [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                             [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
-                            contenteditable="true"
-                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                            contenteditable="true" (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                             (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                             (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
                             [attr.data-sentence-id]="sentence.id">

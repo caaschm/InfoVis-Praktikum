@@ -58,8 +58,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   private lineNumberUpdateTimer: any = null;
   private charsSinceLastSnapshot = 0;
 
-  // Track original AI text to allow partial highlighting
-  private aiOriginalTextMap = new Map<string, string>();
+
 
   /**
    * KEY FIX:
@@ -274,16 +273,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   }
 
-  private initializeOriginalAiText(): void {
-    // Populate the original text map for AI sentences that aren't already tracked
-    if (this.sentences) {
-      this.sentences.forEach(s => {
-        if (s.isAiGenerated && !this.aiOriginalTextMap.has(s.id)) {
-          this.aiOriginalTextMap.set(s.id, s.text);
-        }
-      });
-    }
-  }
+
 
   /**
    * Save current cursor state for active chapter
@@ -295,32 +285,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     return this.isAiGenerated(sentence);
   }
 
-  getAiSegments(sentence: Sentence): Array<{ text: string, isAi: boolean }> {
-    if (!sentence.isAiGenerated) {
-      return [{ text: sentence.text, isAi: false }];
-    }
 
-    const originalText = this.aiOriginalTextMap.get(sentence.id);
-    if (!originalText) {
-      // Fallback if we don't have original text mapped (shouldn't happen often)
-      return [{ text: sentence.text, isAi: true }];
-    }
-
-    // Check if the current text starts with the original AI text
-    if (sentence.text.startsWith(originalText)) {
-      const suffix = sentence.text.substring(originalText.length);
-      const segments = [{ text: originalText, isAi: true }];
-      if (suffix) {
-        segments.push({ text: suffix, isAi: false });
-      }
-      return segments;
-    }
-
-    // If text changed completely, treat as modified (no AI highlight? or full?
-    // User likely deleted/rewrote. Let's assume no highlight or minimal heuristic).
-    // For now, if strict match fails, we return full text as NON-AI to avoid wrong highlight.
-    return [{ text: sentence.text, isAi: false }];
-  }
 
   // NOTE: freezeAiHighlightIfEdited removed as we support partial highlighting now.
 
@@ -1526,26 +1491,26 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         // NEW LOGIC FOR "ALL CHAPTERS" VIEW:
         // Extend line numbers to cover full height (including chapter titles)
         // Indent text content to align with line numbers
-        
+
         // Get the total scrollable height of the text content (includes everything)
         const textScrollHeight = textContentEl.scrollHeight;
         const textPaddingTop = parseFloat(getComputedStyle(textContentEl).paddingTop) || 0;
         const textPaddingBottom = parseFloat(getComputedStyle(textContentEl).paddingBottom) || 0;
-        
+
         // Calculate total content height (including chapter titles and spacing)
         const totalContentHeight = textScrollHeight - textPaddingTop - textPaddingBottom;
-        
+
         // Calculate number of lines to cover the entire height
         const numberOfLines = Math.max(1, Math.ceil(totalContentHeight / lineHeight));
-        
+
         // Generate line numbers array covering full height
         this.lineNumbers = Array.from({ length: numberOfLines }, (_, i) => i + 1);
-        
+
         if (lineNumbersEl && textContentEl) {
           // No padding-top offset - line numbers start from the very top
           lineNumbersEl.style.paddingTop = '0px';
           lineNumbersEl.style.paddingBottom = `${textPaddingBottom}px`;
-          
+
           // Add a class to indicate "All Chapters" view for styling
           lineNumbersEl.classList.add('all-chapters-view');
           textContentEl.classList.add('all-chapters-view');
@@ -1553,7 +1518,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       } else {
         // ORIGINAL LOGIC FOR SINGLE CHAPTER VIEW:
         // Align line numbers with flowing text only (excludes chapter titles)
-        
+
         // Remove "All Chapters" view classes if present
         if (lineNumbersEl) {
           lineNumbersEl.classList.remove('all-chapters-view');
@@ -1561,7 +1526,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         if (textContentEl) {
           textContentEl.classList.remove('all-chapters-view');
         }
-        
+
         // Get all chapter-sentences containers (excludes chapter titles)
         const chapterSentencesContainers = textContentEl.querySelectorAll('.chapter-sentences');
 
@@ -1676,11 +1641,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   requestTitleSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || this.titleSuggestionLoading) return;
-    
+
     this.suggestingTitleForChapterId = chapter.id;
     this.titleSuggestionLoading = true;
     this.aiTitleSuggestion = null;
-    
+
     this.documentService.suggestChapterTitle(this.currentDocument.id, chapter.id).subscribe({
       next: (response) => {
         this.aiTitleSuggestion = response.suggested_title;
@@ -1701,14 +1666,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   applyTitleSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || !this.aiTitleSuggestion) return;
-    
+
     // Extract current chapter number if it's a numbered chapter
     let newTitle: string;
     if (chapter.type === 'chapter') {
       // Extract current number from title
       const chapterMatch = chapter.title.match(/Chapter\s+(\d+)/i);
       const numMatch = chapter.title.match(/^(\d+)\s+/);
-      
+
       let chapterNum: string;
       if (chapterMatch) {
         chapterNum = chapterMatch[1];
@@ -1720,14 +1685,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         const chapterIndex = numberedChapters.findIndex(ch => ch.id === chapter.id);
         chapterNum = (chapterIndex + 1).toString().padStart(2, '0');
       }
-      
+
       const paddedNum = parseInt(chapterNum, 10).toString().padStart(2, '0');
       newTitle = `${paddedNum} ${this.aiTitleSuggestion}`;
     } else {
       // For special sections, use suggestion as-is
       newTitle = this.aiTitleSuggestion;
     }
-    
+
     this.documentService.updateChapter(
       this.currentDocument.id,
       chapter.id,
@@ -1761,11 +1726,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   requestEmojiSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || this.emojiSuggestionLoading) return;
-    
+
     this.suggestingEmojiForChapterId = chapter.id;
     this.emojiSuggestionLoading = true;
     this.aiEmojiSuggestion = null;
-    
+
     this.documentService.suggestChapterEmoji(this.currentDocument.id, chapter.id).subscribe({
       next: (response) => {
         this.aiEmojiSuggestion = response.suggested_emoji;
@@ -1786,7 +1751,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
    */
   applyEmojiSuggestion(chapter: Chapter): void {
     if (!this.currentDocument || !this.aiEmojiSuggestion) return;
-    
+
     this.editingChapterEmoji = this.aiEmojiSuggestion;
     this.saveChapterEmoji(chapter);
     this.suggestingEmojiForChapterId = null;
