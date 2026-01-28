@@ -381,3 +381,62 @@
         }
     }
 }
+/* Color-Blind Mode (Deuteranomaly) Support for Character Manager */
+:host-context(body.protanopia-mode) {
+    .character-manager {
+        
+        // 1. Header & Haupt-Buttons (Lila -> Blau)
+        .manager-header .btn-add {
+            background: #0D47A1 !important; // Dunkelblau
+            &:hover { background: #1565C0 !important; }
+            
+            &.active {
+                background: #B71C1C !important; // Kräftigeres Rot
+            }
+        }
+
+        // 2. Formular & Picker
+        .add-form {
+            .emoji-picker-compact .emoji-btn.selected {
+                border-color: #0D47A1 !important;
+                background: #E3F2FD !important;
+            }
+
+            .color-picker .color-btn.selected {
+                // Deutlicherer Kontrast-Ring für die ausgewählte Farbe
+                box-shadow: 0 0 0 2px white, 0 0 0 4px #000 !important;
+                border-color: #000 !important;
+            }
+
+            .btn-create {
+                background: #0D47A1 !important;
+                &:hover:not(:disabled) { background: #1565C0 !important; }
+            }
+        }
+
+        // 3. Character Cards
+        .characters-list .character-card {
+            // Verstärkter linker Rand, da die Farbe allein oft nicht reicht
+            border-left-width: 8px !important; 
+            
+            &:hover {
+                background: linear-gradient(to right, #ffffff, #e3f2fd) !important;
+            }
+
+            .word-associations {
+                .associations-header .btn-edit-small {
+                    background: #0D47A1 !important;
+                }
+                
+                .phrases-edit .phrases-list-editable .phrase-edit-item .phrase-input:focus {
+                    border-color: #0D47A1 !important;
+                }
+
+                // Der grüne "Hinzufügen"-Button wird zu einem sichereren Blau/Teal
+                .btn-add-phrase {
+                    background: #006064 !important;
+                }
+            }
+        }
+    }
+}

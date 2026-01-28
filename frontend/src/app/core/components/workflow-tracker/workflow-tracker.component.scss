@@ -364,3 +364,65 @@
         }
     }
 }
+/* Color-Blind Mode (Deuteranomaly) Support */
+:host-context(body.protanopia-mode) {
+    // 1. Die kompakte Bar und Prozentanzeige
+    .workflow-bar {
+        .progress-percent {
+            color: #2196F3; // Blau statt Grün
+        }
+        .progress-icon.status-ready {
+            filter: drop-shadow(0 0 3px rgba(33, 150, 243, 0.8));
+        }
+    }
+
+    // 2. Der Header im Dropdown (Progress Bar)
+    .workflow-header {
+        .phase-percentage {
+            color: #2196F3;
+        }
+        .progress-bar .progress-fill {
+            background: linear-gradient(90deg, #2196F3, #64B5F6); // Blau-Gradient
+            
+            &.complete {
+                background: linear-gradient(90deg, #0D47A1, #2196F3);
+            }
+        }
+    }
+
+    // 3. Die einzelnen Step-Buttons
+    .workflow-steps-horizontal .steps-flow {
+        .workflow-step-btn {
+            // Status: Ready (vorher Grün) -> Jetzt Blau
+            &.status-ready {
+                background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+                border-color: #2196F3;
+            }
+
+            // Status: Partial (vorher Gelb) -> Jetzt kräftiges Orange/Ocker
+            &.status-partial {
+                background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
+                border-color: #E65100;
+            }
+
+            // Der "Run-Action" Button innerhalb des Steps
+            .quick-action {
+                background: #E65100; // Kontrastreiches Orange
+                &:hover { background: #BF360C; }
+            }
+
+            // Hover-Effekt allgemein
+            &:hover {
+                border-color: #2196F3;
+            }
+        }
+    }
+
+    // 4. Der große "Run All" Button unten
+    .global-actions .run-all-btn {
+        background: linear-gradient(135deg, #0D47A1 0%, #2196F3 100%);
+        &:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(13, 71, 161, 0.4);
+        }
+    }
+}

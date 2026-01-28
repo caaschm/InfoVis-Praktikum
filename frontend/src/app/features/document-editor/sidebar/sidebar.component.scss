@@ -1970,6 +1970,30 @@
 /* Ganz unten in deiner sidebar.component.scss einfügen */
 
 :host-context(body.protanopia-mode) {
+    .arc-stage.stage-exposition {
+        border-left: 4px solid #fff9c4;
+    }
+
+    .arc-stage.stage-rising-action {
+        border-left: 4px solid #64b5f6;
+    }
+
+    .arc-stage.stage-climax {
+        border-left: 4px solid #0d47a1;
+    }
+
+    .arc-stage.stage-falling-action {
+        border-left: 4px solid #78909c;
+    }
+
+    .arc-stage.stage-denouement {
+        border-left: 4px solid #212121;
+    }
+
+    .arc-stage:hover {
+        background: #f3f4f6;
+    }
+    
     .sidebar {
 
         // 1. Die lila AI-Buttons (jetzt Blau)
@@ -3336,4 +3360,96 @@
     min-height: 300px;
     display: flex;
     flex-direction: column;
+}
+
+/* Color-Blind Mode (Deuteranomaly) Support for Analysis Section */
+:host-context(body.protanopia-mode) {
+    .arc-point {
+        // Exposition: Ein sehr helles, fast weißes Gelb (hoher Kontrast zu Blau)
+        &.beat-exposition {
+            fill: #fff9c4 !important;
+        }
+
+        // Rising Action: Ein klares, helles Blau
+        &.beat-rising-action {
+            fill: #64b5f6 !important;
+        }
+
+        // Climax: Das wichtigste Event - Ein kräftiges, dunkles Blau
+        &.beat-climax {
+            fill: #0d47a1 !important;
+        }
+
+        // Falling Action: Ein gedecktes Ocker/Graublau
+        &.beat-falling-action {
+            fill: #78909c !important;
+        }
+
+        // Denouement: Fast Schwarz/Dunkelgrau für den Abschluss
+        &.beat-denouement {
+            fill: #212121 !important;
+        }
+    }
+
+    .spinner {
+        // Das Lila des Spinners wird zu einem kontraststarken Blau
+        border-top-color: #0D47A1 !important; 
+        
+        // Optional: Den restlichen Ring etwas dunkler machen für besseren Kontrast
+        border-color: #d1d5db !important; 
+        border-top-color: #0D47A1 !important;
+    }
+
+    .arc-loading-overlay {
+        // Ein leicht bläulicher Stich im Overlay hilft dem Auge, 
+        // den Modus auch im "Wartezustand" zu erkennen
+        background: rgba(240, 248, 255, 0.9) !important;
+        
+        // Falls du dort Text hast (z.B. "Loading..."):
+        color: #0D47A1 !important;
+    }
+
+    .analysis-section {
+        .metric-card {
+            // Wir machen die Rahmen im Farbenblind-Modus generell dicker
+            //border-width: 3px !important;
+
+            &.drama {
+                // Lila wird zu einem sehr dunklen, klaren Blau
+                border-color: #1a237e !important;
+                .metric-icon { color: #1a237e !important; }
+                .slider-fill, .metric-fill {
+                    background: #1a237e !important;
+                }
+            }
+
+            &.humor {
+                // Amber bleibt, wird aber kräftiger/dunkler (Richtung Orange)
+                border-color: #e65100 !important;
+                .metric-icon { color: #e65100 !important; }
+                .slider-fill, .metric-fill {
+                    background: #e65100 !important;
+                }
+            }
+
+            &.conflict {
+                // Rot ersetzen wir durch ein extrem auffälliges, helles Pink/Magenta
+                // Das ist für Farbenblinde deutlich von Blau und Orange zu unterscheiden
+                border-color: #d81b60 !important;
+                .metric-icon { color: #d81b60 !important; }
+                .slider-fill, .metric-fill {
+                    background: #d81b60 !important;
+                }
+            }
+
+            &.mystery {
+                // Cyan wird zu einem sehr hellen, leuchtenden Türkis/Weiß-Blau
+                border-color: #00acc1 !important;
+                .metric-icon { color: #00acc1 !important; }
+                .slider-fill, .metric-fill {
+                    background: #00acc1 !important;
+                }
+            }
+        }
+    }
 }
