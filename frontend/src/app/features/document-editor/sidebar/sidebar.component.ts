@@ -334,7 +334,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         if (doc) {
           this.chapters = doc?.chapters?.sort((a, b) => a.index - b.index) ?? [];
           this.loadEmojiDictionary(doc.id);
-          
+
           // Refresh character sentiment if characters tab is active
           if (this.activeTab === 'characters') {
             // Reset chapter selector based on available chapters
@@ -343,7 +343,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 this.selectedSentimentChapterId = this.chapters[0].id;
               } else {
                 // If current selection is invalid, reset to 'all'
-                if (this.selectedSentimentChapterId !== 'all' && 
+                if (this.selectedSentimentChapterId !== 'all' &&
                     !this.chapters.find(c => c.id === this.selectedSentimentChapterId)) {
                   this.selectedSentimentChapterId = 'all';
                 }
@@ -529,7 +529,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       phrases.push(...character.aliases);
     }
 
-    // Add wordPhrases 
+    // Add wordPhrases
     if (character.wordPhrases && character.wordPhrases.length > 0) {
       phrases.push(...character.wordPhrases);
     }
@@ -898,8 +898,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (!this.intentPreview) return;
     if (this.textApplied) return;
 
+    // Lock immediately to prevent race conditions or double-clicks
+    this.textApplied = true;
+
     const doc = this.documentService.getCurrentDocument();
-    if (!doc) return;
+    if (!doc) {
+      this.textApplied = false;
+      return;
+    }
 
     // CRITICAL: Only update the active chapter's content
     // CRITICAL: Only update the selected analysis chapter's content
@@ -910,6 +916,18 @@ export class SidebarComponent implements OnInit, OnDestroy {
       const activeChapterSentences = doc.sentences
         .filter(s => s.chapterId === targetChapterId)
         .sort((a, b) => a.index - b.index);
+
+      // Check duplicate for chapter
+      const activeChapterContentRaw = activeChapterSentences.map(s => s.text).join(' ').trim();
+      const previewTrimmed = this.intentPreview.trim();
+
+      // Prevent adding the same significant text multiple times (e.g. fallback sentences)
+      if (previewTrimmed.length > 15 && activeChapterContentRaw.includes(previewTrimmed)) {
+        console.warn('Skipping suggestion application: Text already exists in chapter.');
+        this.textApplied = true; // Mark as applied so button disables
+        // No alert needed, just silently block duplication
+        return;
+      }
 
       // Try to get cursor position for cursor-based insertion
       const cursorState = this.chapterStateService.getCursor(targetChapterId);
@@ -986,6 +1004,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
     } else {
       // Fallback: if no active chapter, update all content (backward compatibility)
       const currentContent = doc.sentences.map(s => s.text).join(' ').trim();
+      const previewTrimmed = this.intentPreview.trim();
+
+      if (previewTrimmed.length > 15 && currentContent.includes(previewTrimmed)) {
+        console.warn('Skipping suggestion application: Text already exists in document.');
+        this.textApplied = true;
+        return;
+      }
+
       const newContent = currentContent ? `${currentContent} ${this.intentPreview}` : this.intentPreview;
 
       // Force analysis refresh
@@ -1000,8 +1026,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Mark as applied
-    this.textApplied = true;
+    // Mark as applied (already set at top, but kept for clarity/completeness logic)
+    // this.textApplied = true;
   }
 
 
@@ -1677,14 +1703,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     // Sort mentions by position
     const sortedMentions = [...character.mentions].sort((a, b) => a.position - b.position);
-    
+
     if (sortedMentions.length === 0) {
       return '';
     }
 
     const width = 100;
     const height = 40;
-    
+
     // Map sentiment to Y position (positive = higher, negative = lower, neutral = middle)
     const getYForSentiment = (sentiment: string): number => {
       if (sentiment === 'positive') return height * 0.3; // Top area (positive)
@@ -1695,7 +1721,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // Start path at first mention
     const firstMention = sortedMentions[0];
     let path = `M ${firstMention.position * width} ${getYForSentiment(firstMention.sentiment)}`;
-    
+
     // Connect to subsequent mentions
     for (let i = 1; i < sortedMentions.length; i++) {
       const mention = sortedMentions[i];
@@ -1718,8 +1744,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
    * Get tooltip text for sentiment point
    */
   getSentimentTooltip(mention: CharacterSentimentMention): string {
-    const sentenceNum = mention.sentenceIndex !== undefined && mention.sentenceIndex !== null 
-      ? mention.sentenceIndex + 1 
+    const sentenceNum = mention.sentenceIndex !== undefined && mention.sentenceIndex !== null
+      ? mention.sentenceIndex + 1
       : '?';
     const text = mention.sentenceText || 'Unknown sentence';
     const sentiment = mention.sentiment || 'unknown';
@@ -1787,14 +1813,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('Clicking sentiment point:', { 
-      character: character.characterName, 
+    console.log('Clicking sentiment point:', {
+      character: character.characterName,
       mention: mention,
-      selectedChapter: this.selectedSentimentChapterId 
+      selectedChapter: this.selectedSentimentChapterId
     });
 
     // Get filtered sentences based on selected chapter (same scope as sentiment analysis)
-    const filteredSentences = this.selectedSentimentChapterId === 'all' 
+    const filteredSentences = this.selectedSentimentChapterId === 'all'
       ? [...doc.sentences].sort((a, b) => a.index - b.index)
       : [...doc.sentences]
           .filter(s => s.chapterId === this.selectedSentimentChapterId)
@@ -1816,28 +1842,28 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // When analyzing "Entire Story", we need to match within the correct chapter context
     if (!sentence && mention.sentenceText) {
       const mentionText = mention.sentenceText.trim();
-      
+
       // If we have a position, use it to narrow down the search
       if (mention.position !== undefined && mention.position !== null) {
         const targetPosition = mention.position;
         // Find sentence closest to the expected position
         let closestSentence: Sentence | null = null;
         let closestDistance = Infinity;
-        
+
         filteredSentences.forEach((s, idx) => {
           const sentencePosition = idx / Math.max(1, filteredSentences.length - 1);
           const distance = Math.abs(sentencePosition - targetPosition);
-          
-          const textMatches = s.text.trim() === mentionText || 
-                             s.text.includes(mentionText) || 
+
+          const textMatches = s.text.trim() === mentionText ||
+                             s.text.includes(mentionText) ||
                              mentionText.includes(s.text.trim());
-          
+
           if (textMatches && distance < closestDistance) {
             closestDistance = distance;
             closestSentence = s;
           }
         });
-        
+
         if (closestSentence) {
           sentence = closestSentence;
           console.log(`Found sentence by position ${targetPosition}:`, sentence);
@@ -1846,8 +1872,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // Fallback: exact text match (but this will find first occurrence)
         sentence = filteredSentences.find(s => {
           const sText = s.text.trim();
-          return sText === mentionText || 
-                 sText.includes(mentionText) || 
+          return sText === mentionText ||
+                 sText.includes(mentionText) ||
                  mentionText.includes(sText);
         }) || null;
       }
@@ -1855,7 +1881,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     if (sentence) {
       console.log('Found sentence:', sentence.id, sentence.text.substring(0, 50));
-      
+
       // Select the sentence
       this.documentService.selectSentence(sentence);
 
@@ -1864,7 +1890,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
       // Highlight ONLY this specific sentence with the sentiment color
       this.characterHighlightService.highlightSentence(sentence.id, sentimentColor);
-      
+
       // Update highlighted character for visual feedback
       this.highlightedCharacterId = character.characterId;
 
