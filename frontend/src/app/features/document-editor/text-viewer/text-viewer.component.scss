@@ -16,14 +16,13 @@
         display: flex;
         align-items: center;
         gap: 1rem;
+        flex: 1;
     }
-
-    .section-title {
-        margin: 0;
-        color: #333;
-        font-size: 1.8rem;
-        font-weight: 600;
-        letter-spacing: -0.5px;
+    .ai-divider{
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-left: auto;
     }
 
     // View Toggle Switch

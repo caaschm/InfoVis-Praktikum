@@ -1,6 +1,5 @@
 <div class="text-viewer">
     <div class="header-row">
-        <h2 class="section-title">Workspace</h2>
         <div class="header-controls">
             <!-- Chapter Filter -->
             <div class="chapter-filter" *ngIf="chapters.length > 0">
@@ -17,18 +16,20 @@
             <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
                 + Add Chapter
             </button>
-            <div class="view-toggle">
-                <label class="toggle-label">
-                    <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
-                    <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
-                    <span class="toggle-slider"></span>
-                    <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
-                </label>
+            <div class="ai-divider">
+                <div class="view-toggle">
+                    <label class="toggle-label">
+                        <span class="toggle-text" [class.active]="viewMode === 'text'">Text</span>
+                        <input type="checkbox" [checked]="viewMode === 'emoji'" (change)="toggleViewMode()">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-text" [class.active]="viewMode === 'emoji'">Emoji</span>
+                    </label>
+                </div>
+                <button class="ai-highlight-btn" [class.active]="showAiHighlight" (click)="toggleAiHighlight()"
+                    title="Highlight AI-generated sentences">
+                    <span class="ai-icon">🤖</span>
+                </button>
             </div>
-            <button class="ai-highlight-btn" [class.active]="showAiHighlight" (click)="toggleAiHighlight()"
-                title="Highlight AI-generated sentences">
-                <span class="ai-icon">🤖</span>
-            </button>
         </div>
     </div>
 
