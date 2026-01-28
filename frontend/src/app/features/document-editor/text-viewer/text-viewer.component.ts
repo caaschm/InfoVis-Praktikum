@@ -318,7 +318,8 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       // Only save if this sentence belongs to the active chapter
       if (sentence && sentence.chapterId === this.activeChapterId) {
         // Calculate offset within the sentence
-        const textNode = sentenceElement.querySelector('.sentence-text');
+        // sentenceElement IS the contenteditable element
+        const textNode = sentenceElement;
         if (textNode) {
           const textRange = document.createRange();
           textRange.selectNodeContents(textNode);
@@ -364,8 +365,9 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
             }
           }
 
-          const textElement = sentenceElement.querySelector('.sentence-text');
-          if (textElement instanceof HTMLElement) {
+          // sentenceElement IS the contenteditable element
+          const textElement = sentenceElement as HTMLElement;
+          if (textElement) {
             // Focus the element
             textElement.focus();
 
