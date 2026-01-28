@@ -220,17 +220,17 @@
                         <p class="mentions">Mentioned {{ character.mentionCount }} time{{ character.mentionCount !== 1 ? 's' : '' }}</p>
                     </div>
                 </div>
-                
+
                 <!-- Sentiment Timeline -->
                 <div class="sentiment-timeline" *ngIf="character.mentions.length > 0">
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                        <path [attr.d]="getSentimentTimelinePath(character)" 
-                              stroke="#667eea" 
-                              stroke-width="2" 
+                        <path [attr.d]="getSentimentTimelinePath(character)"
+                              stroke="#667eea"
+                              stroke-width="2"
                               fill="none" />
                     </svg>
-                    <div *ngFor="let mention of character.mentions; let i = index" 
-                         class="timeline-point" 
+                    <div *ngFor="let mention of character.mentions; let i = index"
+                         class="timeline-point"
                          [ngClass]="getSentimentClass(mention.sentiment)"
                          [style.left.%]="mention.position * 100"
                          [title]="getSentimentTooltip(mention)"
@@ -271,7 +271,7 @@
     <div class="tab-content" *ngSwitchCase="'analysis'">
         <h3>Story Analysis</h3>
 
-        <div class="chapter-analysis-selector">
+        <div class="chapter-analysis-selector" *ngIf="chapters.length > 1">
             <label>Analyzing:</label>
             <select [(ngModel)]="selectedAnalysisChapterId" (ngModelChange)="onAnalysisChapterChange($event)"
                 [disabled]="chapters.length <= 1">
@@ -526,7 +526,7 @@
     <div class="tab-content" *ngSwitchCase="'toc'">
         <div class="sidebar-group">
             <h2 class="group-title">📑 Table of Contents</h2>
-            
+
             <!-- Section Creation Form -->
             <div class="section-creation-form" *ngIf="showSectionForm">
                 <div class="form-header">
@@ -538,7 +538,7 @@
                     <div class="form-group">
                         <label>Section Type</label>
                         <div class="type-options">
-                            <button 
+                            <button
                                 *ngFor="let type of ['chapter', 'prologue', 'epilogue', 'interlude', 'foreword', 'afterword', 'custom']"
                                 class="type-btn"
                                 [class.active]="newSectionType === type"
@@ -551,8 +551,8 @@
                     <!-- Custom Title (optional) -->
                     <div class="form-group">
                         <label>Custom Title (optional)</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             [(ngModel)]="newSectionTitle"
                             placeholder="Leave empty for auto-generated title"
                             class="form-input">
@@ -562,7 +562,7 @@
                     <div class="form-group">
                         <label>Emoji (optional)</label>
                         <div class="emoji-picker-grid">
-                            <button 
+                            <button
                                 *ngFor="let emoji of commonEmojis"
                                 class="emoji-btn"
                                 [class.selected]="newSectionEmoji === emoji"
@@ -572,13 +572,13 @@
                             </button>
                         </div>
                         <div class="emoji-input-row">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 [(ngModel)]="newSectionEmoji"
                                 placeholder="Or type emoji here"
                                 class="form-input emoji-input"
                                 maxlength="2">
-                            <button 
+                            <button
                                 class="ai-emoji-btn"
                                 [title]="'Generate emoji from text (available after creating section)'"
                                 disabled
@@ -594,7 +594,7 @@
                     <button class="btn-primary" (click)="createSectionFromForm()">Create</button>
                 </div>
             </div>
-            
+
             <div class="toc-summary" *ngIf="chapters.length > 0 && !showSectionForm">
                 <p class="summary-text">
                     <strong>{{ chapters.length }}</strong> chapter{{ chapters.length !== 1 ? 's' : '' }} in this
@@ -604,11 +604,11 @@
 
             <div class="toc-list book-style" *ngIf="chapters.length > 0">
                 <!-- Drop indicator above first item -->
-                <div class="drop-indicator" 
+                <div class="drop-indicator"
                      *ngIf="dragOverChapterId === chapters[0]?.id && dragOverPosition === 'above' && draggedChapter && draggedChapter.id !== chapters[0]?.id"
                      [class.active]="true"></div>
-                
-                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId; let i = index" 
+
+                <div *ngFor="let chapter of chapters; trackBy: trackByChapterId; let i = index"
                      class="toc-entry"
                      [class.clickable]="isChapterAccessible(chapter)"
                      [class.unclickable]="!isChapterAccessible(chapter)"
@@ -627,12 +627,12 @@
                         <div class="chapter-header">
                             <!-- Emoji Display/Edit -->
                             <div class="emoji-container" *ngIf="editingChapterEmojiId !== chapter.id">
-                                <span class="chapter-emoji" 
+                                <span class="chapter-emoji"
                                       *ngIf="chapter.emoji"
                                       (click)="startEditChapterEmoji(chapter); $event.stopPropagation()"
                                       [class.editable]="true"
                                       [title]="'Click to edit emoji'">{{ chapter.emoji }}</span>
-                                <span class="emoji-placeholder" 
+                                <span class="emoji-placeholder"
                                       *ngIf="!chapter.emoji"
                                       (click)="startEditChapterEmoji(chapter); $event.stopPropagation()"
                                       [class.editable]="true"
@@ -642,7 +642,7 @@
                             <div class="emoji-picker-container" *ngIf="editingChapterEmojiId === chapter.id">
                                 <div class="emoji-picker-popup">
                                     <div class="emoji-picker-grid">
-                                        <button 
+                                        <button
                                             *ngFor="let emoji of commonEmojis"
                                             class="emoji-btn"
                                             [class.selected]="editingChapterEmoji === emoji"
@@ -652,8 +652,8 @@
                                         </button>
                                     </div>
                                     <div class="emoji-input-row">
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             [(ngModel)]="editingChapterEmoji"
                                             (blur)="saveChapterEmoji(chapter)"
                                             (keyup.enter)="saveChapterEmoji(chapter)"
@@ -662,7 +662,7 @@
                                             class="emoji-input"
                                             (click)="$event.stopPropagation()"
                                             autofocus>
-                                        <button 
+                                        <button
                                             class="ai-emoji-generate-btn"
                                             (click)="requestEmojiSuggestion(chapter); $event.stopPropagation()"
                                             [title]="'Generate emoji from chapter content'"
@@ -675,7 +675,7 @@
                                         <div class="suggestion-emoji" *ngIf="!emojiSuggestionLoading && aiEmojiSuggestion">
                                             <span class="suggestion-prefix">Suggested:</span>
                                             <span class="suggestion-emoji-display">{{ aiEmojiSuggestion }}</span>
-                                            <button class="apply-emoji-btn" 
+                                            <button class="apply-emoji-btn"
                                                     (click)="applyEmojiSuggestion(chapter); $event.stopPropagation()"
                                                     title="Apply suggestion">
                                                 ✓
@@ -683,17 +683,17 @@
                                         </div>
                                     </div>
                                     <div class="emoji-picker-actions">
-                                        <button class="emoji-delete-btn" 
+                                        <button class="emoji-delete-btn"
                                                 (click)="editingChapterEmoji = ''; saveChapterEmoji(chapter); $event.stopPropagation()"
                                                 *ngIf="chapter.emoji"
                                                 title="Delete emoji">🗑️</button>
-                                        <button class="emoji-cancel-btn" 
+                                        <button class="emoji-cancel-btn"
                                                 (click)="cancelEditChapterEmoji(); $event.stopPropagation()"
                                                 title="Cancel">✕</button>
                                     </div>
                                 </div>
                             </div>
-                            <div class="chapter-number" 
+                            <div class="chapter-number"
                                  *ngIf="editingSectionTypeId !== chapter.id"
                                  (click)="startEditSectionType(chapter); $event.stopPropagation()"
                                  [class.editable]="true"
@@ -717,7 +717,7 @@
                         </div>
                         <div class="chapter-title-wrapper">
                             <div class="chapter-title-row" *ngIf="editingChapterTitleId !== chapter.id && suggestingTitleForChapterId !== chapter.id">
-                                <div class="chapter-title" 
+                                <div class="chapter-title"
                                      (click)="startEditChapterTitle(chapter); $event.stopPropagation()"
                                      [class.editable]="true"
                                      [title]="'Click to edit title'">
@@ -734,12 +734,12 @@
                                     </div>
                                 </div>
                                 <div class="suggestion-actions" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
-                                    <button class="apply-suggestion-btn" 
+                                    <button class="apply-suggestion-btn"
                                             (click)="applyTitleSuggestion(chapter); $event.stopPropagation()"
                                             title="Apply suggestion">
                                         ✓ Apply
                                     </button>
-                                    <button class="cancel-suggestion-btn" 
+                                    <button class="cancel-suggestion-btn"
                                             (click)="cancelTitleSuggestion(); $event.stopPropagation()"
                                             title="Cancel">
                                         ✕
@@ -767,13 +767,13 @@
                         <div class="chapter-dots"></div>
                         <div class="chapter-actions">
                             <div class="action-buttons-column">
-                                <button class="delete-chapter-btn" 
+                                <button class="delete-chapter-btn"
                                         (click)="deleteChapter(chapter); $event.stopPropagation()"
                                         title="Delete chapter"
                                         *ngIf="chapters.length > 1">
                                     🗑️
                                 </button>
-                                <button class="ai-title-btn" 
+                                <button class="ai-title-btn"
                                         (click)="requestTitleSuggestion(chapter); $event.stopPropagation()"
                                         [title]="'Get AI title suggestion'"
                                         [disabled]="titleSuggestionLoading">
@@ -784,7 +784,7 @@
                         </div>
                     </div>
                     <!-- Drop indicator below this item -->
-                    <div class="drop-indicator" 
+                    <div class="drop-indicator"
                          *ngIf="dragOverChapterId === chapter.id && dragOverPosition === 'below' && draggedChapter && draggedChapter.id !== chapter.id"
                          [class.active]="true"></div>
                 </div>
