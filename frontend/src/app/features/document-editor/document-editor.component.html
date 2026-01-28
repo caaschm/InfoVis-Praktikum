@@ -2,7 +2,7 @@
     <div class="main-content" [class.sidebar-hidden]="!sidebarVisible">
         <!-- Text editor / Workspace -->
         <div class="workspace-panel">
-            <app-text-viewer></app-text-viewer>
+            <app-text-viewer [activeTab]="activeTab"></app-text-viewer>
         </div>
 
         <!-- Right side: Multipurpose panel -->

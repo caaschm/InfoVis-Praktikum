@@ -942,14 +942,6 @@ async def generate_beats_for_arc(text: str) -> dict:
                 print("⚠️ Empty content from API response")
                 return {"beats": beats}
             
-            # Check if model returned reasoning instead of JSON
-            # (common with models that ignore JSON mode)
-            if not content.startswith('{'):
-                # Model returned explanatory text instead of JSON
-                print(f"⚠️ Model returned reasoning instead of JSON. First 100 chars: {content[:100]}")
-                print("⚠️ Using default beats structure")
-                return {"beats": beats}
-            
             # Extract only the valid JSON object (handles extra text before/after and duplicate braces)
             # Find first { and match it with its closing }
             start_idx = content.find('{')

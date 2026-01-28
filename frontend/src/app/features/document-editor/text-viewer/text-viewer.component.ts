@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, AfterViewInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
@@ -70,6 +70,14 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   @ViewChild('lineNumbersContainer') lineNumbersContainer?: ElementRef<HTMLElement>;
   @ViewChild('textContentContainer') textContentContainer?: ElementRef<HTMLElement>;
+
+  @Input()
+  set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc') {
+    // When story-arc tab is activated, reset to "All Chapters" view
+    if (value === 'storyarc') {
+      this.selectedChapterId = null;
+    }
+  }
 
   constructor(
     private documentService: DocumentService,
