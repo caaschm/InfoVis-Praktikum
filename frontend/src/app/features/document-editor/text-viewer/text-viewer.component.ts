@@ -57,6 +57,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   lineNumbers: number[] = []; // Array of line numbers for actual text lines
   private lineNumberUpdateTimer: any = null;
   private charsSinceLastSnapshot = 0;
+  private isLocalTyping = false;
 
 
 
@@ -259,7 +260,11 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     for (const chapter of this.chapters) {
       const chapterSentences = this.getChapterSentences(chapter.id);
       const chapterContent = chapterSentences.map(s => s.text).join(' ').trim();
-      this.chapterStateService.initializeHistory(chapter.id, chapterContent);
+
+      // Sync history if content has changed externally (not from local typing)
+      if (!this.isLocalTyping) {
+        this.chapterStateService.syncHistory(chapter.id, chapterContent);
+      }
     }
   }
 
@@ -533,7 +538,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       this.sentenceUpdateTimer = setTimeout(() => {
         if (trimmedText !== trimmedOldText) {
           // Only update sentence text (not full document re-parse) while user is typing
-          this.documentService.updateSentenceText(sentence.id, trimmedText);
+          this.isLocalTyping = true;
+          try {
+            this.documentService.updateSentenceText(sentence.id, trimmedText);
+          } finally {
+            this.isLocalTyping = false;
+          }
           // Update line numbers after text change
           this.updateLineNumbers();
         }
@@ -582,7 +592,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
         }
       } else {
         // Just update this sentence text without re-parsing
-        this.documentService.updateSentenceText(sentence.id, trimmedNewText);
+        this.isLocalTyping = true;
+        try {
+          this.documentService.updateSentenceText(sentence.id, trimmedNewText);
+        } finally {
+          this.isLocalTyping = false;
+        }
 
         // Update chapter history
         if (sentence.chapterId) {
