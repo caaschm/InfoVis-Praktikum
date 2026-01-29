@@ -570,12 +570,13 @@
         }
 
         .emoji-tooltip {
+            opacity: 0.7;
             display: none;
             position: absolute;
             bottom: calc(100% + 8px);
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(17, 24, 39, 0.95);
+            background: rgba(17, 24, 39, 0.5);
             color: white;
             padding: 0.5rem 0.75rem;
             border-radius: 6px;
@@ -594,7 +595,7 @@
                 left: 50%;
                 transform: translateX(-50%);
                 border: 6px solid transparent;
-                border-top-color: rgba(17, 24, 39, 0.95);
+                border-top-color: rgba(17, 24, 39, 0.5);
             }
         }
 
