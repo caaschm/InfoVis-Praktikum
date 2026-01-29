@@ -682,7 +682,8 @@ IMPORTANT: The "preview" field MUST contain a creative, complete sentence reflec
             "google/gemini-2.0-flash-exp:free",
             "google/gemini-2.0-flash-thinking-exp:free", 
             "meta-llama/llama-3.3-70b-instruct:free",
-            "microsoft/phi-4:free"
+            "microsoft/phi-4:free",
+            "google/gemini-2.0-flash-001"
         ]
         
         last_exception = None
