@@ -1993,7 +1993,7 @@
     .arc-stage:hover {
         background: #f3f4f6;
     }
-    
+
     .sidebar {
 
         // 1. Die lila AI-Buttons (jetzt Blau)
@@ -2151,7 +2151,7 @@
         position: relative;
         min-height: 3.5rem;
         z-index: 1; // Default z-index for chapter entries
-        
+
         // Chapter with open emoji picker should have higher z-index
         &.emoji-picker-open {
             z-index: 9999; // High but lower than the picker container
@@ -3229,8 +3229,8 @@
                 appearance: none;
                 width: 18px;
                 height: 18px;
-                background: white;
-                border: 2px solid #3b82f6;
+                background: #8b5cf6;
+                border: 2px solid white;
                 border-radius: 50%;
                 cursor: pointer;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
@@ -3240,14 +3240,14 @@
 
             &::-webkit-slider-thumb:hover {
                 transform: scale(1.15);
-                background: #eff6ff;
+                background: #7c3aed;
             }
 
             &::-moz-range-thumb {
                 width: 18px;
                 height: 18px;
-                background: white;
-                border: 2px solid #3b82f6;
+                background: #8b5cf6;
+                border: 2px solid white;
                 border-radius: 50%;
                 cursor: pointer;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
@@ -3393,18 +3393,18 @@
 
     .spinner {
         // Das Lila des Spinners wird zu einem kontraststarken Blau
-        border-top-color: #0D47A1 !important; 
-        
+        border-top-color: #0D47A1 !important;
+
         // Optional: Den restlichen Ring etwas dunkler machen für besseren Kontrast
-        border-color: #d1d5db !important; 
+        border-color: #d1d5db !important;
         border-top-color: #0D47A1 !important;
     }
 
     .arc-loading-overlay {
-        // Ein leicht bläulicher Stich im Overlay hilft dem Auge, 
+        // Ein leicht bläulicher Stich im Overlay hilft dem Auge,
         // den Modus auch im "Wartezustand" zu erkennen
         background: rgba(240, 248, 255, 0.9) !important;
-        
+
         // Falls du dort Text hast (z.B. "Loading..."):
         color: #0D47A1 !important;
     }

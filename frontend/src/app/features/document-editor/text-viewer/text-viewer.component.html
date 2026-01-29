@@ -136,24 +136,18 @@
 
                         <!-- Chapter Sentences -->
                         <div class="chapter-sentences">
-                            <ng-container *ngFor="let sentence of getChapterSentences(chapter.id); let isLast = last">
+                            <ng-container
+                                *ngFor="let sentence of getChapterSentences(chapter.id); trackBy: trackBySentenceId; let isLast = last">
                                 <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                                     [class.ai-generated]="shouldHighlightAi(sentence)"
                                     [ngClass]="getAiCategoryClass(sentence)"
                                     [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                                     (click)="onSentenceClick(sentence)">
 
-                                    <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                                    <span class="ai-overlay" aria-hidden="true"
-                                        *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                                        <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                            <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                            <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                                        </ng-container>
-                                    </span>
+
 
                                     <!-- Editable text with inline highlighting -->
-                                    <span class="sentence-text" 
+                                    <span class="sentence-text"
                                         [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                                         [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
                                         contenteditable="true"
@@ -202,24 +196,18 @@
                 <!-- Unassigned sentences -->
                 <div *ngIf="hasUnassignedSentences() && !selectedChapterId" class="chapter-section unassigned">
                     <div class="chapter-sentences">
-                        <ng-container *ngFor="let sentence of getUnassignedSentences(); let isLast = last">
+                        <ng-container
+                            *ngFor="let sentence of getUnassignedSentences(); trackBy: trackBySentenceId; let isLast = last">
                             <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                                 [class.ai-generated]="shouldHighlightAi(sentence)"
                                 [ngClass]="getAiCategoryClass(sentence)"
                                 [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                                 (click)="onSentenceClick(sentence)">
 
-                                <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                                <span class="ai-overlay" aria-hidden="true"
-                                    *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                                    <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                        <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                        <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                                    </ng-container>
-                                </span>
+
 
                                 <!-- Editable text with inline highlighting -->
-                                <span class="sentence-text" 
+                                <span class="sentence-text"
                                     [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                                     [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
                                     contenteditable="true"
@@ -256,26 +244,20 @@
 
             <!-- No chapters - show all sentences -->
             <ng-container *ngIf="chapters.length === 0">
-                <ng-container *ngFor="let sentence of getFilteredSentences(); let isLast = last">
+                <ng-container
+                    *ngFor="let sentence of getFilteredSentences(); trackBy: trackBySentenceId; let isLast = last">
                     <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                         [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
                         [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
                         (click)="onSentenceClick(sentence)">
 
-                        <!-- AI prefix highlight overlay (for AI-generated sentences) -->
-                        <span class="ai-overlay" aria-hidden="true" *ngIf="showAiHighlight && isAiGenerated(sentence)">
-                            <ng-container *ngFor="let seg of getAiSegments(sentence)">
-                                <span *ngIf="seg.isAi" class="ai-prefix">{{ seg.text }}</span>
-                                <ng-container *ngIf="!seg.isAi">{{ seg.text }}</ng-container>
-                            </ng-container>
-                        </span>
+
 
                         <!-- Editable text with inline highlighting -->
-                        <span class="sentence-text" 
+                        <span class="sentence-text"
                             [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                             [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
-                            contenteditable="true"
-                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                            contenteditable="true" (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                             (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                             (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
                             [attr.data-sentence-id]="sentence.id">
@@ -315,8 +297,9 @@
     <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
         [class.ai-highlight-mode]="showAiHighlight">
         <div class="emoji-content">
-            <span *ngFor="let sentence of getFilteredSentences(); let i = index" class="emoji-sentence"
-                [class.selected]="isSelected(sentence.id)" [class.ai-generated]="shouldHighlightAi(sentence)"
+            <span *ngFor="let sentence of getFilteredSentences(); trackBy: trackBySentenceId; let i = index"
+                class="emoji-sentence" [class.selected]="isSelected(sentence.id)"
+                [class.ai-generated]="shouldHighlightAi(sentence)"
                 [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)"
                 [attr.title]="sentence.text">
 
