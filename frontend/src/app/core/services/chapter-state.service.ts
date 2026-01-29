@@ -1,12 +1,12 @@
 /**
  * Chapter State Service - Manages isolated state per chapter
- * 
+ *
  * Each chapter maintains:
  * - Cursor position
  * - Selection range
  * - Undo/redo history
  * - Active editing state
- * 
+ *
  * This ensures complete isolation between chapters.
  */
 import { Injectable } from '@angular/core';
@@ -49,7 +49,7 @@ export interface ChapterState {
 export class ChapterStateService {
   // Map of chapterId -> ChapterState
   private chapterStates = new Map<string, ChapterState>();
-  
+
   // Currently active chapter (the one being edited)
   private activeChapterIdSubject = new BehaviorSubject<string | null>(null);
   public activeChapterId$: Observable<string | null> = this.activeChapterIdSubject.asObservable();
@@ -77,8 +77,14 @@ export class ChapterStateService {
    * Set the active chapter (the one currently being edited)
    */
   setActiveChapter(chapterId: string | null): void {
-    // Deactivate previous chapter
     const previousActive = this.activeChapterIdSubject.value;
+
+    // Prevent redundant updates that cause cursor jumping
+    if (previousActive === chapterId) {
+      return;
+    }
+
+    // Deactivate previous chapter
     if (previousActive) {
       const prevState = this.chapterStates.get(previousActive);
       if (prevState) {
@@ -166,24 +172,24 @@ export class ChapterStateService {
    */
   addHistoryEntry(chapterId: string, content: string): void {
     const state = this.getOrCreateChapterState(chapterId);
-    
+
     // Remove any history entries after current index (when user makes new edit after undo)
     if (state.historyIndex < state.history.length - 1) {
       state.history = state.history.slice(0, state.historyIndex + 1);
     }
-    
+
     // Add new entry
     state.history.push({
       chapterId,
       content,
       timestamp: Date.now()
     });
-    
+
     // Limit history size (keep last 50 entries)
     if (state.history.length > 50) {
       state.history = state.history.slice(-50);
     }
-    
+
     state.historyIndex = state.history.length - 1;
   }
 
@@ -211,7 +217,7 @@ export class ChapterStateService {
     if (!state || state.historyIndex <= 0) {
       return null;
     }
-    
+
     state.historyIndex--;
     return state.history[state.historyIndex].content;
   }
@@ -224,7 +230,7 @@ export class ChapterStateService {
     if (!state || state.historyIndex >= state.history.length - 1) {
       return null;
     }
-    
+
     state.historyIndex++;
     return state.history[state.historyIndex].content;
   }
@@ -252,6 +258,28 @@ export class ChapterStateService {
         timestamp: Date.now()
       });
       state.historyIndex = 0;
+    }
+  }
+
+  /**
+   * Sync history with external content change
+   * If content is different from current history tip, add a new entry.
+   * This is used when the document is updated from sources other than direct typing
+   * (e.g. AI suggestions, backend normalization).
+   */
+  syncHistory(chapterId: string, content: string): void {
+    const state = this.getOrCreateChapterState(chapterId);
+
+    // If no history, initialize it
+    if (state.history.length === 0) {
+      this.initializeHistory(chapterId, content);
+      return;
+    }
+
+    // Check if content matches current history tip
+    const currentHist = this.getCurrentContent(chapterId);
+    if (currentHist !== content) {
+      this.addHistoryEntry(chapterId, content);
     }
   }
 
