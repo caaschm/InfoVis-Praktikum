@@ -136,7 +136,8 @@
 
                         <!-- Chapter Sentences -->
                         <div class="chapter-sentences">
-                            <ng-container *ngFor="let sentence of getChapterSentences(chapter.id); let isLast = last">
+                            <ng-container
+                                *ngFor="let sentence of getChapterSentences(chapter.id); trackBy: trackBySentenceId; let isLast = last">
                                 <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                                     [class.ai-generated]="shouldHighlightAi(sentence)"
                                     [ngClass]="getAiCategoryClass(sentence)"
@@ -195,7 +196,8 @@
                 <!-- Unassigned sentences -->
                 <div *ngIf="hasUnassignedSentences() && !selectedChapterId" class="chapter-section unassigned">
                     <div class="chapter-sentences">
-                        <ng-container *ngFor="let sentence of getUnassignedSentences(); let isLast = last">
+                        <ng-container
+                            *ngFor="let sentence of getUnassignedSentences(); trackBy: trackBySentenceId; let isLast = last">
                             <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                                 [class.ai-generated]="shouldHighlightAi(sentence)"
                                 [ngClass]="getAiCategoryClass(sentence)"
@@ -242,7 +244,8 @@
 
             <!-- No chapters - show all sentences -->
             <ng-container *ngIf="chapters.length === 0">
-                <ng-container *ngFor="let sentence of getFilteredSentences(); let isLast = last">
+                <ng-container
+                    *ngFor="let sentence of getFilteredSentences(); trackBy: trackBySentenceId; let isLast = last">
                     <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                         [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
                         [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
@@ -294,8 +297,9 @@
     <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"
         [class.ai-highlight-mode]="showAiHighlight">
         <div class="emoji-content">
-            <span *ngFor="let sentence of getFilteredSentences(); let i = index" class="emoji-sentence"
-                [class.selected]="isSelected(sentence.id)" [class.ai-generated]="shouldHighlightAi(sentence)"
+            <span *ngFor="let sentence of getFilteredSentences(); trackBy: trackBySentenceId; let i = index"
+                class="emoji-sentence" [class.selected]="isSelected(sentence.id)"
+                [class.ai-generated]="shouldHighlightAi(sentence)"
                 [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)" (click)="onSentenceClick(sentence)"
                 [attr.title]="sentence.text">
 
