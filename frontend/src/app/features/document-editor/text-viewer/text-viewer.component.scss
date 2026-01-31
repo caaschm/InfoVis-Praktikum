@@ -205,10 +205,71 @@
             }
         }
     }
+    .text-editor-container-big {
+        display: flex;
+        flex-direction: column; // Stapelt Body und Footer übereinander
+        height: 100%;
+        width: 100%;
+    }
+
+    .editor-body {
+        display: flex;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .editor-footer {
+        display: none;
+        flex-shrink: 0;
+        background: #ffffff;
+        border-top: 1px solid #f0f0f0; // Sehr dezente Linie
+        padding: 10px 0; // Vertikales Padding
+        animation: slideUp 0.2s ease-out;
+    
+        
+        .footer-content {
+            // Dieser Margin-Left muss exakt dem deiner line-numbers entsprechen (ca. 50-70px)
+            // damit es unter dem Text fluchtet!
+            margin-left: 70px; 
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            justify-content: flex-end; // Schiebt alles nach rechts
+            padding-right: 2rem;       // Abstand zum rechten Rand
+            gap: 1.5rem;
+        }
+
+        .stat-item {
+            font-family: -apple-system, sans-serif;
+            font-size: 13px;
+            color: #8c8c8c; // Sanftes Grau
+
+            .value {
+                color: #262626;
+                font-weight: 600;
+                margin-left: 4px;
+            }
+        }
+
+        .footer-divider {
+            width: 1px;
+            height: 12px;
+            background: #e8e8e8;
+        }
+    }
+
+    :host-context(body.word-count) .editor-footer {
+        display: block;
+    }
+    
+    @keyframes slideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
 
     .text-content {
         flex: 1;
-        padding: 0 1.5rem 1.5rem 1.5rem; // No top padding to align with line numbers
+        padding: 0 1.5rem 1.5rem 0.5rem; // No top padding to align with line numbers
         padding-top: 0; // Ensure no top padding
         margin: 0;
         font-size: 16px;
@@ -221,7 +282,7 @@
 
         // "All Chapters" view: Indent text to align with line numbers
         &.all-chapters-view {
-            padding-left: calc(50px + 1.5rem); // Indent by line numbers width + original padding
+            padding-left: calc(10px + 0.5rem); // Indent by line numbers width + original padding
             margin-left: 0;
 
             .chapter-section {

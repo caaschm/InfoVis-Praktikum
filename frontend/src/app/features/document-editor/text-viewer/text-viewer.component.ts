@@ -199,6 +199,30 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       this.setupScrollListeners();
     }, 100);
   }
+  get totalWords(): number {
+    if (!this.chapters) return 0;
+    
+    return this.chapters.reduce((sum, chapter) => {
+      // Wir holen die Sätze des Kapitels über deine existierende Methode
+      const sentences = this.getChapterSentences(chapter.id) || [];
+      // Wir fügen alle Sätze zu einem langen Text zusammen
+      const chapterText = sentences.map(s => s.text).join(' ');
+      
+      // Zähle Wörter (filtert leere Strings raus)
+      const words = chapterText.trim().split(/\s+/).filter(w => w.length > 0);
+      return sum + words.length;
+    }, 0);
+  }
+
+  /** Berechnet die Gesamtzahl aller Sätze im Dokument */
+  get totalSentences(): number {
+    if (!this.chapters) return 0;
+
+    return this.chapters.reduce((sum, chapter) => {
+      const chapterSentences = this.getChapterSentences(chapter.id);
+      return sum + (chapterSentences ? chapterSentences.length : 0);
+    }, 0);
+  }
 
   /**
    * Set up optimized scroll listeners with passive event handling

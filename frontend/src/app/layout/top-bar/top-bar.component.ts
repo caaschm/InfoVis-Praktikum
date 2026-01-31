@@ -22,6 +22,7 @@ export class TopBarComponent implements OnInit, OnDestroy {
   isColorBlindMode = false;
   isZebraMode = false;
   isLargeFont = false;
+  isWordCount = true; 
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -32,6 +33,9 @@ export class TopBarComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
+    if (this.isWordCount) {
+      document.body.classList.add('word-count');
+    }
     this.documentService.currentDocument$.subscribe(doc => {
       if (doc && doc.content) {
         if (this.historyStack.length === 0 || this.historyStack[this.historyStack.length - 1] !== doc.content) {
@@ -54,6 +58,15 @@ export class TopBarComponent implements OnInit, OnDestroy {
     }
     // Optional: Menü nach Auswahl schließen
     // this.showSettingsDropdown = false; 
+  }
+
+  toggleWordCount() {
+    this.isWordCount = !this.isWordCount;
+    if (this.isWordCount) {
+      document.body.classList.add('word-count');
+    } else {
+      document.body.classList.remove('word-count');
+    }
   }
 
   toggleZebraMode() {
