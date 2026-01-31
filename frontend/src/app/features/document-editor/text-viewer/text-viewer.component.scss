@@ -251,7 +251,7 @@
     }
 
     .editor-footer {
-        display: block;
+        display: none; // Hidden by default, shown when word-count setting is enabled
         flex-shrink: 0; // Don't shrink
         background: #ffffff;
         border-top: 1px solid #f0f0f0;
@@ -310,6 +310,7 @@
         }
     }
 
+    // Show footer only when word-count setting is enabled
     :host-context(body.word-count) .editor-footer {
         display: block;
     }
