@@ -850,16 +850,17 @@
                 <div class="arc-stage" *ngFor="let stage of storyStages" [ngClass]="'stage-' + stage.stage_name">
                     <h4 [ngClass]="'stage-name-' + stage.stage_name">{{ stage.name }}</h4>
                     <p>{{ stage.description }}</p>
-                    <span class="sentence-count">{{ stage.sentenceIndices.length || 0 }} sentences</span>
 
-                    <ul class="stage-sentences" *ngIf="stage.sentenceIndices.length > 0">
-                        <li *ngFor="let idx of stage.sentenceIndices">
-                            <button class="link" (click)="selectSentenceByIndex(idx)">{{ idx + 1 }}: {{
-                                sentencePreview(idx) }}</button>
-                        </li>
-                    </ul>
+                    <div class="stage-sentences" *ngIf="stage.sentenceIndices.length > 0">
+                        <button class="sentence-link" 
+                                *ngFor="let idx of stage.sentenceIndices"
+                                (click)="selectSentenceByIndex(idx)"
+                                [title]="'Go to sentence ' + (idx + 1)">
+                            <span class="sentence-preview">{{ sentencePreview(idx) }}</span>
+                        </button>
+                    </div>
 
-                    <p *ngIf="stage.sentenceIndices.length === 0" class="muted">No sentences assigned</p>
+                    <p *ngIf="stage.sentenceIndices.length === 0" class="muted">No sentence assigned</p>
                 </div>
             </div>
         </div>
