@@ -182,7 +182,7 @@
                                             (click)="deleteAiSentence(sentence, $event)"
                                             title="Delete sentence">&times;</span>
 
-                                        <span *ngIf="!isLast"> </span>
+                                        <span *ngIf="!isLast">&nbsp;</span>
                                     </span>
                                 </ng-container>
 
@@ -243,7 +243,7 @@
                                         (click)="deleteAiSentence(sentence, $event)"
                                         title="Delete sentence">&times;</span>
 
-                                    <span *ngIf="!isLast"> </span>
+                                    <span *ngIf="!isLast">&nbsp;</span>
                                 </span>
                             </ng-container>
                         </div>
@@ -291,7 +291,7 @@
                             <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
                                 (click)="deleteAiSentence(sentence, $event)" title="Delete sentence">&times;</span>
 
-                            <span *ngIf="!isLast"> </span>
+                            <span *ngIf="!isLast">&nbsp;</span>
                         </span>
                     </ng-container>
 
