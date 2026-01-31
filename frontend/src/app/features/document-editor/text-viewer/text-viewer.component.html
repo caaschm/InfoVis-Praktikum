@@ -67,12 +67,14 @@
                                     <div class="suggestion-content">
                                         <div class="suggestion-label" *ngIf="titleSuggestionLoading">Generating
                                             suggestion...</div>
-                                        <div class="suggestion-text" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                                        <div class="suggestion-text"
+                                            *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
                                             <span class="suggestion-prefix">Suggested:</span>
                                             <span class="suggestion-title">{{ aiTitleSuggestion }}</span>
                                         </div>
                                     </div>
-                                    <div class="suggestion-actions" *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
+                                    <div class="suggestion-actions"
+                                        *ngIf="!titleSuggestionLoading && aiTitleSuggestion">
                                         <button class="apply-suggestion-btn" (click)="applyTitleSuggestion(chapter)"
                                             title="Apply suggestion">
                                             ✓ Apply
@@ -95,17 +97,21 @@
                                         </div>
                                         <div class="emoji-input-row">
                                             <input type="text" [(ngModel)]="editingChapterEmoji"
-                                                (blur)="saveChapterEmoji(chapter)" (keyup.enter)="saveChapterEmoji(chapter)"
+                                                (blur)="saveChapterEmoji(chapter)"
+                                                (keyup.enter)="saveChapterEmoji(chapter)"
                                                 (keyup.escape)="cancelEditChapterEmoji()" placeholder="Or type emoji"
                                                 class="emoji-input" autofocus>
-                                            <button class="ai-emoji-generate-btn" (click)="requestEmojiSuggestion(chapter)"
+                                            <button class="ai-emoji-generate-btn"
+                                                (click)="requestEmojiSuggestion(chapter)"
                                                 [title]="'Generate emoji from chapter content'"
                                                 [disabled]="emojiSuggestionLoading">
                                                 🤖
                                             </button>
                                         </div>
-                                        <div class="emoji-suggestion" *ngIf="suggestingEmojiForChapterId === chapter.id">
-                                            <div class="suggestion-label" *ngIf="emojiSuggestionLoading">Generating emoji...
+                                        <div class="emoji-suggestion"
+                                            *ngIf="suggestingEmojiForChapterId === chapter.id">
+                                            <div class="suggestion-label" *ngIf="emojiSuggestionLoading">Generating
+                                                emoji...
                                             </div>
                                             <div class="suggestion-emoji"
                                                 *ngIf="!emojiSuggestionLoading && aiEmojiSuggestion">
@@ -126,9 +132,9 @@
                                         </div>
                                     </div>
                                 </div>
-                                <input *ngIf="editingChapterId === chapter.id" type="text" [(ngModel)]="editingChapterTitle"
-                                    (keydown)="onChapterTitleKeyDown($event, chapter)" (blur)="saveChapterTitle(chapter)"
-                                    class="chapter-title-input" autofocus>
+                                <input *ngIf="editingChapterId === chapter.id" type="text"
+                                    [(ngModel)]="editingChapterTitle" (keydown)="onChapterTitleKeyDown($event, chapter)"
+                                    (blur)="saveChapterTitle(chapter)" class="chapter-title-input" autofocus>
                             </div>
 
                             <!-- Chapter Sentences -->
@@ -139,7 +145,9 @@
                                         [class.ai-generated]="shouldHighlightAi(sentence)"
                                         [ngClass]="getAiCategoryClass(sentence)"
                                         [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
-                                        (click)="onSentenceClick(sentence)">
+                                        (click)="onSentenceClick(sentence)"
+                                        (mouseenter)="onSentenceMouseEnter(sentence)"
+                                        (mouseleave)="onSentenceMouseLeave()">
 
 
 
@@ -166,7 +174,7 @@
                                             <ng-template #plainText>{{ sentence.text }}</ng-template>
                                         </span>
 
-                                        <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{
+                                        <span class="emoji-tooltip" *ngIf="shouldShowEmojiTooltip(sentence)">{{
                                             sentence.emojis.join(' ') || '' }}</span>
 
                                         <!-- Delete button for AI sentences -->
@@ -199,7 +207,8 @@
                                     [class.ai-generated]="shouldHighlightAi(sentence)"
                                     [ngClass]="getAiCategoryClass(sentence)"
                                     [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
-                                    (click)="onSentenceClick(sentence)">
+                                    (click)="onSentenceClick(sentence)" (mouseenter)="onSentenceMouseEnter(sentence)"
+                                    (mouseleave)="onSentenceMouseLeave()">
 
 
 
@@ -211,7 +220,8 @@
                                         (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                                         (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                                         (focus)="onSentenceFocus(sentence, $event)"
-                                        (keyup)="onSentenceKeyUp(sentence, $event)" [attr.data-sentence-id]="sentence.id">
+                                        (keyup)="onSentenceKeyUp(sentence, $event)"
+                                        [attr.data-sentence-id]="sentence.id">
                                         <ng-container
                                             *ngIf="hoveredEmoji && highlightedSentenceId !== sentence.id && sentence.text && sentence.text.trim().length > 0; else plainText">
                                             <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
@@ -225,12 +235,13 @@
                                         <ng-template #plainText>{{ sentence.text }}</ng-template>
                                     </span>
 
-                                    <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{
+                                    <span class="emoji-tooltip" *ngIf="shouldShowEmojiTooltip(sentence)">{{
                                         sentence.emojis.join(' ') || '' }}</span>
 
                                     <!-- Delete button for AI sentences -->
                                     <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
-                                        (click)="deleteAiSentence(sentence, $event)" title="Delete sentence">&times;</span>
+                                        (click)="deleteAiSentence(sentence, $event)"
+                                        title="Delete sentence">&times;</span>
 
                                     <span *ngIf="!isLast"> </span>
                                 </span>
@@ -246,7 +257,8 @@
                         <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
                             [class.ai-generated]="shouldHighlightAi(sentence)" [ngClass]="getAiCategoryClass(sentence)"
                             [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
-                            (click)="onSentenceClick(sentence)">
+                            (click)="onSentenceClick(sentence)" (mouseenter)="onSentenceMouseEnter(sentence)"
+                            (mouseleave)="onSentenceMouseLeave()">
 
 
 
@@ -254,7 +266,8 @@
                             <span class="sentence-text"
                                 [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
                                 [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
-                                contenteditable="true" (input)="onSentenceInput(sentence, $any($event.target).innerText)"
+                                contenteditable="true"
+                                (input)="onSentenceInput(sentence, $any($event.target).innerText)"
                                 (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
                                 (focus)="onSentenceFocus(sentence, $event)" (keyup)="onSentenceKeyUp(sentence, $event)"
                                 [attr.data-sentence-id]="sentence.id">
@@ -269,7 +282,8 @@
                                 <ng-template #plainText>{{ sentence.text }}</ng-template>
                             </span>
 
-                            <span class="emoji-tooltip" *ngIf="(sentence.emojis.length || 0) > 0">{{ sentence.emojis.join('
+                            <span class="emoji-tooltip" *ngIf="shouldShowEmojiTooltip(sentence)">{{
+                                sentence.emojis.join('
                                 ') || ''
                                 }}</span>
 
@@ -296,7 +310,7 @@
                 <div class="stat-item">Sätze: <span class="value">{{ totalSentences }}</span></div>
             </div>
         </div>
-    </div>    
+    </div>
 
     <!-- Emoji-Only View -->
     <div class="emoji-viewer-container" *ngIf="sentences.length > 0 && viewMode === 'emoji'"

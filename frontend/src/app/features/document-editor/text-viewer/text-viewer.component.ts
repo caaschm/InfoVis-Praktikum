@@ -22,6 +22,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   currentDocument: DocumentDetail | null = null;
   selectedSentenceId: string | null = null;
   hoveredSentence: Sentence | null = null; // Sentence currently being hovered
+  hoveredSentenceForTooltip: string | null = null; // Sentence hovered for emoji tooltip display
   generatingSentenceId: string | null = null; // Sentence currently generating emojis
   hoveredEmoji: string | null = null;
   highlightColor: string = '#999999';
@@ -447,6 +448,18 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
   onSentenceLeave(): void {
     this.hoveredSentence = null;
+  }
+
+  onSentenceMouseEnter(sentence: Sentence): void {
+    this.hoveredSentenceForTooltip = sentence.id;
+  }
+
+  onSentenceMouseLeave(): void {
+    this.hoveredSentenceForTooltip = null;
+  }
+
+  shouldShowEmojiTooltip(sentence: Sentence): boolean {
+    return this.hoveredSentenceForTooltip === sentence.id && sentence.emojis && sentence.emojis.length > 0;
   }
 
   generateEmojisForSentence(sentence: Sentence): void {
