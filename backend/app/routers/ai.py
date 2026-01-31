@@ -652,9 +652,15 @@ _character_sentiment_cache: dict = {}
 _CACHE_KEY_MAX_SIZE = 200  # Limit cache size to avoid unbounded growth
 
 
-def _character_sentiment_cache_key(document_id: str, chapter_id: Optional[str], character_ids: Optional[list]) -> tuple:
+def _character_sentiment_cache_key(
+    document_id: str,
+    chapter_id: Optional[str],
+    character_ids: Optional[list],
+    sentence_count: int,
+) -> tuple:
+    """Cache key includes sentence count so new/removed sentences invalidate the cache."""
     cids = tuple(sorted(character_ids)) if character_ids else "all"
-    return (document_id, chapter_id if chapter_id else "all", cids)
+    return (document_id, chapter_id if chapter_id else "all", cids, sentence_count)
 
 
 async def _analyze_character_sentiment_for_scope(
@@ -665,14 +671,10 @@ async def _analyze_character_sentiment_for_scope(
 ) -> schemas.CharacterSentimentAnalysisResponse:
     """
     Run character sentiment analysis for a single scope (one chapter or full doc).
-    Uses and updates the per-scope cache.
+    Uses and updates the per-scope cache. Cache key includes sentence count so
+    adding/removing text triggers a fresh analysis.
     """
     import asyncio
-
-    cache_key = _character_sentiment_cache_key(document_id, chapter_id, character_ids)
-    if cache_key in _character_sentiment_cache:
-        cached = _character_sentiment_cache[cache_key]
-        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
 
     document = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not document:
@@ -684,12 +686,16 @@ async def _analyze_character_sentiment_for_scope(
     if chapter_id:
         sentence_query = sentence_query.filter(models.Sentence.chapter_id == chapter_id)
     sentences = sentence_query.order_by(models.Sentence.index).all()
+    sentence_count = len(sentences)
     full_text = " ".join([s.text for s in sentences])
 
     if not full_text.strip():
         return schemas.CharacterSentimentAnalysisResponse(characters=[])
 
-    total_sentences_in_scope = len(sentences)
+    cache_key = _character_sentiment_cache_key(document_id, chapter_id, character_ids, sentence_count)
+    if cache_key in _character_sentiment_cache:
+        cached = _character_sentiment_cache[cache_key]
+        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
 
     if character_ids:
         characters = db.query(models.Character).filter(
@@ -774,8 +780,8 @@ async def _analyze_character_sentiment_for_scope(
                 if _is_mere_mention(sentence_text, char_name, aliases):
                     sentiment = "neutral"
                 position = (
-                    scope_index / (total_sentences_in_scope - 1)
-                    if total_sentences_in_scope > 1
+                    scope_index / (sentence_count - 1)
+                    if sentence_count > 1
                     else 0.0
                 )
                 mentions.append(
@@ -853,11 +859,6 @@ async def analyze_character_sentiment_endpoint(
         return await _analyze_character_sentiment_for_scope(db, document_id, chapter_id, character_ids)
 
     # Entire Story (Overview): aggregate per-chapter results so overview matches single-section view
-    cache_key = _character_sentiment_cache_key(document_id, None, character_ids)
-    if cache_key in _character_sentiment_cache:
-        cached = _character_sentiment_cache[cache_key]
-        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
-
     document = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -875,6 +876,11 @@ async def analyze_character_sentiment_endpoint(
         .all()
     )
     total_sentences = len(all_sentences)
+    cache_key = _character_sentiment_cache_key(document_id, None, character_ids, total_sentences)
+    if cache_key in _character_sentiment_cache:
+        cached = _character_sentiment_cache[cache_key]
+        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
+
     # For each chapter, list of global sentence indices (so we can map chapter-local index -> global)
     chapter_global_indices: dict[str, list[int]] = {}
     for ch in chapters:
