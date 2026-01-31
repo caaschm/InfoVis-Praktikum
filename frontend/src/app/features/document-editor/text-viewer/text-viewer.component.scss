@@ -871,11 +871,18 @@
     }
 }
 
+// Chapter navigation group with dropdown
+.chapter-navigation-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 // Chapter styles
 .chapter-filter {
     display: flex;
     align-items: center;
-    margin-right: 1rem;
+    margin-right: 0;
 
     .chapter-select {
         padding: 0.5rem 1rem;
@@ -901,6 +908,79 @@
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    }
+}
+
+// Add button dropdown
+.add-dropdown-container {
+    position: relative;
+
+    .add-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+
+        &:hover {
+            border-color: #3b82f6;
+            background: #f0f7ff;
+        }
+
+        .add-icon {
+            font-size: 1.25rem;
+            font-weight: 300;
+            color: #6b7280;
+            line-height: 1;
+        }
+    }
+
+    .add-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        min-width: 160px;
+        overflow: hidden;
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: white;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s ease;
+
+            &:hover {
+                background: #f3f4f6;
+            }
+
+            &:first-child {
+                border-bottom: 1px solid #f3f4f6;
+            }
+
+            .item-icon {
+                font-size: 1rem;
+            }
+
+            .item-text {
+                font-size: 0.875rem;
+                color: #374151;
+            }
         }
     }
 }

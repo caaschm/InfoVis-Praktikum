@@ -75,7 +75,8 @@ def create_chapter(
         # Count only numbered chapters for numbering
         numbered_chapters = [ch for ch in existing_chapters if ch.type == "chapter"]
         chapter_num = len(numbered_chapters) + 1
-        title = f"Chapter {chapter_num}"
+        # Use 01, 02 format for auto-generated titles
+        title = str(chapter_num).zfill(2)
     
     # Determine index (insert at beginning if no chapters, otherwise append)
     if len(existing_chapters) == 0:
@@ -286,7 +287,7 @@ def update_chapter(
             for idx, ch in enumerate(numbered_chapters, start=1):
                 current_title = ch.title
                 custom_part = ""
-                # Try to extract custom title part (text after "Chapter X:" or "Chapter X " or just a number like "02 Title")
+                # Try to extract custom title part
                 # Pattern 1: "Chapter 2: Title" or "Chapter 2 Title"
                 title_match = re.match(r'^Chapter\s+\d+\s*:?\s*(.+)$', current_title, re.IGNORECASE)
                 if title_match:
@@ -297,10 +298,12 @@ def update_chapter(
                     if title_match2:
                         custom_part = title_match2.group(1).strip()
                 
+                # Use 01, 02 format
+                new_num = str(idx).zfill(2)
                 if custom_part:
-                    ch.title = f"Chapter {idx}: {custom_part}"
+                    ch.title = f"{new_num} {custom_part}"
                 else:
-                    ch.title = f"Chapter {idx}"
+                    ch.title = new_num
             db.flush()
             for ch in numbered_chapters:
                 db.refresh(ch)
@@ -316,7 +319,7 @@ def update_chapter(
             for idx, ch in enumerate(numbered_chapters, start=1):
                 current_title = ch.title
                 custom_part = ""
-                # Try to extract custom title part (text after "Chapter X:" or "Chapter X " or just a number like "02 Title")
+                # Try to extract custom title part
                 # Pattern 1: "Chapter 2: Title" or "Chapter 2 Title"
                 title_match = re.match(r'^Chapter\s+\d+\s*:?\s*(.+)$', current_title, re.IGNORECASE)
                 if title_match:
@@ -327,10 +330,12 @@ def update_chapter(
                     if title_match2:
                         custom_part = title_match2.group(1).strip()
                 
+                # Use 01, 02 format
+                new_num = str(idx).zfill(2)
                 if custom_part:
-                    ch.title = f"Chapter {idx}: {custom_part}"
+                    ch.title = f"{new_num} {custom_part}"
                 else:
-                    ch.title = f"Chapter {idx}"
+                    ch.title = new_num
             db.flush()
             for ch in numbered_chapters:
                 db.refresh(ch)
@@ -402,7 +407,7 @@ def delete_chapter(
     db.flush()  # Flush index changes before renumbering titles
     
     # If deleted chapter was a numbered chapter, renumber ALL remaining numbered chapters
-    # This ensures Chapter 2 becomes Chapter 1, Chapter 3 becomes Chapter 2, etc.
+    # This ensures 02 becomes 01, 03 becomes 02, etc.
     # IMPORTANT: This only applies to numbered chapters (type == "chapter"), not special sections
     deleted_type = getattr(chapter, 'type', None) or 'chapter'
     if deleted_type == "chapter":
@@ -413,25 +418,29 @@ def delete_chapter(
         ).order_by(models.Chapter.index).all()
         
         # Update titles to reflect new sequential numbering starting from 1
-        # Chapter 2 becomes Chapter 1, Chapter 3 becomes Chapter 2, etc.
+        # 02 becomes 01, 03 becomes 02, etc.
         for idx, ch in enumerate(numbered_chapters, start=1):
             # Preserve any custom title text after the chapter number if it exists
             current_title = ch.title
             custom_part = ""
             
-            # Try to extract custom title part (text after "Chapter X:" or "Chapter X ")
-            # Pattern matches: "Chapter 2", "Chapter 2: Title", "Chapter 2 Title", etc.
-            title_match = re.match(r'^Chapter\s+(\d+)\s*:?\s*(.*)$', current_title, re.IGNORECASE)
+            # Try to extract custom title part
+            # Pattern 1: "Chapter X: Title" or "Chapter X Title"
+            title_match = re.match(r'^Chapter\s+\d+\s*:?\s*(.+)$', current_title, re.IGNORECASE)
             if title_match:
-                # Check if there's a custom part after the number
-                if len(title_match.groups()) > 1 and title_match.group(2).strip():
-                    custom_part = title_match.group(2).strip()
-            
-            # Update title with new number, preserving custom part if it exists
-            if custom_part:
-                ch.title = f"Chapter {idx}: {custom_part}"
+                custom_part = title_match.group(1).strip()
             else:
-                ch.title = f"Chapter {idx}"
+                # Pattern 2: "01 Title" or "1 Title" (number at start)
+                title_match2 = re.match(r'^\d+\s+(.+)$', current_title)
+                if title_match2:
+                    custom_part = title_match2.group(1).strip()
+            
+            # Update title with new number (using 01, 02 format), preserving custom part
+            new_num = str(idx).zfill(2)
+            if custom_part:
+                ch.title = f"{new_num} {custom_part}"
+            else:
+                ch.title = new_num
         
         # Flush the title changes
         db.flush()
