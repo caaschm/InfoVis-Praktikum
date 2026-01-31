@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, AfterViewInit, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, AfterViewInit, Input, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
@@ -44,6 +44,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   suggestingEmojiForChapterId: string | null = null;
   aiEmojiSuggestion: string | null = null;
   emojiSuggestionLoading: boolean = false;
+  
+  // Add menu dropdown state
+  showAddMenu: boolean = false;
+  
   commonEmojis = [
     '📖', '📚', '📝', '✨', '⭐', '💫', '🔥', '💎',
     '⚔️', '🛡️', '👑', '🏰', '🌙', '☀️', '🌈', '🌊',
@@ -768,6 +772,19 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     this.showAiHighlight = !this.showAiHighlight;
   }
 
+  toggleAddMenu(): void {
+    this.showAddMenu = !this.showAddMenu;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    // Close add menu if clicking outside
+    if (this.showAddMenu && !target.closest('.add-dropdown-container')) {
+      this.showAddMenu = false;
+    }
+  }
+
   isAiGenerated(sentence: Sentence): boolean {
     if (!sentence) return false;
     // Check both standard and raw property names to be safe
@@ -1161,9 +1178,17 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   saveChapterTitle(chapter: Chapter): void {
     if (!this.currentDocument || !this.editingChapterTitle.trim()) return;
 
-    // Preserve the chapter number format (01, 02, etc.)
-    const chapterNum = (chapter.index + 1).toString().padStart(2, '0');
-    const newTitle = `${chapterNum} ${this.editingChapterTitle.trim()}`;
+    // Extract existing number from the original title to preserve it
+    const existingNumberMatch = chapter.title.match(/^(\d+)\s/);
+    let newTitle: string;
+    
+    if (existingNumberMatch) {
+      // Preserve the existing chapter number
+      newTitle = `${existingNumberMatch[1]} ${this.editingChapterTitle.trim()}`;
+    } else {
+      // No existing number, just use the title as-is
+      newTitle = this.editingChapterTitle.trim();
+    }
 
     this.documentService.updateChapter(
       this.currentDocument.id,

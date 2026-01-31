@@ -1,21 +1,33 @@
 <div class="text-viewer">
     <div class="header-row">
         <div class="header-controls">
-            <!-- Chapter Filter -->
-            <div class="chapter-filter" *ngIf="chapters.length > 0">
-                <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)"
-                    class="chapter-select">
-                    <option [ngValue]="null">All Chapters</option>
-                    <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ getChapterDisplayTitle(chapter)
-                        }}</option>
-                </select>
+            <!-- Chapter Filter with Add Button -->
+            <div class="chapter-navigation-group">
+                <div class="chapter-filter" *ngIf="chapters.length > 0">
+                    <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)"
+                        class="chapter-select">
+                        <option [ngValue]="null">All Chapters</option>
+                        <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ getChapterDisplayTitle(chapter)
+                            }}</option>
+                    </select>
+                </div>
+                <!-- Single Add Button with Dropdown -->
+                <div class="add-dropdown-container">
+                    <button class="add-btn" (click)="toggleAddMenu()" title="Add Chapter or Section">
+                        <span class="add-icon">+</span>
+                    </button>
+                    <div class="add-dropdown-menu" *ngIf="showAddMenu" (clickOutside)="showAddMenu = false">
+                        <button class="dropdown-item" (click)="addChapter(); showAddMenu = false">
+                            <span class="item-icon">📖</span>
+                            <span class="item-text">Add Chapter</span>
+                        </button>
+                        <button class="dropdown-item" (click)="addSection(); showAddMenu = false">
+                            <span class="item-icon">📄</span>
+                            <span class="item-text">Add Section</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <button class="add-section-btn" (click)="addSection()" title="Add Section">
-                + Add Section
-            </button>
-            <button class="add-chapter-btn" (click)="addChapter()" title="Add Chapter">
-                + Add Chapter
-            </button>
             <div class="ai-divider">
                 <div class="view-toggle">
                     <label class="toggle-label">
