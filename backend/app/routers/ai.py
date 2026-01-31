@@ -1,4 +1,5 @@
 """AI-powered endpoints for character suggestion and text generation."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import json
@@ -7,9 +8,67 @@ import re
 from app.database import get_db
 from app import models, schemas
 from app.services import ai_client
-from app.services.ai_client import generate_spider_intent, generate_beats_for_arc, reformulate_sentence_for_tension, analyze_character_sentiment, discover_characters_in_text
+from app.services.ai_client import (
+    generate_spider_intent,
+    generate_beats_for_arc,
+    reformulate_sentence_for_tension,
+    analyze_character_sentiment,
+    analyze_character_pattern,
+    discover_characters_in_text,
+    clear_character_emoji_mappings,
+)
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+
+
+def _sentence_mentions_character(sentence_text: str, character_name: str, aliases: list) -> bool:
+    """True if the sentence contains the character name or any alias (word boundary)."""
+    text_lower = sentence_text.lower()
+    terms = [character_name.lower()] + [a.lower() for a in (aliases or []) if a]
+    for term in terms:
+        if not term.strip():
+            continue
+        if re.search(r'\b' + re.escape(term) + r'\b', text_lower):
+            return True
+    return False
+
+
+# Negative descriptors that clearly frame the character (not "merely mentioned")
+_NEGATIVE_FRAMING_WORDS = {
+    "fearsome", "fierce", "cruel", "evil", "menacing", "savage", "monstrous",
+    "terrible", "dreadful", "wicked", "vile", "cowardly", "shamefully",
+    "ferocious", "bloodthirsty", "ruthless", "malicious", "treacherous",
+}
+
+
+def _is_mere_mention(sentence_text: str, character_name: str, aliases: list) -> bool:
+    """
+    True if the character is only mentioned (e.g. as opponent in a fight)
+    with no adjectives framing them positively or negatively.
+    E.g. "The hero fought bravely against the dragon in an epic battle." → dragon: mere mention → neutral.
+    """
+    text_lower = sentence_text.lower().strip()
+    terms = [character_name.lower()] + [a.lower() for a in (aliases or []) if a and a.strip()]
+    if not terms:
+        return False
+    # Pattern: (fought|battled|faced) [optional words] against (the)? CHARACTER; or "against (the)? CHARACTER in ... battle"
+    char_pattern = "|".join(re.escape(t) for t in terms)
+    mere_mention_pattern = re.compile(
+        r"\b(?:fought|battled|faced|facing)\s+(?:\w+\s+)*against\s+(?:the\s+)?(?:"
+        + char_pattern
+        + r")\b|\bagainst\s+(?:the\s+)?(?:"
+        + char_pattern
+        + r")\s+in\s+(?:\w+\s+)*battle",
+        re.IGNORECASE,
+    )
+    if not mere_mention_pattern.search(text_lower):
+        return False
+    # If sentence contains negative framing words near the character, not "mere mention"
+    for word in _NEGATIVE_FRAMING_WORDS:
+        if word in text_lower:
+            return False
+    return True
+
 
 # Common function words to ignore when generating emojis
 IGNORE_WORDS = {
@@ -293,6 +352,25 @@ async def clear_character_mappings():
     return {"status": "cleared", "message": "Character-emoji mappings cleared"}
 
 
+@router.post("/clear-cache")
+async def clear_ai_cache(character_sentiment: bool = True, character_emoji: bool = True):
+    """
+    Clear in-memory AI caches.
+    
+    - character_sentiment: clear character portrayal/sentiment cache (so re-analyzing uses fresh LLM results).
+    - character_emoji: clear character-emoji mapping cache.
+    Call with no query params to clear both.
+    """
+    cleared = []
+    if character_sentiment:
+        _character_sentiment_cache.clear()
+        cleared.append("character_sentiment")
+    if character_emoji:
+        clear_character_emoji_mappings()
+        cleared.append("character_emoji")
+    return {"status": "cleared", "caches": cleared}
+
+
 @router.post("/analyze-spider-chart", response_model=schemas.SpiderChartAnalysisResponse)
 async def analyze_spider_chart(
     request: schemas.SpiderChartAnalysisRequest,
@@ -569,178 +647,312 @@ async def clear_document_emojis(
         )
 
 
-@router.post("/analyze-character-sentiment", response_model=schemas.CharacterSentimentAnalysisResponse)
-async def analyze_character_sentiment_endpoint(
-    request: schemas.CharacterSentimentAnalysisRequest,
-    db: Session = Depends(get_db)
-):
+# In-memory cache for character sentiment: same (document, chapter) returns same result until server restart.
+_character_sentiment_cache: dict = {}
+_CACHE_KEY_MAX_SIZE = 200  # Limit cache size to avoid unbounded growth
+
+
+def _character_sentiment_cache_key(document_id: str, chapter_id: Optional[str], character_ids: Optional[list]) -> tuple:
+    cids = tuple(sorted(character_ids)) if character_ids else "all"
+    return (document_id, chapter_id if chapter_id else "all", cids)
+
+
+async def _analyze_character_sentiment_for_scope(
+    db: Session,
+    document_id: str,
+    chapter_id: Optional[str],
+    character_ids: Optional[list[str]],
+) -> schemas.CharacterSentimentAnalysisResponse:
     """
-    Analyze sentiment for characters in the document.
-    If character_ids is provided, analyzes only those characters.
-    Otherwise, analyzes all characters in the document.
-    If no characters are defined, uses LLM to discover characters from the text.
+    Run character sentiment analysis for a single scope (one chapter or full doc).
+    Uses and updates the per-scope cache.
     """
-    # Verify document exists
-    document = db.query(models.Document).filter(models.Document.id == request.document_id).first()
+    import asyncio
+
+    cache_key = _character_sentiment_cache_key(document_id, chapter_id, character_ids)
+    if cache_key in _character_sentiment_cache:
+        cached = _character_sentiment_cache[cache_key]
+        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
+
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
-    # Get sentences for the document, optionally filtered by chapter
+
     sentence_query = db.query(models.Sentence).filter(
-        models.Sentence.document_id == request.document_id
+        models.Sentence.document_id == document_id
     )
-    
-    # Filter by chapter if specified
-    if request.chapter_id:
-        sentence_query = sentence_query.filter(
-            models.Sentence.chapter_id == request.chapter_id
-        )
-    
+    if chapter_id:
+        sentence_query = sentence_query.filter(models.Sentence.chapter_id == chapter_id)
     sentences = sentence_query.order_by(models.Sentence.index).all()
-    
-    # Build full text from sentences
     full_text = " ".join([s.text for s in sentences])
-    
+
     if not full_text.strip():
         return schemas.CharacterSentimentAnalysisResponse(characters=[])
-    
-    # Calculate total sentences for position normalization
+
     total_sentences_in_scope = len(sentences)
-    
-    # Get characters to analyze
-    if request.character_ids:
+
+    if character_ids:
         characters = db.query(models.Character).filter(
-            models.Character.document_id == request.document_id,
-            models.Character.id.in_(request.character_ids)
+            models.Character.document_id == document_id,
+            models.Character.id.in_(character_ids),
         ).all()
     else:
         characters = db.query(models.Character).filter(
-            models.Character.document_id == request.document_id
+            models.Character.document_id == document_id
         ).all()
-    
-    # If no characters are defined, discover them using LLM
-    discovered_characters = []
+
     if not characters:
         print("No characters defined, discovering characters using LLM...")
         discovered_chars = await discover_characters_in_text(full_text)
-        
-        # Create temporary character objects for discovered characters
-        for char_data in discovered_chars:
-            discovered_characters.append({
-                'id': f"discovered_{char_data.get('name', '').lower().replace(' ', '_')}",
-                'name': char_data.get('name', 'Unknown'),
-                'emoji': '👤',  # Default emoji
-                'aliases': char_data.get('aliases', [])
-            })
-        
-        characters_to_analyze = discovered_characters
+        characters_to_analyze = [
+            {
+                "id": f"discovered_{char_data.get('name', '').lower().replace(' ', '_')}",
+                "name": char_data.get("name", "Unknown"),
+                "emoji": "👤",
+                "aliases": char_data.get("aliases", []),
+            }
+            for char_data in discovered_chars
+        ]
     else:
-        characters_to_analyze = [{
-            'id': char.id,
-            'name': char.name,
-            'emoji': char.emoji,
-            'aliases': json.loads(char.aliases) if char.aliases else []
-        } for char in characters]
-    
+        characters_to_analyze = [
+            {
+                "id": char.id,
+                "name": char.name,
+                "emoji": char.emoji,
+                "aliases": json.loads(char.aliases) if char.aliases else [],
+            }
+            for char in characters
+        ]
+
     if not characters_to_analyze:
         return schemas.CharacterSentimentAnalysisResponse(characters=[])
-    
-    # Analyze sentiment for each character IN PARALLEL for better performance
-    import asyncio
-    
-    async def analyze_single_character(char_data):
-        """Analyze sentiment for a single character and return the result."""
+
+    async def get_pattern(c):
+        return await analyze_character_pattern(full_text, c["name"], c.get("aliases", []))
+    character_patterns = await asyncio.gather(*[get_pattern(c) for c in characters_to_analyze])
+
+    async def analyze_single_character(char_data, character_pattern: Optional[str] = None):
         try:
-            # Analyze sentiment using AI
+            char_name = char_data["name"]
+            aliases = char_data.get("aliases", [])
+            mentioning_list = [
+                (i, sentences[i].text)
+                for i in range(len(sentences))
+                if _sentence_mentions_character(sentences[i].text, char_name, aliases)
+            ]
+            if not mentioning_list:
+                return schemas.CharacterSentimentResponse(
+                    character_id=char_data["id"],
+                    character_name=char_name,
+                    emoji=char_data.get("emoji", "👤"),
+                    mention_count=0,
+                    positive_percentage=0,
+                    neutral_percentage=0,
+                    negative_percentage=0,
+                    mentions=[],
+                    trend_points=[],
+                )
+            SEGMENT_SEP = " --- SEGMENT --- "
+            segments = []
+            for (scope_index, sentence_text) in mentioning_list:
+                start = max(0, scope_index - 2)
+                end = min(len(sentences), scope_index + 3)
+                context_sentences = [sentences[j].text for j in range(start, end)]
+                segments.append(" ".join(context_sentences))
+            text_for_llm = SEGMENT_SEP.join(segments)
             sentiment_result = await analyze_character_sentiment(
-                text=full_text,
-                character_name=char_data['name'],
-                character_aliases=char_data.get('aliases', [])
+                text=text_for_llm,
+                character_name=char_name,
+                character_aliases=aliases,
+                character_pattern=character_pattern,
             )
-            
-            # Build mentions list
             mentions = []
-            for mention_data in sentiment_result.get("mentions", []):
-                sentence_text = mention_data.get("sentence_text", "")
-                ai_sentence_index = mention_data.get("sentence_index", 0)
-                ai_position = mention_data.get("position", 0.0)
-                
-                # PRIORITY 1: Use AI-provided sentence_index if it's valid
-                # The AI analyzes the text in order, so its index should match our filtered sentence order
-                actual_sentence_index = ai_sentence_index
-                
-                # Validate and clamp the index
-                if actual_sentence_index < 0 or actual_sentence_index >= total_sentences_in_scope:
-                    # If AI index is out of range, try to find by text matching
-                    # But use position to find the closest match when there are duplicates
-                    if sentence_text and ai_position is not None:
-                        # Find sentence closest to the expected position
-                        target_index = int(ai_position * (total_sentences_in_scope - 1)) if total_sentences_in_scope > 1 else 0
-                        target_index = max(0, min(target_index, total_sentences_in_scope - 1))
-                        
-                        # Search around the target position for text match
-                        search_range = min(5, total_sentences_in_scope)  # Search ±5 sentences
-                        start_idx = max(0, target_index - search_range)
-                        end_idx = min(total_sentences_in_scope, target_index + search_range + 1)
-                        
-                        for idx in range(start_idx, end_idx):
-                            if idx < len(sentences) and sentences[idx].text.strip() == sentence_text.strip():
-                                actual_sentence_index = idx
-                                break
-                        else:
-                            # If no match found, use target index as fallback
-                            actual_sentence_index = target_index
-                    else:
-                        # Last resort: try to find by text (will find first occurrence)
-                        for idx, s in enumerate(sentences):
-                            if s.text.strip() == sentence_text.strip():
-                                actual_sentence_index = idx
-                                break
-                
-                # Final clamp to valid range
-                actual_sentence_index = min(actual_sentence_index, total_sentences_in_scope - 1) if total_sentences_in_scope > 0 else 0
-                
-                # Calculate position relative to the selected scope (0.0 = first sentence, 1.0 = last sentence)
-                if total_sentences_in_scope > 1:
-                    position = actual_sentence_index / (total_sentences_in_scope - 1)
-                else:
-                    position = 0.0
-                
-                mentions.append(schemas.CharacterSentimentMention(
-                    sentence_index=actual_sentence_index,
-                    sentence_text=sentence_text,
-                    sentiment=mention_data.get("sentiment", "neutral"),
-                    position=position
-                ))
-            
+            ai_mentions = sentiment_result.get("mentions", [])
+            for k, (scope_index, sentence_text) in enumerate(mentioning_list):
+                mention_data = ai_mentions[k] if k < len(ai_mentions) else {}
+                sentiment = mention_data.get("sentiment", "neutral")
+                if _is_mere_mention(sentence_text, char_name, aliases):
+                    sentiment = "neutral"
+                position = (
+                    scope_index / (total_sentences_in_scope - 1)
+                    if total_sentences_in_scope > 1
+                    else 0.0
+                )
+                mentions.append(
+                    schemas.CharacterSentimentMention(
+                        sentence_index=scope_index,
+                        sentence_text=sentence_text,
+                        sentiment=sentiment,
+                        position=position,
+                    )
+                )
+            total = len(mentions)
+            positive_percentage = int((sum(1 for m in mentions if m.sentiment == "positive") / total) * 100)
+            neutral_percentage = int((sum(1 for m in mentions if m.sentiment == "neutral") / total) * 100)
+            negative_percentage = int((sum(1 for m in mentions if m.sentiment == "negative") / total) * 100)
+            trend_points = [
+                0.7 if m.sentiment == "positive" else (0.3 if m.sentiment == "negative" else 0.5)
+                for m in mentions
+            ]
             return schemas.CharacterSentimentResponse(
-                character_id=char_data['id'],
-                character_name=char_data['name'],
-                emoji=char_data.get('emoji', '👤'),
+                character_id=char_data["id"],
+                character_name=char_name,
+                emoji=char_data.get("emoji", "👤"),
                 mention_count=len(mentions),
-                positive_percentage=sentiment_result.get("positive_percentage", 0),
-                neutral_percentage=sentiment_result.get("neutral_percentage", 0),
-                negative_percentage=sentiment_result.get("negative_percentage", 0),
+                positive_percentage=positive_percentage,
+                neutral_percentage=neutral_percentage,
+                negative_percentage=negative_percentage,
                 mentions=mentions,
-                trend_points=sentiment_result.get("trend_points", [])
+                trend_points=trend_points,
             )
         except Exception as e:
             print(f"❌ Error analyzing character {char_data.get('name', 'unknown')}: {e}")
-            # Return empty result on error
             return schemas.CharacterSentimentResponse(
-                character_id=char_data['id'],
-                character_name=char_data['name'],
-                emoji=char_data.get('emoji', '👤'),
+                character_id=char_data["id"],
+                character_name=char_data["name"],
+                emoji=char_data.get("emoji", "👤"),
                 mention_count=0,
                 positive_percentage=0,
                 neutral_percentage=0,
                 negative_percentage=0,
                 mentions=[],
-                trend_points=[]
+                trend_points=[],
             )
-    
-    # Process all characters in parallel
-    print(f"🚀 Analyzing sentiment for {len(characters_to_analyze)} characters in parallel...")
-    character_sentiments = await asyncio.gather(*[analyze_single_character(char_data) for char_data in characters_to_analyze])
-    
-    return schemas.CharacterSentimentAnalysisResponse(characters=character_sentiments)
+
+    character_sentiments = await asyncio.gather(*[
+        analyze_single_character(char_data, character_patterns[i] if i < len(character_patterns) else None)
+        for i, char_data in enumerate(characters_to_analyze)
+    ])
+    response = schemas.CharacterSentimentAnalysisResponse(characters=character_sentiments)
+    _character_sentiment_cache[cache_key] = response.model_dump()
+    if len(_character_sentiment_cache) > _CACHE_KEY_MAX_SIZE:
+        keys_to_drop = list(_character_sentiment_cache.keys())[:_CACHE_KEY_MAX_SIZE // 2]
+        for k in keys_to_drop:
+            _character_sentiment_cache.pop(k, None)
+    return response
+
+
+@router.post("/analyze-character-sentiment", response_model=schemas.CharacterSentimentAnalysisResponse)
+async def analyze_character_sentiment_endpoint(
+    request: schemas.CharacterSentimentAnalysisRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Analyze sentiment for characters in the document.
+    If chapter_id is null (Entire Story / Overview), aggregates per-chapter results so the overview
+    matches what you see in each single section. If chapter_id is set, analyzes that chapter only.
+    """
+    import asyncio
+
+    document_id = request.document_id
+    chapter_id = request.chapter_id
+    character_ids = request.character_ids
+
+    # Single scope: use cached or run analysis for that chapter (or full doc if no chapters)
+    if chapter_id is not None:
+        return await _analyze_character_sentiment_for_scope(db, document_id, chapter_id, character_ids)
+
+    # Entire Story (Overview): aggregate per-chapter results so overview matches single-section view
+    cache_key = _character_sentiment_cache_key(document_id, None, character_ids)
+    if cache_key in _character_sentiment_cache:
+        cached = _character_sentiment_cache[cache_key]
+        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
+
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Ordered chapters (by index)
+    chapters = list(document.chapters) if hasattr(document, "chapters") and document.chapters else []
+    if not chapters:
+        # No chapters: run single analysis on full document
+        return await _analyze_character_sentiment_for_scope(db, document_id, None, character_ids)
+
+    all_sentences = (
+        db.query(models.Sentence)
+        .filter(models.Sentence.document_id == document_id)
+        .order_by(models.Sentence.index)
+        .all()
+    )
+    total_sentences = len(all_sentences)
+    # For each chapter, list of global sentence indices (so we can map chapter-local index -> global)
+    chapter_global_indices: dict[str, list[int]] = {}
+    for ch in chapters:
+        indices = sorted([s.index for s in all_sentences if s.chapter_id == ch.id])
+        chapter_global_indices[ch.id] = indices
+
+    # Run analysis per chapter (uses cache per chapter)
+    chapter_responses = await asyncio.gather(*[
+        _analyze_character_sentiment_for_scope(db, document_id, ch.id, character_ids)
+        for ch in chapters
+    ])
+
+    # Merge: for each character, concatenate mentions from all chapters with global sentence_index and position
+    template = chapter_responses[0]
+    merged_characters = []
+    for char_resp in template.characters:
+        merged_mentions = []
+        for i, ch in enumerate(chapters):
+            ch_resp = chapter_responses[i] if i < len(chapter_responses) else None
+            if not ch_resp:
+                continue
+            char_in_ch = next((c for c in ch_resp.characters if c.character_id == char_resp.character_id), None)
+            if not char_in_ch or not char_in_ch.mentions:
+                continue
+            global_indices = chapter_global_indices.get(ch.id, [])
+            for m in char_in_ch.mentions:
+                if m.sentence_index < len(global_indices):
+                    global_index = global_indices[m.sentence_index]
+                    position = global_index / (total_sentences - 1) if total_sentences > 1 else 0.0
+                    merged_mentions.append(
+                        schemas.CharacterSentimentMention(
+                            sentence_index=global_index,
+                            sentence_text=m.sentence_text,
+                            sentiment=m.sentiment,
+                            position=position,
+                        )
+                    )
+        merged_mentions.sort(key=lambda x: x.sentence_index)
+        total = len(merged_mentions)
+        if total == 0:
+            merged_characters.append(
+                schemas.CharacterSentimentResponse(
+                    character_id=char_resp.character_id,
+                    character_name=char_resp.character_name,
+                    emoji=char_resp.emoji,
+                    mention_count=0,
+                    positive_percentage=0,
+                    neutral_percentage=0,
+                    negative_percentage=0,
+                    mentions=[],
+                    trend_points=[],
+                )
+            )
+            continue
+        positive_pct = int((sum(1 for m in merged_mentions if m.sentiment == "positive") / total) * 100)
+        neutral_pct = int((sum(1 for m in merged_mentions if m.sentiment == "neutral") / total) * 100)
+        negative_pct = int((sum(1 for m in merged_mentions if m.sentiment == "negative") / total) * 100)
+        trend_points = [
+            0.7 if m.sentiment == "positive" else (0.3 if m.sentiment == "negative" else 0.5)
+            for m in merged_mentions
+        ]
+        merged_characters.append(
+            schemas.CharacterSentimentResponse(
+                character_id=char_resp.character_id,
+                character_name=char_resp.character_name,
+                emoji=char_resp.emoji,
+                mention_count=total,
+                positive_percentage=positive_pct,
+                neutral_percentage=neutral_pct,
+                negative_percentage=negative_pct,
+                mentions=merged_mentions,
+                trend_points=trend_points,
+            )
+        )
+    response = schemas.CharacterSentimentAnalysisResponse(characters=merged_characters)
+    _character_sentiment_cache[cache_key] = response.model_dump()
+    if len(_character_sentiment_cache) > _CACHE_KEY_MAX_SIZE:
+        keys_to_drop = list(_character_sentiment_cache.keys())[:_CACHE_KEY_MAX_SIZE // 2]
+        for k in keys_to_drop:
+            _character_sentiment_cache.pop(k, None)
+    return response

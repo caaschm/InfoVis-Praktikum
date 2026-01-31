@@ -1207,10 +1207,67 @@ def _fallback_title_suggestion(content: str) -> str:
     return words[0].capitalize() if words else "Untitled"
 
 
-async def analyze_character_sentiment(
+async def analyze_character_pattern(
     text: str,
     character_name: str,
     character_aliases: list[str] = None
+) -> str:
+    """
+    Detect typical narrative role/pattern for the character (hero, villain, mentor, sidekick, neutral).
+    Used to give sentiment analysis narrative context (e.g. hero defeating threat = positive; villain being defeated = negative).
+    """
+    api_key = get_api_key()
+    character_aliases = character_aliases or []
+    search_terms = [character_name.lower()] + [a.lower() for a in character_aliases]
+    terms_str = ", ".join([f'"{t}"' for t in search_terms])
+    if not api_key or not text.strip():
+        return "neutral"
+    prompt = f"""From this story excerpt, what is the typical narrative role of the character "{character_name}" (referred to as: {terms_str})?
+Choose ONE: hero, villain, mentor, sidekick, neutral.
+- hero: protagonist who does good, defeats threats, protects others.
+- villain: antagonist who causes fear/chaos, is opposed or defeated.
+- mentor: guides or teaches another character.
+- sidekick: supports the main character.
+- neutral: no clear role or mixed.
+
+Story excerpt:
+"{text[:2000]}"
+
+Reply with only one word: hero, villain, mentor, sidekick, or neutral."""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                OPENROUTER_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost:4200",
+                    "X-Title": "Story Writing Assistant"
+                },
+                json={
+                    "model": MODEL_NAME,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0,
+                    "max_tokens": 20
+                }
+            )
+            if r.status_code != 200:
+                return "neutral"
+            content = (r.json().get("choices", [{}])[0].get("message", {}).get("content", "") or "").strip().lower()
+            for role in ("hero", "villain", "mentor", "sidekick", "neutral"):
+                if role in content:
+                    return role
+            return "neutral"
+    except Exception as e:
+        print(f"⚠️ Character pattern analysis failed: {e}")
+        return "neutral"
+
+
+async def analyze_character_sentiment(
+    text: str,
+    character_name: str,
+    character_aliases: list[str] = None,
+    character_pattern: Optional[str] = None
 ) -> dict:
     """
     Analyze sentiment for a specific character in the text.
@@ -1219,6 +1276,7 @@ async def analyze_character_sentiment(
         text: The full document text
         character_name: The name of the character to analyze
         character_aliases: Optional list of aliases for the character
+        character_pattern: Optional narrative role (hero, villain, mentor, sidekick, neutral) for context
         
     Returns:
         Dictionary with:
@@ -1234,46 +1292,49 @@ async def analyze_character_sentiment(
     # Build character search terms
     search_terms = [character_name.lower()] + [alias.lower() for alias in character_aliases]
     search_terms_str = ", ".join([f'"{term}"' for term in search_terms])
-    
+    pattern_hint = ""
+    if character_pattern and character_pattern != "neutral":
+        pattern_hint = f' This character was identified as typically "{character_pattern}". Use that: hero defeating threat = positive; hero accomplishments (spells, treasure, celebration, victory) = positive; villain causing fear/chaos or being defeated = negative. '
     if not api_key:
         print("⚠️  OPENROUTER_API_KEY not found - using fallback sentiment analysis")
         return _fallback_character_sentiment(text, character_name, search_terms)
     
-    prompt = f"""Analyze the sentiment associated with the character "{character_name}" in the following text.
-    
+    prompt = f"""Analyze how the character "{character_name}" is portrayed in each sentence in narrative context. Stories often have heroes (do good, defeat threats) and villains (cause fear/chaos, are defeated).{pattern_hint} Judge accordingly. Is the character shown as likeable/admirable (positive), as mean/evil/cowardly (negative), or neither (neutral)? Use meaning and context—not just single words.
+
+
+Important: If a character is merely part of the sentence (e.g. "the hero fought against the dragon") with no adjectives or other wording that portray that character positively or negatively, the sentence is neutral toward that character—use "neutral". Do not mark negative just because they are the opponent or mentioned in a fight.
+Rules:
+- "positive": The character is shown in a favorable light—brave, kind, competent, sympathetic, or as someone to root for. This includes: facing or overcoming danger (dark forests, raging rivers, fighting enemies); being praised, celebrated, honored, or rewarded (e.g. "celebrated the hero", "honored the hero", "became a legend"); doing good (defeating threats, protecting others); demonstrating power or competence (e.g. casting powerful spells, claiming treasure, receiving guidance from a wise figure, discovering something, achieving victory). When the character is the one succeeding, achieving, or being celebrated, mark positive—do NOT mark neutral.
+- "neutral": Use when the character is neither clearly positive nor negative. This includes: purely factual or descriptive; or when the character is merely part of the sentence (e.g. "the hero fought against the dragon") with no adjectives or other wording that portray the character positively or negatively—the character is just mentioned, not framed. If the character is praised, celebrated, or shown succeeding, that is positive, not neutral.
+- "negative": The character is shown in an unfavorable light—threatening, cruel, cowardly, mean, hostile, or as someone to fear/oppose. This applies when the character is the one being aggressive (fury, fierce, flames), retreating in shame, or defeated/slain (e.g. "the dragon retreated shamefully", "slay the fearsome dragon"). If the character is only the opponent in a fight (e.g. "the hero fought against the dragon") with no extra negative framing of that character, that is neutral, not negative.
+
+Examples:
+- "The hero traveled through dark forests and crossed raging rivers." → for hero: positive (hero is shown as brave/determined; dark/raging describe the environment, not the hero).
+- "A fierce dragon guarded the treasure with flames and fury." → for dragon: negative (dragon is portrayed as threatening).
+- "The dragon finally retreated into the shadows." → for dragon: negative (retreat = unfavorable).
+- "The noble champion fought valiantly to slay the fearsome dragon." → for hero: positive (does good, defeats threat); for dragon: negative (causes fear, is slain).
+- "The dragon's scales gleamed in the sun." → for dragon: neutral (descriptive only).
+- "The kingdom celebrated the hero with a grand festival." → for hero: positive (character is celebrated/praised).
+- "Magic filled the air as the hero cast powerful spells." → for hero: positive (hero demonstrates power/competence).
+- "The hero fought bravely against the dragon in an epic battle." → for dragon: neutral (dragon is merely part of the sentence, no adjectives or framing); for hero: positive (hero defeats threat).
+
 The character may be referred to as: {search_terms_str}
 
-For each sentence that mentions this character, determine the sentiment:
-- "positive": The character is portrayed positively, heroically, or in a favorable light
-- "neutral": The character is mentioned factually without strong emotional tone
-- "negative": The character is portrayed negatively, villainously, or in an unfavorable light
-
 Text to analyze:
+The input may be (A) one or more sentences in order, or (B) multiple segments separated by " --- SEGMENT --- " (each segment has 1-2 sentences before/after for context). For (B), output one sentiment per segment in order, using the segment context to judge how the character is portrayed.
 "{text}"
 
-Respond with ONLY a JSON array where each object represents a sentence mentioning the character:
+Respond with ONLY a JSON array. One object per sentence that mentions the character, in the same order as in the text:
 [
-  {{
-    "sentence_index": 0,
-    "sentence_text": "The hero bravely faced the dragon.",
-    "sentiment": "positive",
-    "position": 0.1
-  }},
-  {{
-    "sentence_index": 5,
-    "sentence_text": "The hero was uncertain about the path.",
-    "sentiment": "neutral",
-    "position": 0.5
-  }}
+  {{"sentence_index": 0, "sentence_text": "...", "sentiment": "positive", "position": 0.0}},
+  {{"sentence_index": 1, "sentence_text": "...", "sentiment": "negative", "position": 0.5}}
 ]
+- sentence_index: 0-based index of that sentence in the text above.
+- sentence_text: exact text of the sentence.
+- sentiment: "positive", "neutral", or "negative" (your decision from context).
+- position: 0.0 to 1.0 (where in the text).
 
-- sentence_index: The 0-based index of the sentence in the text
-- sentence_text: The full text of the sentence
-- sentiment: One of "positive", "neutral", or "negative"
-- position: A value between 0.0 and 1.0 representing where this sentence appears in the document (0.0 = beginning, 1.0 = end)
-
-Only include sentences that actually mention the character. If the character is not mentioned, return an empty array [].
-No explanations, no markdown, just the JSON array."""
+Only include sentences that mention the character. No other text, no markdown, only the JSON array."""
 
     try:
         # Reduced timeout to 30 seconds for faster fallback to keyword-based analysis
@@ -1294,7 +1355,7 @@ No explanations, no markdown, just the JSON array."""
                             "content": prompt
                         }
                     ],
-                    "temperature": 0.3,
+                    "temperature": 0,
                     "max_tokens": 2000
                 }
             )
@@ -1535,9 +1596,20 @@ def _fallback_character_sentiment(text: str, character_name: str, search_terms: 
                 break
         
         if is_mentioned:
-            # Simple sentiment detection based on keywords
-            positive_words = ['brave', 'hero', 'good', 'kind', 'wise', 'strong', 'victory', 'save', 'help']
-            negative_words = ['evil', 'dark', 'fear', 'danger', 'attack', 'destroy', 'hate', 'angry']
+            # Character portrayal: words that depict the character unfavorably vs favorably
+            positive_words = [
+                'brave', 'hero', 'good', 'kind', 'wise', 'strong', 'victory', 'save', 'help', 'noble', 'protect',
+                'celebrated', 'celebrate', 'honored', 'honor', 'legend', 'praised', 'praise',
+                'powerful', 'spell', 'spells', 'treasure', 'discovered', 'guidance', 'achieved', 'achievement',
+                'wisdom', 'appeared', 'offered'
+            ]
+            # Words that portray the character unfavorably (not environment: "dark forests", "raging rivers" are setting, not character)
+            negative_words = [
+                'evil', 'fear', 'danger', 'attack', 'destroy', 'hate', 'angry',
+                'cowardly', 'coward', 'gloomy', 'slunk', 'slink', 'fled', 'retreat', 'weak',
+                'cruel', 'villain', 'monster', 'beast', 'ruthless', 'foolish', 'betray',
+                'fury', 'furious', 'fierce', 'flames', 'menace', 'menacing', 'fearsome', 'slay', 'slain'
+            ]
             
             sentence_lower = sentence.lower()
             positive_score = sum(1 for word in positive_words if word in sentence_lower)
