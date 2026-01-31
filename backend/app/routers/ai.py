@@ -17,6 +17,7 @@ from app.services.ai_client import (
     discover_characters_in_text,
     clear_character_emoji_mappings,
 )
+from app.services.sentiment_rewrite import rewrite_sentence_for_sentiment
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -604,6 +605,23 @@ async def reformulate_sentence_tension(
     return schemas.ReformulateSentenceResponse(
         sentence_id=request.sentence_id,
         reformulated_text=reformulated_text
+    )
+
+
+@router.post("/rewrite-sentence-sentiment", response_model=schemas.RewriteSentenceSentimentResponse)
+async def rewrite_sentence_sentiment_endpoint(request: schemas.RewriteSentenceSentimentRequest):
+    """
+    Rewrite a sentence so the character is portrayed with the target sentiment (positive, neutral, negative).
+    Used by the Character Sentiment suggestions panel to apply AI suggestions in the text editor.
+    """
+    result = await rewrite_sentence_for_sentiment(
+        sentence_text=request.sentence_text,
+        target_sentiment=request.target_sentiment,
+        character_name=request.character_name,
+    )
+    return schemas.RewriteSentenceSentimentResponse(
+        rewritten_text=result["rewritten_text"],
+        explanation=result.get("explanation"),
     )
 
 
