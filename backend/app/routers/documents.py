@@ -220,128 +220,209 @@ def update_document_content(
     # Delete existing sentences
     db.query(models.Sentence).filter(models.Sentence.document_id == document_id).delete()
     
-    # Split new content into sentences
-    new_sentences = split_into_sentences(content_update.content)
+    # Create new sentence records
     
-    # Get chapters ordered by index to help with chapter assignment
-    chapters = db.query(models.Chapter).filter(
-        models.Chapter.document_id == document_id
-    ).order_by(models.Chapter.index).all()
-    
-    # Create new sentence records, preserving emojis, character_refs, and chapter_id where text matches
-    used_sentence_indices = set()
-    assigned_chapters = []  # Track chapter assignments for new sentences to infer from context
-    
-    for index, sentence_text in enumerate(new_sentences):
-        sentence_text_stripped = sentence_text.strip()
+    # If chapter_content is provided, we use it to explicitly assign chapters
+    if content_update.chapter_content:
+        # Get chapters ordered by index
+        chapters = db.query(models.Chapter).filter(
+            models.Chapter.document_id == document_id
+        ).order_by(models.Chapter.index).all()
         
-        # Try to find matching sentence by text and position
-        preserved_data = None
+        global_index = 0
+        used_sentence_indices = set()
         
-        # First, try exact match by text and index
-        if index < len(sentence_data_list):
-            candidate = sentence_data_list[index]
-            if candidate['text'] == sentence_text_stripped:
-                preserved_data = candidate
-                used_sentence_indices.add(index)
-        
-        # Define normalization helper
-        def normalize(t):
-            return "".join(c.lower() for c in t if c.isalnum())
+        for chapter in chapters:
+            c_text = content_update.chapter_content.get(chapter.id, "")
+            if not c_text.strip():
+                continue
+                
+            c_sentences = split_into_sentences(c_text)
             
-        # Fallback: exact match by index but normalized (handles punctuation changes at same position)
-        if not preserved_data and index < len(sentence_data_list):
-            candidate = sentence_data_list[index]
-            if normalize(candidate['text']) == normalize(sentence_text_stripped) and index not in used_sentence_indices:
-                preserved_data = candidate
-                used_sentence_indices.add(index)
-        
-        # If no match, try to find by text only (but prefer unused ones)
-        if not preserved_data:
-            for i, candidate in enumerate(sentence_data_list):
-                if candidate['text'] == sentence_text_stripped and i not in used_sentence_indices:
-                    preserved_data = candidate
-                    used_sentence_indices.add(i)
-                    break
-        
-        # Fallback: finding by normalized text
-        if not preserved_data:
-            norm_text = normalize(sentence_text_stripped)
-            for i, candidate in enumerate(sentence_data_list):
-                if normalize(candidate['text']) == norm_text and i not in used_sentence_indices:
-                    preserved_data = candidate
-                    used_sentence_indices.add(i)
-                    break
-                    
-        # Fallback: Check if new sentence is a PREFIX of an existing AI sentence
-        # (Handles case where user typed after AI text, merging it, and now we are splitting it back)
-        if not preserved_data:
-             norm_text = normalize(sentence_text_stripped)
-             if len(norm_text) > 5: # Avoid matching short common words like "The"
-                 for i, candidate in enumerate(sentence_data_list):
-                     cand_norm = normalize(candidate['text'])
-                     if i not in used_sentence_indices and cand_norm.startswith(norm_text):
-                         # Only allow this fuzzy prefix match if the candidate was AI generated
-                         # (We assume the user is extending an AI sentence)
-                         if candidate.get('is_ai_generated', False):
-                             preserved_data = candidate
-                             used_sentence_indices.add(i)
-                             break
-        
-        # Determine chapter_id
-        chapter_id = None
-        
-        # Check if this sentence matches the AI suggestion
-        is_new_ai_suggestion = False
-        if content_update.ai_suggestion_text and (
-                sentence_text.strip() in content_update.ai_suggestion_text or
-                normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
-            ):
-            is_new_ai_suggestion = True
+            for sentence_text in c_sentences:
+                sentence_text_stripped = sentence_text.strip()
+                preserved_data = None
+                
+                # Try to find matching preserved data (fuzzy match logic)
+                # We prioritize matches that were previously in THIS chapter
+                
+                # 1. Exact match in this chapter
+                for i, candidate in enumerate(sentence_data_list):
+                    if i not in used_sentence_indices and candidate['chapter_id'] == chapter.id:
+                        if candidate['text'] == sentence_text_stripped:
+                            preserved_data = candidate
+                            used_sentence_indices.add(i)
+                            break
+                            
+                # 2. Exact match anywhere
+                if not preserved_data:
+                     for i, candidate in enumerate(sentence_data_list):
+                        if i not in used_sentence_indices and candidate['text'] == sentence_text_stripped:
+                            preserved_data = candidate
+                            used_sentence_indices.add(i)
+                            break
 
-        if is_new_ai_suggestion and content_update.ai_suggestion_chapter_id:
-             chapter_id = content_update.ai_suggestion_chapter_id
-        elif preserved_data:
-            # Use preserved chapter_id from matching sentence
-            chapter_id = preserved_data.get('chapter_id')
-        else:
-            # For new sentences, infer chapter from nearby assigned sentences in the NEW list
-            # Look at previous sentences that were already processed and assigned
-            if index > 0 and len(assigned_chapters) > 0:
-                # Use the chapter of the most recent previous sentence
-                chapter_id = assigned_chapters[-1]
-            elif chapters:
-                # Fallback: assign to first chapter if exists
-                chapter_id = chapters[0].id
+                # 3. Fuzzy/Normalized match
+                if not preserved_data:
+                    def normalize(t): return "".join(c.lower() for c in t if c.isalnum())
+                    norm_curr = normalize(sentence_text_stripped)
+                    
+                    for i, candidate in enumerate(sentence_data_list):
+                        if i not in used_sentence_indices:
+                             if normalize(candidate['text']) == norm_curr:
+                                 preserved_data = candidate
+                                 used_sentence_indices.add(i)
+                                 break
+                
+                # Check for AI suggestion match
+                is_ai_suggestion = False
+                if content_update.ai_suggestion_text:
+                    if sentence_text_stripped in content_update.ai_suggestion_text:
+                        is_ai_suggestion = True
+                
+                db_sentence = models.Sentence(
+                    document_id=document.id,
+                    index=global_index,
+                    text=sentence_text,
+                    chapter_id=chapter.id, # EXPLICIT ASSIGNMENT
+                    emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
+                    character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None,
+                    is_ai_generated=preserved_data.get('is_ai_generated', False) if preserved_data else is_ai_suggestion,
+                    ai_category=preserved_data.get('ai_category') if preserved_data else (
+                        content_update.ai_suggestion_category if is_ai_suggestion else None
+                    )
+                )
+                db.add(db_sentence)
+                global_index += 1
+                
+        # Handle unassigned content (if any, though in this mode we expect all content to be in chapters)
+        # We implicitly assume all content is covered by chapters + chapter_content map.
         
-        # Track assigned chapter for context inference (for next iteration)
-        if chapter_id:
-            assigned_chapters.append(chapter_id)
-            # Keep only last 10 for context
-            if len(assigned_chapters) > 10:
-                assigned_chapters = assigned_chapters[-10:]
+    else:
+        # FALLBACK TO OLD LOGIC (Heuristic)
         
-        db_sentence = models.Sentence(
-            document_id=document.id,
-            index=index,
-            text=sentence_text,
-            chapter_id=chapter_id,
-            emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
-            character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None,
-            is_ai_generated=preserved_data.get('is_ai_generated', False) if preserved_data else (
-                True if content_update.ai_suggestion_text and (
+        # Split new content into sentences
+        new_sentences = split_into_sentences(content_update.content)
+        
+        # Get chapters ordered by index to help with chapter assignment
+        chapters = db.query(models.Chapter).filter(
+            models.Chapter.document_id == document_id
+        ).order_by(models.Chapter.index).all()
+        
+        # Create new sentence records, preserving emojis, character_refs, and chapter_id where text matches
+        used_sentence_indices = set()
+        assigned_chapters = []  # Track chapter assignments for new sentences to infer from context
+        
+        for index, sentence_text in enumerate(new_sentences):
+            sentence_text_stripped = sentence_text.strip()
+            
+            # Try to find matching sentence by text and position
+            preserved_data = None
+            
+            # First, try exact match by text and index
+            if index < len(sentence_data_list):
+                candidate = sentence_data_list[index]
+                if candidate['text'] == sentence_text_stripped:
+                    preserved_data = candidate
+                    used_sentence_indices.add(index)
+            
+            # Define normalization helper
+            def normalize(t):
+                return "".join(c.lower() for c in t if c.isalnum())
+                
+            # Fallback: exact match by index but normalized (handles punctuation changes at same position)
+            if not preserved_data and index < len(sentence_data_list):
+                candidate = sentence_data_list[index]
+                if normalize(candidate['text']) == normalize(sentence_text_stripped) and index not in used_sentence_indices:
+                    preserved_data = candidate
+                    used_sentence_indices.add(index)
+            
+            # If no match, try to find by text only (but prefer unused ones)
+            if not preserved_data:
+                for i, candidate in enumerate(sentence_data_list):
+                    if candidate['text'] == sentence_text_stripped and i not in used_sentence_indices:
+                        preserved_data = candidate
+                        used_sentence_indices.add(i)
+                        break
+            
+            # Fallback: finding by normalized text
+            if not preserved_data:
+                norm_text = normalize(sentence_text_stripped)
+                for i, candidate in enumerate(sentence_data_list):
+                    if normalize(candidate['text']) == norm_text and i not in used_sentence_indices:
+                        preserved_data = candidate
+                        used_sentence_indices.add(i)
+                        break
+                        
+            # Fallback: Check if new sentence is a PREFIX of an existing AI sentence
+            # (Handles case where user typed after AI text, merging it, and now we are splitting it back)
+            if not preserved_data:
+                 norm_text = normalize(sentence_text_stripped)
+                 if len(norm_text) > 5: # Avoid matching short common words like "The"
+                     for i, candidate in enumerate(sentence_data_list):
+                         cand_norm = normalize(candidate['text'])
+                         if i not in used_sentence_indices and cand_norm.startswith(norm_text):
+                             # Only allow this fuzzy prefix match if the candidate was AI generated
+                             # (We assume the user is extending an AI sentence)
+                             if candidate.get('is_ai_generated', False):
+                                 preserved_data = candidate
+                                 used_sentence_indices.add(i)
+                                 break
+            
+            # Determine chapter_id
+            chapter_id = None
+            
+            # Check if this sentence matches the AI suggestion
+            is_new_ai_suggestion = False
+            if content_update.ai_suggestion_text and (
                     sentence_text.strip() in content_update.ai_suggestion_text or
                     normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
-                ) else False
-            ),
-            ai_category=preserved_data.get('ai_category') if preserved_data else (
-                content_update.ai_suggestion_category if content_update.ai_suggestion_text and (
-                    sentence_text.strip() in content_update.ai_suggestion_text or
-                    normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
-                ) else None
+                ):
+                is_new_ai_suggestion = True
+
+            if is_new_ai_suggestion and content_update.ai_suggestion_chapter_id:
+                 chapter_id = content_update.ai_suggestion_chapter_id
+            elif preserved_data:
+                # Use preserved chapter_id from matching sentence
+                chapter_id = preserved_data.get('chapter_id')
+            else:
+                # For new sentences, infer chapter from nearby assigned sentences in the NEW list
+                # Look at previous sentences that were already processed and assigned
+                if index > 0 and len(assigned_chapters) > 0:
+                    # Use the chapter of the most recent previous sentence
+                    chapter_id = assigned_chapters[-1]
+                elif chapters:
+                    # Fallback: assign to first chapter if exists
+                    chapter_id = chapters[0].id
+            
+            # Track assigned chapter for context inference (for next iteration)
+            if chapter_id:
+                assigned_chapters.append(chapter_id)
+                # Keep only last 10 for context
+                if len(assigned_chapters) > 10:
+                    assigned_chapters = assigned_chapters[-10:]
+            
+            db_sentence = models.Sentence(
+                document_id=document.id,
+                index=index,
+                text=sentence_text,
+                chapter_id=chapter_id,
+                emojis=json.dumps(preserved_data.get('emojis', [])) if preserved_data and preserved_data.get('emojis') else None,
+                character_refs=json.dumps(preserved_data.get('character_refs', [])) if preserved_data and preserved_data.get('character_refs') else None,
+                is_ai_generated=preserved_data.get('is_ai_generated', False) if preserved_data else (
+                    True if content_update.ai_suggestion_text and (
+                        sentence_text.strip() in content_update.ai_suggestion_text or
+                        normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
+                    ) else False
+                ),
+                ai_category=preserved_data.get('ai_category') if preserved_data else (
+                    content_update.ai_suggestion_category if content_update.ai_suggestion_text and (
+                        sentence_text.strip() in content_update.ai_suggestion_text or
+                        normalize(sentence_text.strip()) in normalize(content_update.ai_suggestion_text)
+                    ) else None
+                )
             )
-        )
-        db.add(db_sentence)
+            db.add(db_sentence)
     
     db.commit()
     db.refresh(document)
