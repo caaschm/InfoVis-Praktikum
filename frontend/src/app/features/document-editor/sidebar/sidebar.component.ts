@@ -173,6 +173,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   sentimentSuggestionText: string | null = null;
   sentimentSuggestionLoading = false;
   sentimentTextApplied = false;
+  /** When true, skip the next document-driven character sentiment refetch (we just applied locally). */
+  private skipNextCharacterSentimentRefetch = false;
 
   // Section creation form state
   showSectionForm: boolean = false;
@@ -354,8 +356,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
             this.selectedAnalysisChapterId = 'all';
           }
 
-          // Refresh character sentiment if characters tab is active
-          if (this.activeTab === 'characters') {
+          // Refresh character sentiment if characters tab is active (unless we just applied a suggestion locally)
+          if (this.activeTab === 'characters' && !this.skipNextCharacterSentimentRefetch) {
             // Reset chapter selector based on available chapters
             if (this.chapters.length > 0) {
               if (this.chapters.length === 1) {
@@ -1999,6 +2001,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (!this.sentimentSuggestionText || !this.selectedSentimentSentence) return;
     if (this.sentimentTextApplied) return;
     this.sentimentTextApplied = true;
+
+    // Prevent document$ subscription from refetching sentiment (backend save is debounced; refetch would overwrite our local red/orange/green)
+    this.skipNextCharacterSentimentRefetch = true;
+    setTimeout(() => { this.skipNextCharacterSentimentRefetch = false; }, 1500);
+
     this.documentService.updateSentenceText(this.selectedSentimentSentence.id, this.sentimentSuggestionText);
     this.characterHighlightService.clearSentenceHighlight();
 
