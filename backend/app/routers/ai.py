@@ -710,11 +710,6 @@ async def _analyze_character_sentiment_for_scope(
     if not full_text.strip():
         return schemas.CharacterSentimentAnalysisResponse(characters=[])
 
-    cache_key = _character_sentiment_cache_key(document_id, chapter_id, character_ids, sentence_count)
-    if cache_key in _character_sentiment_cache:
-        cached = _character_sentiment_cache[cache_key]
-        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
-
     if character_ids:
         characters = db.query(models.Character).filter(
             models.Character.document_id == document_id,
@@ -750,6 +745,13 @@ async def _analyze_character_sentiment_for_scope(
 
     if not characters_to_analyze:
         return schemas.CharacterSentimentAnalysisResponse(characters=[])
+
+    # Cache key must include actual character IDs so adding/removing characters invalidates the cache
+    actual_character_ids = sorted(c["id"] for c in characters_to_analyze)
+    cache_key = _character_sentiment_cache_key(document_id, chapter_id, actual_character_ids, sentence_count)
+    if cache_key in _character_sentiment_cache:
+        cached = _character_sentiment_cache[cache_key]
+        return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
 
     async def get_pattern(c):
         return await analyze_character_pattern(full_text, c["name"], c.get("aliases", []))
@@ -894,7 +896,15 @@ async def analyze_character_sentiment_endpoint(
         .all()
     )
     total_sentences = len(all_sentences)
-    cache_key = _character_sentiment_cache_key(document_id, None, character_ids, total_sentences)
+    # Resolve actual character IDs for cache key so adding/removing characters invalidates the cache
+    cache_character_ids = character_ids
+    if cache_character_ids is None:
+        cache_character_ids = [
+            c.id for c in db.query(models.Character).filter(
+                models.Character.document_id == document_id
+            ).all()
+        ]
+    cache_key = _character_sentiment_cache_key(document_id, None, cache_character_ids, total_sentences)
     if cache_key in _character_sentiment_cache:
         cached = _character_sentiment_cache[cache_key]
         return schemas.CharacterSentimentAnalysisResponse.model_validate(cached)
