@@ -16,7 +16,9 @@ import {
     ReformulateSentenceRequest,
     ReformulateSentenceResponse,
     CharacterSentimentAnalysisRequest,
-    CharacterSentimentAnalysisResponse
+    CharacterSentimentAnalysisResponse,
+    RewriteSentenceSentimentRequest,
+    RewriteSentenceSentimentResponse
 } from '../models/document.model';
 
 export interface SpiderIntentRequest {
@@ -115,6 +117,27 @@ export class AiService {
     return this.apiService.post<CharacterSentimentAnalysisResponse>(
       '/api/ai/analyze-character-sentiment',
       request
+    );
+  }
+
+  /**
+   * Rewrite a sentence toward a target character sentiment (positive, neutral, negative).
+   * Used by the Character Sentiment suggestions panel.
+   */
+  rewriteSentenceForSentiment(request: RewriteSentenceSentimentRequest): Observable<RewriteSentenceSentimentResponse> {
+    return this.apiService.post<RewriteSentenceSentimentResponse>(
+      '/api/ai/rewrite-sentence-sentiment',
+      request
+    );
+  }
+
+  /**
+   * Clear character sentiment cache only (not emoji cache) so the next analysis uses fresh data.
+   */
+  clearCharacterSentimentCache(): Observable<{ status: string; caches?: string[] }> {
+    return this.apiService.post<{ status: string; caches?: string[] }>(
+      '/api/ai/clear-cache?character_sentiment=true&character_emoji=false',
+      {}
     );
   }
 

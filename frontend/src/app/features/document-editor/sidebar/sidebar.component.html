@@ -265,6 +265,51 @@
             <div class="loading-spinner"></div>
             <span>Analyzing character sentiment...</span>
         </div>
+
+        <!-- Sentiment Suggestions (when a sentiment point is clicked) -->
+        <div class="sentiment-suggestions-panel" *ngIf="selectedSentimentSentence && selectedSentimentCharacter && selectedSentimentMention">
+            <div class="suggestions-header">
+                <span class="suggestions-icon">💡</span>
+                <h4>Suggestions</h4>
+                <button type="button" class="close-suggestions-btn" (click)="clearSentimentSuggestionPanel()" title="Close">×</button>
+            </div>
+            <div class="suggestions-body">
+                <p class="suggestions-hint">Change how <strong>{{ selectedSentimentCharacter.characterName }}</strong> is portrayed in this sentence.</p>
+                <div class="suggestion-cards">
+                    <button type="button" class="suggestion-card" [class.active]="sentimentTargetSentiment === 'positive'" (click)="sentimentTargetSentiment = 'positive'">
+                        <span class="suggestion-card-num">1</span>
+                        <span class="suggestion-card-text">Make portrayal positive.</span>
+                    </button>
+                    <button type="button" class="suggestion-card" [class.active]="sentimentTargetSentiment === 'neutral'" (click)="sentimentTargetSentiment = 'neutral'">
+                        <span class="suggestion-card-num">2</span>
+                        <span class="suggestion-card-text">Keep neutral.</span>
+                    </button>
+                    <button type="button" class="suggestion-card" [class.active]="sentimentTargetSentiment === 'negative'" (click)="sentimentTargetSentiment = 'negative'">
+                        <span class="suggestion-card-num">3</span>
+                        <span class="suggestion-card-text">Make portrayal negative.</span>
+                    </button>
+                </div>
+                <div class="suggested-sentence-block suggestion-item">
+                    <span class="suggestion-badge icon-badge">📝</span>
+                    <div class="suggestion-content">
+                        <span class="suggestion-label-uppercase">Suggested sentence</span>
+                        <span class="suggestion-text" *ngIf="sentimentSuggestionText">{{ sentimentSuggestionText }}</span>
+                        <span class="suggestion-text placeholder" *ngIf="!sentimentSuggestionText && sentimentSuggestionLoading">Generating suggestion...</span>
+                        <span class="suggestion-text placeholder" *ngIf="!sentimentSuggestionText && !sentimentSuggestionLoading">Click "Get suggestion" to rewrite toward the target sentiment.</span>
+                    </div>
+                </div>
+                <div class="suggestions-actions">
+                    <button type="button" class="get-suggestion-btn" [disabled]="sentimentSuggestionLoading" (click)="getSentimentSuggestion()">
+                        {{ sentimentSuggestionLoading ? 'Generating…' : 'Get suggestion' }}
+                    </button>
+                    <button type="button" class="apply-text-btn" [class.applied]="sentimentTextApplied"
+                        [disabled]="sentimentTextApplied || !sentimentSuggestionText" (click)="applySentimentSuggestion()">
+                        <span class="btn-icon">✨</span>
+                        <span class="btn-label">{{ sentimentTextApplied ? 'Text Applied' : 'Apply Text' }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Analysis Tab -->

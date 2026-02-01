@@ -6,6 +6,7 @@ import {
   HostListener,
   ViewChild,
   ElementRef,
+  ChangeDetectorRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -164,6 +165,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
   characterSentimentLoading = false;
   selectedSentimentChapterId: string | null = 'all';
   highlightedCharacterId: string | null = null; // Track which character is currently highlighted
+  // Sentiment suggestions panel (when a sentiment point is clicked)
+  selectedSentimentSentence: Sentence | null = null;
+  selectedSentimentCharacter: CharacterSentimentResponse | null = null;
+  selectedSentimentMention: CharacterSentimentMention | null = null;
+  sentimentTargetSentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+  sentimentSuggestionText: string | null = null;
+  sentimentSuggestionLoading = false;
+  sentimentTextApplied = false;
 
   // Section creation form state
   showSectionForm: boolean = false;
@@ -245,7 +254,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private characterHighlightService: CharacterHighlightService,
     private characterFormService: CharacterFormService,
     private chapterStateService: ChapterStateService,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef
   ) { }
 
   getEmptySlots(): number[] {
@@ -1779,6 +1789,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
    * Handle click on character card - highlight all mentions of this character
    */
   onCharacterCardClick(character: CharacterSentimentResponse): void {
+    // Close sentiment suggestions panel when switching character
+    this.clearSentimentSuggestionPanel();
+
     // Toggle: if already highlighted, clear; otherwise highlight
     if (this.highlightedCharacterId === character.characterId) {
       this.clearCharacterHighlight();
@@ -1908,6 +1921,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Update highlighted character for visual feedback
       this.highlightedCharacterId = character.characterId;
 
+      // Open sentiment suggestions panel for this sentence/mention
+      this.selectedSentimentSentence = sentence;
+      this.selectedSentimentCharacter = character;
+      this.selectedSentimentMention = mention;
+      this.sentimentSuggestionText = null;
+      this.sentimentTextApplied = false;
+      this.sentimentTargetSentiment = (mention.sentiment === 'positive' || mention.sentiment === 'neutral' || mention.sentiment === 'negative')
+        ? mention.sentiment
+        : 'neutral';
+
       // Scroll to the sentence in the text viewer
       setTimeout(() => {
         const sentenceElement = document.querySelector(`[data-sentence-id="${sentence!.id}"]`);
@@ -1930,6 +1953,80 @@ export class SidebarComponent implements OnInit, OnDestroy {
   clearCharacterHighlight(): void {
     this.characterHighlightService.clearHover();
     this.highlightedCharacterId = null;
+  }
+
+  /**
+   * Close sentiment suggestions panel and clear selection
+   */
+  clearSentimentSuggestionPanel(): void {
+    this.selectedSentimentSentence = null;
+    this.selectedSentimentCharacter = null;
+    this.selectedSentimentMention = null;
+    this.sentimentSuggestionText = null;
+    this.sentimentTextApplied = false;
+    this.characterHighlightService.clearSentenceHighlight();
+  }
+
+  /**
+   * Request AI suggestion to rewrite the selected sentence toward target sentiment
+   */
+  getSentimentSuggestion(): void {
+    if (!this.selectedSentimentSentence || !this.selectedSentimentCharacter || !this.selectedSentimentMention) return;
+    const sentenceText = this.selectedSentimentMention.sentenceText ?? this.selectedSentimentSentence.text;
+    if (!sentenceText.trim()) return;
+    this.sentimentSuggestionLoading = true;
+    this.sentimentSuggestionText = null;
+    this.aiService.rewriteSentenceForSentiment({
+      sentenceText: sentenceText.trim(),
+      targetSentiment: this.sentimentTargetSentiment,
+      characterName: this.selectedSentimentCharacter.characterName ?? undefined,
+    }).subscribe({
+      next: (res) => {
+        this.sentimentSuggestionText = (res.rewrittenText ?? (res as { rewritten_text?: string }).rewritten_text) ?? null;
+        this.sentimentSuggestionLoading = false;
+      },
+      error: () => {
+        this.sentimentSuggestionLoading = false;
+      },
+    });
+  }
+
+  /**
+   * Apply the suggested sentence text in the editor and update the sentiment point color locally
+   * (no refetch: point turns green / orange / red for positive / neutral / negative).
+   */
+  applySentimentSuggestion(): void {
+    if (!this.sentimentSuggestionText || !this.selectedSentimentSentence) return;
+    if (this.sentimentTextApplied) return;
+    this.sentimentTextApplied = true;
+    this.documentService.updateSentenceText(this.selectedSentimentSentence.id, this.sentimentSuggestionText);
+    this.characterHighlightService.clearSentenceHighlight();
+
+    // Update the selected mention's sentiment locally so the timeline point color updates immediately
+    // (green = positive, orange = neutral, red = negative)
+    if (this.selectedSentimentMention && this.selectedSentimentCharacter) {
+      this.selectedSentimentMention.sentiment = this.sentimentTargetSentiment;
+      this.updateCharacterSentimentPercentages(this.selectedSentimentCharacter);
+      this.cdr.detectChanges(); // Ensure the timeline point and bar re-render with new color
+    }
+
+    // Clear backend cache so a future full refetch would reflect the new text (no refetch now)
+    this.aiService.clearCharacterSentimentCache().subscribe();
+    this.clearSentimentSuggestionPanel();
+  }
+
+  /**
+   * Recompute positive/neutral/negative percentages for a character from its mentions.
+   */
+  private updateCharacterSentimentPercentages(char: CharacterSentimentResponse): void {
+    const n = char.mentions.length;
+    if (n === 0) return;
+    const pos = char.mentions.filter(m => m.sentiment === 'positive').length;
+    const neu = char.mentions.filter(m => m.sentiment === 'neutral').length;
+    const neg = char.mentions.filter(m => m.sentiment === 'negative').length;
+    char.positivePercentage = Math.round((pos / n) * 100);
+    char.neutralPercentage = Math.round((neu / n) * 100);
+    char.negativePercentage = Math.round((neg / n) * 100);
   }
 
   /**

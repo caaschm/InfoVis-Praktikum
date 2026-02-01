@@ -316,3 +316,14 @@ export interface CharacterSentimentAnalysisRequest {
 export interface CharacterSentimentAnalysisResponse {
   characters: CharacterSentimentResponse[];
 }
+
+export interface RewriteSentenceSentimentRequest {
+  sentenceText: string;
+  targetSentiment: 'positive' | 'neutral' | 'negative';
+  characterName?: string | null;
+}
+
+export interface RewriteSentenceSentimentResponse {
+  rewrittenText: string;
+  explanation?: string | null;
+}

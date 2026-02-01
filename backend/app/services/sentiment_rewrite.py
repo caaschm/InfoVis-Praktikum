@@ -51,9 +51,14 @@ def _extract_json_from_response(content: str) -> dict | None:
     return None
 
 
-async def rewrite_sentence_for_sentiment(sentence_text: str, target_sentiment: str) -> dict:
+async def rewrite_sentence_for_sentiment(
+    sentence_text: str,
+    target_sentiment: str,
+    character_name: str | None = None,
+) -> dict:
     """
     Rewrite a sentence to match a target emotional tone (positive, neutral, or negative).
+    If character_name is given, focus the rewrite on how that character is portrayed.
     Returns dict with rewritten_text and optional explanation.
     """
     api_key = get_api_key()
@@ -69,7 +74,8 @@ async def rewrite_sentence_for_sentiment(sentence_text: str, target_sentiment: s
         "negative": "depict the character in an unfavorable light (villainous, cruel, foolish, or unsympathetic)",
     }
     guide = portrayal_guide.get(target_sentiment.lower(), portrayal_guide["neutral"])
-    prompt = f"""Rewrite the following sentence so the character/subject is {guide}. Change only the wording that affects how the character is portrayed—keep the same events and length. Do not change the general mood of the scene; focus on how the character is depicted.
+    subject = f' the character "{character_name}"' if (character_name and character_name.strip()) else " the character/subject"
+    prompt = f"""Rewrite the following sentence so{subject} is {guide}. Change only the wording that affects how the character is portrayed—keep the same events and length. Do not change the general mood of the scene; focus on how the character is depicted.
 
 Original sentence:
 "{sentence_text}"

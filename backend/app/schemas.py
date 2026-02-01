@@ -354,6 +354,23 @@ class CharacterSentimentAnalysisResponse(BaseModel):
     characters: list[CharacterSentimentResponse]
 
 
+class RewriteSentenceSentimentRequest(BaseModel):
+    """Request to rewrite a sentence toward a target character sentiment."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    sentence_text: str = Field(alias='sentenceText')
+    target_sentiment: str = Field(alias='targetSentiment')  # 'positive', 'neutral', or 'negative'
+    character_name: Optional[str] = Field(default=None, alias='characterName')
+
+
+class RewriteSentenceSentimentResponse(BaseModel):
+    """Response with rewritten sentence for target sentiment."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    rewritten_text: str = Field(alias='rewrittenText')
+    explanation: Optional[str] = None
+
+
 # ========== Health Check ==========
 
 class HealthResponse(BaseModel):
