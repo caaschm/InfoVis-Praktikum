@@ -212,14 +212,15 @@ export class DocumentService {
      * Update document content and re-parse sentences
      * Uses the provided content directly (backend will preserve chapter assignments)
      */
-    updateDocumentContent(documentId: string, content: string, aiSuggestionText?: string, aiSuggestionCategory?: string, aiSuggestionChapterId?: string): void {
+    updateDocumentContent(documentId: string, content: string, aiSuggestionText?: string, aiSuggestionCategory?: string, aiSuggestionChapterId?: string, chapterContentMap?: { [key: string]: string }): void {
         const normalized = this.normalizeSentenceSpacing(content);
 
         this.apiService.patch<any>(`/api/documents/${documentId}`, {
             content,
             ai_suggestion_text: aiSuggestionText,
             ai_suggestion_category: aiSuggestionCategory,
-            ai_suggestion_chapter_id: aiSuggestionChapterId
+            ai_suggestion_chapter_id: aiSuggestionChapterId,
+            chapter_content: chapterContentMap
         })
             .subscribe({
                 next: (updatedDoc: any) => {
@@ -244,38 +245,37 @@ export class DocumentService {
 
         // Reconstruct full document content by combining all chapters
         const allChapterContents: string[] = [];
+        const chapterContentMap: { [key: string]: string } = {};
 
         for (const chapter of chapters) {
             if (chapter.id === chapterId) {
                 // Use the new content for the updated chapter
                 allChapterContents.push(chapterContent);
+                chapterContentMap[chapter.id] = chapterContent;
             } else {
                 // Preserve other chapters' content
                 const chapterSentences = currentDoc.sentences
                     .filter(s => s.chapterId === chapter.id)
                     .sort((a, b) => a.index - b.index)
                     .map(s => s.text);
-                allChapterContents.push(chapterSentences.join(' ').trim());
+                const text = chapterSentences.join(' ').trim();
+                allChapterContents.push(text);
+                chapterContentMap[chapter.id] = text;
             }
         }
 
-        // Add unassigned sentences
-        const unassignedSentences = currentDoc.sentences
-            .filter(s => !s.chapterId)
-            .sort((a, b) => a.index - b.index)
-            .map(s => s.text);
-        if (unassignedSentences.length > 0) {
-            allChapterContents.push(unassignedSentences.join(' ').trim());
-        }
+        // Add unassigned sentences? No, we want to enforce structure now.
+        // If unassigned sentences exist, they will be lost or implicitly merged if we used the string.
+        // But since we use the map, they are dropped, which effectively cleans up the doc structure.
 
         // Combine all chapters
         const fullContent = allChapterContents.filter(c => c).join(' ').trim();
 
-        // Update document with reconstructed content
-        this.updateDocumentContent(documentId, fullContent, aiSuggestionText, aiSuggestionCategory, chapterId);
+        // Update document with reconstructed content and implicit Chapter Structure Map
+        this.updateDocumentContent(documentId, fullContent, aiSuggestionText, aiSuggestionCategory, chapterId, chapterContentMap);
     }
 
-    // Eine Methode, die nur den Content-String aktualisiert, 
+    // Eine Methode, die nur den Content-String aktualisiert,
 // aber NICHT .next() auf das Haupt-Dokument feuert.
     updateContentSilent(docId: string, fullContent: string) {
         const doc = this.currentDocumentSubject.value;
@@ -399,10 +399,10 @@ export class DocumentService {
      * Create a new chapter
      */
     createChapter(documentId: string, title?: string, type?: string, emoji?: string): Observable<Chapter> {
-        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, { 
-            title, 
+        return this.apiService.post<any>(`/api/documents/${documentId}/chapters/`, {
+            title,
             type: type || 'chapter',
-            emoji 
+            emoji
         })
             .pipe(
                 switchMap((chapterResponse: any) => {
@@ -430,7 +430,7 @@ export class DocumentService {
      * Update a chapter title, type, and emoji
      */
     updateChapter(documentId: string, chapterId: string, title: string, type?: string, emoji?: string): Observable<Chapter> {
-        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, { 
+        return this.apiService.patch<Chapter>(`/api/documents/${documentId}/chapters/${chapterId}`, {
             title,
             type,
             emoji
