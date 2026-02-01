@@ -1,7 +1,8 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewChecked, AfterViewInit, Input, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, ViewChild, ElementRef, AfterViewInit, AfterViewChecked, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, Subscription, combineLatest } from 'rxjs';
+import { debounceTime, takeUntil, distinctUntilChanged } from 'rxjs/operators';
 import { DocumentService } from '../../../core/services/document.service';
 import { CharacterHighlightService } from '../../../core/services/character-highlight.service';
 import { ChapterStateService } from '../../../core/services/chapter-state.service';
@@ -44,10 +45,10 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   suggestingEmojiForChapterId: string | null = null;
   aiEmojiSuggestion: string | null = null;
   emojiSuggestionLoading: boolean = false;
-  
+
   // Add menu dropdown state
   showAddMenu: boolean = false;
-  
+
   commonEmojis = [
     '📖', '📚', '📝', '✨', '⭐', '💫', '🔥', '💎',
     '⚔️', '🛡️', '👑', '🏰', '🌙', '☀️', '🌈', '🌊',
@@ -76,6 +77,12 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   @ViewChild('lineNumbersContainer') lineNumbersContainer?: ElementRef<HTMLElement>;
   @ViewChild('textContentContainer') textContentContainer?: ElementRef<HTMLElement>;
 
+  // Debounce for cursor saving
+  private cursorSaveSubject = new Subject<void>();
+
+  // Debounce for local typing state to prevent Angular/Browser fights
+  private resetLocalTypingTimer: any;
+
   @Input()
   set activeTab(value: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc') {
     // When story-arc tab is activated, reset to "All Chapters" view
@@ -89,8 +96,16 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     private characterHighlightService: CharacterHighlightService,
     private chapterStateService: ChapterStateService,
     private aiService: AiService,
-    private cdr: ChangeDetectorRef
-  ) { }
+    private cdr: ChangeDetectorRef,
+    private el: ElementRef,
+    private zone: NgZone
+  ) {
+    this.cursorSaveSubject.pipe(
+      debounceTime(500)
+    ).subscribe(() => {
+      this.saveCurrentCursorState();
+    });
+  }
 
   private navigateToChapterHandler = ((event: CustomEvent) => {
     if (event.detail && event.detail.chapterId) {
@@ -115,7 +130,18 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
       .subscribe(doc => {
         if (doc) {
           this.currentDocument = doc;
-          this.sentences = doc.sentences;
+
+          // CRITICAL: specific check to prevent overwriting local DOM state while typing
+          // If we are locally typing, we keep the current 'sentences' array reference
+          // but valid updates from backend (processed by service) are merged via
+          // handleSentenceUpdated logic usually, but here we just avoid array replacement.
+          if (!this.isLocalTyping) {
+            this.sentences = doc.sentences;
+            // Only initialize chapter states if not typing locally
+            this.initializeChapterStates();
+          } else {
+          }
+
           this.characters = doc.characters || [];
           this.chapters = doc.chapters || [];
 
@@ -134,9 +160,6 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
 
           // Ensure chapters are sorted by index
           this.chapters.sort((a, b) => a.index - b.index);
-
-          // Initialize chapter states with current content
-          this.initializeChapterStates();
 
           // Update line numbers after document loads
           setTimeout(() => this.updateLineNumbers(), 200);
@@ -206,13 +229,13 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
   get totalWords(): number {
     if (!this.chapters) return 0;
-    
+
     return this.chapters.reduce((sum, chapter) => {
       // Wir holen die Sätze des Kapitels über deine existierende Methode
       const sentences = this.getChapterSentences(chapter.id) || [];
       // Wir fügen alle Sätze zu einem langen Text zusammen
       const chapterText = sentences.map(s => s.text).join(' ');
-      
+
       // Zähle Wörter (filtert leere Strings raus)
       const words = chapterText.trim().split(/\s+/).filter(w => w.length > 0);
       return sum + words.length;
@@ -654,6 +677,201 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   /**
+   * Extract only the relevant text content from the chapter container,
+   * ignoring UI artifacts like emoji tooltips and delete buttons.
+   */
+  private extractCleanText(container: HTMLElement): string {
+    let text = '';
+
+    // Walk the DOM tree
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode: (node: Node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLElement;
+            // Ignore UI artifacts
+            if (el.classList.contains('emoji-tooltip') ||
+              el.classList.contains('delete-ai-btn')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    let node: Node | null;
+    while (node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      }
+    }
+
+    // Normalize spaces (replace non-breaking spaces with normal spaces)
+    return text.replace(/\u00A0/g, ' ');
+  }
+
+  /**
+   * Handle input on the full chapter container
+   * This enables "Select All" + Delete functionality
+   */
+  onChapterContentInput(event: Event, chapterId: string): void {
+    const target = event.target as HTMLElement;
+    const fullText = this.extractCleanText(target); // Use clean text extraction
+
+    // Set active chapter
+    if (this.activeChapterId !== chapterId) {
+      this.chapterStateService.setActiveChapter(chapterId);
+    }
+
+    this.debouncedSaveCursor();
+
+    // Check if empty (user deleted everything)
+    if (!fullText.trim()) {
+      const currentDoc = this.documentService.getCurrentDocument();
+      if (currentDoc) {
+        this.chapterStateService.addHistoryEntry(chapterId, '');
+        this.documentService.updateChapterContent(currentDoc.id, chapterId, '');
+        return;
+      }
+    }
+
+    // Identify which sentence is being modified to keep local updates fast
+    // We try to find the sentence element from the selection
+    const selection = window.getSelection();
+    let limitLocalUpdate = false;
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let node: Node | null = range.commonAncestorContainer;
+      while (node && node !== target) {
+        if (node instanceof HTMLElement && node.hasAttribute('data-sentence-id')) {
+          const sentenceId = node.getAttribute('data-sentence-id');
+          const sentence = this.sentences.find(s => s.id === sentenceId);
+          if (sentence) {
+            // Found the sentence being edited!
+            // We can do a local update for better performance if it's just typing
+            limitLocalUpdate = true;
+
+            // Capture cursor offset relative to the text node
+            const cursorOffset = range.endOffset;
+            // Capture the sentence ID to locate it after re-render
+            const targetSentenceId = sentenceId;
+
+            // Extract text for this specific sentence from the DOM
+            const newSentenceText = node.innerText;
+            const oldText = sentence.text;
+
+            // Update local object reference immediately to prevent drift
+            // We MUST update the model, otherwise Angular will fight the DOM
+            sentence.text = newSentenceText;
+
+            // Logic from onSentenceInput:
+            const lastChar = newSentenceText.trim().slice(-1);
+            const endsWithPunctuation = /[.!?]/.test(lastChar);
+            const oldEndsWithPunctuation = /[.!?]/.test(oldText.trim().slice(-1));
+            const justCompletedSentence = endsWithPunctuation && !oldEndsWithPunctuation;
+
+            // Also check for major length diff which implies paste/delete
+            const isMajorChange = Math.abs(newSentenceText.length - oldText.length) > 10;
+
+            if (justCompletedSentence || isMajorChange) {
+              // Trigger full update to split or handle bulk edit
+              limitLocalUpdate = false;
+            } else {
+              // Just update local model
+              this.isLocalTyping = true;
+              try {
+                this.documentService.updateSentenceText(sentence.id, newSentenceText);
+              } finally {
+                this.isLocalTyping = false;
+              }
+
+              // Restore cursor position robustly
+              setTimeout(() => {
+                const sel = window.getSelection();
+                if (!sel) return;
+
+                // Find the sentence element again (Angular might have re-rendered it)
+                const sentenceEl = document.querySelector(`span[data-sentence-id="${targetSentenceId}"] .sentence-text`);
+
+                if (sentenceEl) {
+                  // Find the text node within the sentence element
+                  let targetNode: Node | null = sentenceEl.firstChild;
+
+                  // Handle case where text node is nested or missing
+                  if (!targetNode && newSentenceText.length > 0) {
+                    // Weird case, maybe empty?
+                  } else if (targetNode) {
+                    // Ensure we are inside a text node
+                    if (targetNode.nodeType !== Node.TEXT_NODE) {
+                      // Try to find the first text node child
+                      const iterator = document.createNodeIterator(sentenceEl, NodeFilter.SHOW_TEXT);
+                      targetNode = iterator.nextNode();
+                    }
+                  }
+
+                  if (targetNode) {
+                    try {
+                      // Clamp offset to length
+                      const validOffset = Math.min(cursorOffset, targetNode.textContent?.length || 0);
+
+                      const newRange = document.createRange();
+                      newRange.setStart(targetNode, validOffset);
+                      newRange.collapse(true);
+                      sel.removeAllRanges();
+                      sel.addRange(newRange);
+                    } catch (e) {
+                      console.warn('Failed to restore cursor', e);
+                    }
+                  }
+                }
+              }, 0);
+
+              // Set a timer to sync full chapter eventually to be safe
+              if (this.sentenceUpdateTimer) clearTimeout(this.sentenceUpdateTimer);
+              this.sentenceUpdateTimer = setTimeout(() => {
+                // Construct clean text from model instead of DOM to avoid duplications
+                const chapterSentences = this.getChapterSentences(chapterId);
+                const cleanText = chapterSentences.map(s => s.text).join(' ').trim();
+                this.syncFullChapterContent(chapterId, cleanText);
+              }, 3000);
+            }
+          }
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+
+    if (!limitLocalUpdate) {
+      // Major change (deletion across sentences, or split)
+      // Debounce full update - faster now (300ms) for better responsiveness
+      if (this.sentenceUpdateTimer) clearTimeout(this.sentenceUpdateTimer);
+      this.sentenceUpdateTimer = setTimeout(() => {
+        this.syncFullChapterContent(chapterId, fullText);
+      }, 300);
+    }
+  }
+
+  onChapterContentBlur(event: Event, chapterId: string): void {
+    const target = event.target as HTMLElement;
+    this.saveCurrentCursorState();
+    // Ensure final consistency
+    this.syncFullChapterContent(chapterId, this.extractCleanText(target));
+  }
+
+  private syncFullChapterContent(chapterId: string, fullText: string): void {
+    const currentDoc = this.documentService.getCurrentDocument();
+    if (currentDoc) {
+      this.chapterStateService.addHistoryEntry(chapterId, fullText);
+      this.documentService.updateChapterContent(currentDoc.id, chapterId, fullText);
+    }
+  }
+
+  /**
    * Debounced cursor save to avoid excessive state updates
    */
   private debouncedSaveCursor(): void {
@@ -1055,8 +1273,23 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
   /**
    * Get sentences for a specific chapter
    */
+  // Cache for chapter sentences to prevent ngFor thrashing
+  private chapterSentencesCache = new Map<string, Sentence[]>();
+  private lastSentencesRef: Sentence[] | null = null;
+
   getChapterSentences(chapterId: string): Sentence[] {
-    return this.sentences.filter(s => s.chapterId === chapterId);
+    // If the sentences array reference has changed, clear the cache
+    if (this.sentences !== this.lastSentencesRef) {
+      this.chapterSentencesCache.clear();
+      this.lastSentencesRef = this.sentences;
+    }
+
+    if (!this.chapterSentencesCache.has(chapterId)) {
+      const filtered = this.sentences.filter(s => s.chapterId === chapterId);
+      this.chapterSentencesCache.set(chapterId, filtered);
+    }
+
+    return this.chapterSentencesCache.get(chapterId) || [];
   }
 
   /**
@@ -1181,7 +1414,7 @@ export class TextViewerComponent implements OnInit, OnDestroy, AfterViewChecked,
     // Extract existing number from the original title to preserve it
     const existingNumberMatch = chapter.title.match(/^(\d+)\s/);
     let newTitle: string;
-    
+
     if (existingNumberMatch) {
       // Preserve the existing chapter number
       newTitle = `${existingNumberMatch[1]} ${this.editingChapterTitle.trim()}`;
