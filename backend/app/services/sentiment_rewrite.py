@@ -1,4 +1,6 @@
 """Rewrite sentence for target sentiment (Character Sentiment manual edit)."""
+from __future__ import annotations
+
 import re
 import json
 import httpx
