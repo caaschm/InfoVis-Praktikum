@@ -1360,6 +1360,13 @@
         padding-left: 1rem;
         padding-top: 0 !important;
         margin-top: 0 !important;
+        outline: none; // Remove focus ring from editable container
+        cursor: text;
+        min-height: 2em; // Ensure clickable area when empty
+
+        &:focus {
+            outline: none;
+        }
     }
 
     .ai-title-suggestion {
@@ -1438,14 +1445,14 @@
 }
 
 .chapter-placeholder {
-    display: inline-block;
+    position: absolute;
+    top: 3.5rem; // Adjust based on title height + margins
+    left: 2rem; // Match chapter-sentences padding (1rem) + text-content padding/indent
     color: #9ca3af;
     font-style: italic;
-    padding: 0.5rem;
-    border-radius: 4px;
-    cursor: text;
-    min-width: 200px;
-    outline: none;
+    padding: 0;
+    pointer-events: none; // Let clicks pass through to the editable div
+    user-select: none;
     transition: all 0.2s ease;
 
     &:hover {
