@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { DocumentService } from '../../core/services/document.service';
 import { NavigationService } from '../../core/services/navigation.service';
+import { ChapterStateService } from '../../core/services/chapter-state.service';
 import { DocumentDetail, DocumentMetadata } from '../../core/models/document.model';
 import { TextViewerComponent } from './text-viewer/text-viewer.component';
 import { SidebarComponent } from './sidebar/sidebar.component';
@@ -22,9 +23,12 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
   sidebarVisible = true;
   activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai';
 
+  @ViewChild(SidebarComponent) sidebarComponent!: SidebarComponent;
+
   constructor(
     public documentService: DocumentService,
-    private navigationService: NavigationService
+    private navigationService: NavigationService,
+    private chapterStateService: ChapterStateService
   ) { }
 
   ngOnInit(): void {
@@ -40,6 +44,13 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(tab => {
         this.onSwitchTab(tab as any);
+      });
+
+    // Subscribe to workflow actions
+    this.navigationService.workflowAction$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(action => {
+        this.onWorkflowEffect(action);
       });
 
     // TODO: For MVP, create a sample document or show upload interface
@@ -101,5 +112,35 @@ export class DocumentEditorComponent implements OnInit, OnDestroy {
 
   hideSidebar(): void {
     this.sidebarVisible = false;
+  }
+
+  onWorkflowEffect(event: { stepId: string; chapterId?: string; action: string }): void {
+    if (event.action === 'generateEmojis' && this.sidebarComponent) {
+      if (event.chapterId) {
+        // Set the active chapter context FIRST so sidebar knows which chapter to work with
+        this.chapterStateService.setActiveChapter(event.chapterId);
+
+        // Then open sidebar and trigger generation
+        this.activeTab = 'ai';
+        this.sidebarVisible = true;
+        if (this.sidebarComponent.generateEmojisForChapter) {
+          this.sidebarComponent.generateEmojisForChapter(event.chapterId);
+        }
+      } else {
+        // Generate for all
+        this.activeTab = 'ai';
+        this.sidebarVisible = true;
+        this.sidebarComponent.generateEmojisForAll();
+      }
+    } else if (event.action === 'Suggest Characters' && this.sidebarComponent) {
+      this.activeTab = 'ai';
+      this.sidebarVisible = true;
+      if (this.sidebarComponent.suggestCharacters) {
+        this.sidebarComponent.suggestCharacters();
+      }
+    } else {
+      // No-op or log for other actions
+      console.log('Unhandled workflow effect:', event);
+    }
   }
 }

@@ -1,7 +1,8 @@
 import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WorkflowTrackerService, WorkflowState, WorkflowStep } from '../../services/workflow-tracker.service';
+import { WorkflowTrackerService, WorkflowState, WorkflowStep, ChapterProgress } from '../../services/workflow-tracker.service';
 import { Observable } from 'rxjs';
+
 
 @Component({
     selector: 'app-workflow-tracker',
@@ -13,9 +14,11 @@ import { Observable } from 'rxjs';
 export class WorkflowTrackerComponent implements OnInit {
     workflowState$!: Observable<WorkflowState>;
     isExpanded = false;
+    showChapterDetails = false;
 
     @Output() navigateToTab = new EventEmitter<string>();
-    @Output() executeAction = new EventEmitter<string>();
+    @Output() executeAction = new EventEmitter<{ stepId: string; chapterId?: string }>();
+    @Output() triggerEffect = new EventEmitter<{ stepId: string; chapterId?: string; action: string }>();
 
     constructor(private workflowService: WorkflowTrackerService) { }
 
@@ -25,18 +28,33 @@ export class WorkflowTrackerComponent implements OnInit {
 
     toggleExpanded(): void {
         this.isExpanded = !this.isExpanded;
-    }
-
-    onStepClick(step: WorkflowStep): void {
-        if (step.navigateTo) {
-            this.navigateToTab.emit(step.navigateTo);
+        if (!this.isExpanded) {
+            this.showChapterDetails = false;
         }
     }
 
-    onActionClick(step: WorkflowStep, event: Event): void {
+    toggleChapterDetails(): void {
+        this.showChapterDetails = !this.showChapterDetails;
+    }
+
+    onStepClick(step: WorkflowStep): void {
+        // If step has an action (like Emoji Creation), trigger it instead of just navigating
+        if (step.action) {
+            this.triggerEffect.emit({ stepId: step.id, action: step.action });
+        }
+
+        // Navigate to the tab
+        if (step.navigateTo) {
+            this.navigateToTab.emit(step.navigateTo);
+            this.isExpanded = false;
+        }
+    }
+
+    onActionClick(step: WorkflowStep, event: Event, chapterId?: string): void {
         event.stopPropagation();
         if (step.action) {
-            this.executeAction.emit(step.id);
+            this.executeAction.emit({ stepId: step.id, chapterId });
+            this.triggerEffect.emit({ stepId: step.id, chapterId, action: step.action });
         }
     }
 
@@ -44,18 +62,29 @@ export class WorkflowTrackerComponent implements OnInit {
         return `status-${status}`;
     }
 
-    getStepTooltip(step: WorkflowStep): string {
-        switch (step.status) {
-            case 'empty':
-                return `${step.label}: Not started yet`;
-            case 'partial':
-                return `${step.label}: In progress`;
-            case 'ready':
-                return `${step.label}: Ready ✓`;
-            case 'needs-update':
-                return `${step.label}: Needs update`;
-            default:
-                return step.label;
-        }
+    getProgressColor(percentage: number): string {
+        if (percentage === 100) return '#4CAF50';
+        if (percentage >= 50) return '#FFB300';
+        if (percentage > 0) return '#FF9800';
+        return '#e0e0e0';
+    }
+
+    trackByChapter(index: number, chapter: ChapterProgress): string {
+        return chapter.chapterId;
+    }
+
+    onChapterAction(cp: ChapterProgress, event: Event): void {
+        event.stopPropagation();
+        // Emit with chapterId to generate emojis for just this chapter
+        this.triggerEffect.emit({
+            stepId: 'emojis',
+            chapterId: cp.chapterId,
+            action: 'generateEmojis'
+        });
+    }
+
+    onStoryAction(): void {
+        this.navigateToTab.emit('toc');
+        this.isExpanded = false;
     }
 }

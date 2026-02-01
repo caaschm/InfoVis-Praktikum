@@ -1,79 +1,147 @@
 <div class="workflow-guide" [class.expanded]="isExpanded">
-    <!-- Compact Horizontal Bar -->
+    <!-- Compact Horizontal Bar - Centered with icons only -->
     <div class="workflow-bar" (click)="toggleExpanded()" *ngIf="(workflowState$ | async) as state">
-        <span class="guide-label">Workflow</span>
+        <div class="bar-content">
+            <span class="story-count">📝 {{ state.story.chapters }} ch</span>
 
-        <div class="progress-icons">
-            <span *ngFor="let step of state.steps" class="progress-icon" [class]="getStatusClass(step.status)"
-                [title]="getStepTooltip(step)">
-                {{ step.icon }}
-            </span>
+            <span class="bar-divider">│</span>
+
+            <!-- Status indicators - icons only, greyed when not active -->
+            <span class="status-dot" [class.active]="state.understand.emojis.status === 'ready'"
+                [class.partial]="state.understand.emojis.status === 'partial'" title="Emoji Creation">😊</span>
+            <span class="status-dot" [class.active]="state.understand.characters.status === 'ready'"
+                title="Characters">👥</span>
+            <span class="status-dot" [class.active]="state.understand.sentiment.status === 'ready'"
+                title="Sentiment">🎭</span>
+
+            <span class="bar-divider">│</span>
+
+            <span class="status-dot" [class.active]="state.craft.storyArc.status === 'ready'"
+                title="Story Arc">📈</span>
+            <span class="status-dot" [class.active]="state.craft.mood.status === 'ready'" title="Mood">🕸️</span>
         </div>
-
-        <div class="progress-percent">{{ state.completionPercentage }}%</div>
 
         <span class="expand-icon">{{ isExpanded ? '▲' : '▼' }}</span>
     </div>
 
-    <!-- Expanded Dropdown Panel -->
+    <!-- Expanded Panel -->
     <div class="workflow-dropdown" *ngIf="isExpanded && (workflowState$ | async) as state"
         (click)="$event.stopPropagation()">
-        <!-- Current Phase -->
-        <div class="workflow-header">
-            <div class="phase-info">
-                <span class="phase-label">{{ state.currentPhase }}</span>
-                <span class="phase-percentage">{{ state.completionPercentage }}%</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" [style.width.%]="state.completionPercentage"
-                    [class.complete]="state.completionPercentage === 100">
+
+        <div class="workflow-columns">
+
+            <!-- Column 1: Your Story -->
+            <div class="workflow-section story-section">
+                <div class="section-header">
+                    <span class="section-icon">📝</span>
+                    <span class="section-title">Your Story</span>
                 </div>
-            </div>
-        </div>
-
-        <!-- Horizontal Steps Flow -->
-        <div class="workflow-steps-horizontal">
-            <div class="step-hint">💡 Click any step to open its panel →</div>
-
-            <div class="steps-flow">
-                <div *ngFor="let step of state.steps; let last = last" class="step-wrapper">
-
-                    <button class="workflow-step-btn" [class]="getStatusClass(step.status)"
-                        [title]="getStepTooltip(step)" (click)="onStepClick(step)">
-
-                        <span class="step-icon">{{ step.icon }}</span>
-                        <span class="step-label">{{ step.label }}</span>
-                        <span class="step-count" *ngIf="step.count !== undefined">({{ step.count }})</span>
-                        <span class="step-status-icon" *ngIf="step.statusIcon">{{ step.statusIcon }}</span>
-
-                        <span class="ai-badge" *ngIf="step.aiGenerated">AI</span>
-
-                        <button *ngIf="step.action" class="quick-action" (click)="onActionClick(step, $event)">
-                            ⚡ {{ step.action }}
-                        </button>
+                <div class="section-stats">
+                    <div class="stat-row">
+                        <span class="stat-value">{{ state.story.chapters }}</span>
+                        <span class="stat-label">chapters</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-value">{{ state.story.sentences }}</span>
+                        <span class="stat-label">sentences</span>
+                    </div>
+                    <button class="story-action-btn" (click)="onStoryAction()" title="Open Table of Contents">
+                        📊 Table of Contents
                     </button>
-
-                    <span class="step-arrow" *ngIf="!last">→</span>
                 </div>
             </div>
 
-            <!-- Global Actions -->
-            <div class="global-actions">
-                <button class="run-all-btn" [disabled]="state.completionPercentage < 20"
-                    title="Run all AI features at once">
-                    🔄 Update All
-                </button>
+            <!-- Column 2: Discover -->
+            <div class="workflow-section understand-section">
+                <div class="section-header">
+                    <span class="section-icon">🔍</span>
+                    <span class="section-title">Discover</span>
+                </div>
+                <div class="feature-list">
+                    <!-- Tag Sentences (was Emojis) -->
+                    <div class="feature-item clickable" [class]="getStatusClass(state.understand.emojis.status)"
+                        (click)="onStepClick(state.understand.emojis)">
+                        <span class="feature-icon">😊</span>
+                        <span class="feature-name">Emoji Creation</span>
+                        <span class="feature-count" *ngIf="state.understand.emojis.count">
+                            {{ state.understand.emojis.count }}/{{ state.understand.emojis.total }}
+                        </span>
+                        <button *ngIf="state.understand.emojis.action" class="feature-action"
+                            (click)="onActionClick(state.understand.emojis, $event)">
+                            ⚡ All
+                        </button>
+                        <button *ngIf="state.understand.chapterProgress.length > 1" class="chapter-toggle"
+                            (click)="toggleChapterDetails(); $event.stopPropagation()">
+                            {{ showChapterDetails ? '▲' : '▼' }}
+                        </button>
+                    </div>
+
+                    <!-- Per-Chapter Progress (Collapsible) -->
+                    <div class="chapter-progress" *ngIf="showChapterDetails">
+                        <div *ngFor="let cp of state.understand.chapterProgress; trackBy: trackByChapter"
+                            class="chapter-row">
+                            <span class="chapter-name">{{ cp.chapterTitle }}</span>
+                            <div class="chapter-bar">
+                                <div class="chapter-fill" [style.width.%]="cp.percentage"
+                                    [class.complete]="cp.percentage === 100"
+                                    [class.partial]="cp.percentage > 0 && cp.percentage < 100">
+                                </div>
+                            </div>
+                            <button *ngIf="cp.percentage < 100 && cp.sentenceCount > 0" class="chapter-action"
+                                (click)="onChapterAction(cp, $event)">
+                                ⚡
+                            </button>
+                            <span *ngIf="cp.percentage === 100" class="chapter-done">✓</span>
+                        </div>
+                    </div>
+
+                    <!-- Characters & Subjects -->
+                    <div class="feature-item clickable" [class]="getStatusClass(state.understand.characters.status)"
+                        (click)="onStepClick(state.understand.characters)">
+                        <span class="feature-icon">👥</span>
+                        <span class="feature-name">Characters</span>
+                        <span class="feature-count" *ngIf="state.understand.characters.count">
+                            {{ state.understand.characters.count }}
+                        </span>
+                    </div>
+
+                    <!-- Character Sentiment -->
+                    <div class="feature-item clickable" [class]="getStatusClass(state.understand.sentiment.status)"
+                        (click)="onStepClick(state.understand.sentiment)">
+                        <span class="feature-icon">🎭</span>
+                        <span class="feature-name">Sentiment</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 3: Craft -->
+            <div class="workflow-section craft-section">
+                <div class="section-header">
+                    <span class="section-icon">✨</span>
+                    <span class="section-title">Analyze</span>
+                </div>
+                <div class="feature-list">
+                    <!-- Story Arc -->
+                    <div class="feature-item clickable" [class]="getStatusClass(state.craft.storyArc.status)"
+                        (click)="onStepClick(state.craft.storyArc)">
+                        <span class="feature-icon">📈</span>
+                        <span class="feature-name">Story Arc</span>
+                    </div>
+
+                    <!-- Mood -->
+                    <div class="feature-item clickable" [class]="getStatusClass(state.craft.mood.status)"
+                        (click)="onStepClick(state.craft.mood)">
+                        <span class="feature-icon">🕸️</span>
+                        <span class="feature-name">Mood</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Smart Suggestions -->
-        <div class="suggestions" *ngIf="state.suggestions.length > 0">
-            <span class="suggestions-icon">💡</span>
-            <div class="suggestions-text">
-                <span *ngFor="let suggestion of state.suggestions; let last = last">
-                    {{ suggestion }}<span *ngIf="!last"> • </span>
-                </span>
-            </div>
+        <!-- Suggestion -->
+        <div class="workflow-footer" *ngIf="state.nextSuggestion">
+            <span class="suggestion-icon">💡</span>
+            <span class="suggestion-text">{{ state.nextSuggestion }}</span>
         </div>
     </div>
 </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
 import { Location } from '@angular/common';
 import { DocumentService } from '../../core/services/document.service';
 import { ChapterStateService } from '../../core/services/chapter-state.service';
@@ -22,8 +22,10 @@ export class TopBarComponent implements OnInit, OnDestroy {
   isColorBlindMode = false;
   isZebraMode = false;
   isLargeFont = false;
-  isWordCount = true; 
+  isWordCount = true;
   private destroy$ = new Subject<void>();
+
+  @Output() workflowEffect = new EventEmitter<{ stepId: string; chapterId?: string; action: string }>();
 
   constructor(
     private documentService: DocumentService,
@@ -163,10 +165,17 @@ export class TopBarComponent implements OnInit, OnDestroy {
     this.navigationService.navigateToTab(tabId as any);
   }
 
-  onWorkflowAction(stepId: string): void {
-    console.log('Execute action for:', stepId);
-    // TODO: Trigger AI generation based on stepId
+  onWorkflowAction(event: { stepId: string; chapterId?: string }): void {
+    console.log('Execute action for:', event);
+    // TODO: Trigger AI generation based on event.stepId and event.chapterId
     // For now, just open the relevant tab
-    this.navigationService.navigateToTab(stepId as any);
+    this.navigationService.navigateToTab(event.stepId as any);
+  }
+
+  onWorkflowEffect(event: { stepId: string; chapterId?: string; action: string }): void {
+    console.log('Workflow effect:', event);
+
+    // Use NavigationService to trigger the action globally
+    this.navigationService.triggerWorkflowAction(event);
   }
 }

@@ -3,72 +3,64 @@
     z-index: 100;
 }
 
-// Horizontal compact bar (always visible)
+// Compact horizontal bar - centered with icons
 .workflow-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 24px;
+    background: rgba(255, 255, 255, 0.75);
+    border-radius: 999px;
     cursor: pointer;
     transition: all 0.3s ease;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
     user-select: none;
 
     &:hover {
-        background: white;
-        border-color: rgba(255, 255, 255, 0.5);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        background: rgba(255, 255, 255, 0.92);
+        border-color: rgba(255, 255, 255, 0.6);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
     }
 
-    .guide-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #555;
-    }
-
-    .progress-icons {
+    .bar-content {
         display: flex;
-        gap: 6px;
         align-items: center;
+        gap: 18px;
+    }
 
-        .progress-icon {
-            font-size: 16px;
-            transition: all 0.2s;
+    .story-count {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: rgba(51, 51, 51, 0.8);
+    }
 
-            &.status-empty {
-                opacity: 0.3;
-                filter: grayscale(1);
-            }
+    .bar-divider {
+        color: rgba(221, 221, 221, 0.6);
+        font-size: 0.9rem;
+    }
 
-            &.status-partial {
-                opacity: 0.6;
-            }
+    .status-dot {
+        font-size: 1.4rem;
+        opacity: 0.25;
+        filter: grayscale(100%);
+        transition: all 0.3s ease;
 
-            &.status-ready {
-                opacity: 1;
-                filter: drop-shadow(0 0 3px rgba(76, 175, 80, 0.6));
-            }
+        &.active {
+            opacity: 1;
+            filter: none;
+        }
 
-            &.status-needs-update {
-                opacity: 0.7;
-            }
+        &.partial {
+            opacity: 0.65;
+            filter: grayscale(30%);
         }
     }
 
-    .progress-percent {
-        font-size: 12px;
-        font-weight: 700;
-        color: #4CAF50;
-        min-width: 40px;
-        text-align: right;
-    }
-
     .expand-icon {
-        font-size: 10px;
-        color: #999;
+        font-size: 0.85rem;
+        color: rgba(153, 153, 153, 0.7);
         transition: transform 0.3s;
     }
 }
@@ -83,12 +75,12 @@
     top: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
-    min-width: 700px;
-    max-width: 900px;
+    min-width: 900px;
+    max-width: 1200px;
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+    padding: 32px 40px 24px 40px;
     animation: dropdownSlide 0.3s ease;
     border: 1px solid #e0e0e0;
     z-index: 1000;
@@ -119,310 +111,342 @@
     }
 }
 
-.workflow-header {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #f0f0f0;
+// Three-column layout
+.workflow-columns {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr;
+    gap: 24px;
+}
 
-    .phase-info {
+.workflow-section {
+    background: #fafafa;
+    border-radius: 14px;
+    padding: 20px 18px 16px 18px;
+    border: 1px solid #eee;
+
+    .section-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e0e0e0;
 
-        .phase-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
+        .section-icon {
+            font-size: 1.4rem;
         }
 
-        .phase-percentage {
-            font-size: 13px;
+        .section-title {
+            font-size: 1rem;
             font-weight: 700;
-            color: #4CAF50;
-        }
-    }
-
-    .progress-bar {
-        height: 8px;
-        background: #e0e0e0;
-        border-radius: 4px;
-        overflow: hidden;
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #66BB6A);
-            transition: width 0.6s ease;
-            border-radius: 4px;
-
-            &.complete {
-                background: linear-gradient(90deg, #2196F3, #4CAF50);
-            }
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
     }
 }
 
-.workflow-steps-horizontal {
-    .step-hint {
-        font-size: 11px;
-        color: #666;
-        text-align: center;
-        margin-bottom: 12px;
-        padding: 6px;
-        background: #f0f7ff;
-        border-radius: 6px;
+// Story section
+.story-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+
+    .section-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .stat-row {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+
+            .stat-value {
+                font-size: 1.8rem;
+                font-weight: 800;
+                color: #333;
+            }
+
+            .stat-label {
+                font-size: 0.85rem;
+                color: #666;
+            }
+        }
     }
 
-    .steps-flow {
+    .story-action-btn {
+        background: linear-gradient(135deg, #81C784, #66BB6A);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: all 0.2s;
+        width: 100%;
+
+        &:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(129, 199, 132, 0.4);
+        }
+    }
+}
+
+// Feature list
+.feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    transition: all 0.2s;
+
+    &.clickable {
+        cursor: pointer;
+
+        &:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+    }
+
+    .feature-icon {
+        font-size: 1.2rem;
+    }
+
+    .feature-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        flex: 1;
+    }
+
+    .feature-count {
+        font-size: 0.85rem;
+        color: #666;
+        background: #f0f0f0;
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+
+    .feature-action {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+    }
+
+    .chapter-toggle {
+        background: transparent;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+
+        &:hover {
+            color: #666;
+        }
+    }
+
+    // Status colors
+    &.status-ready {
+        background: rgba(76, 175, 80, 0.1);
+
+        .feature-icon {
+            filter: none;
+        }
+    }
+
+    &.status-partial {
+        background: rgba(255, 179, 0, 0.1);
+    }
+
+    &.status-empty {
+        opacity: 0.6;
+
+        .feature-icon {
+            filter: grayscale(100%);
+        }
+    }
+}
+
+// Chapter progress
+.chapter-progress {
+    margin-left: 32px;
+    margin-top: 8px;
+    padding: 8px 0;
+    border-left: 2px solid #e0e0e0;
+}
+
+.chapter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0 6px 12px;
+    font-size: 0.85rem;
+
+    .chapter-name {
+        width: 100px;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .chapter-bar {
+        flex: 1;
+        height: 6px;
+        background: #e0e0e0;
+        border-radius: 3px;
+        overflow: hidden;
+
+        .chapter-fill {
+            height: 100%;
+            background: #FFB300;
+            transition: width 0.3s ease;
+
+            &.complete {
+                background: #4CAF50;
+            }
+
+            &.partial {
+                background: #FFB300;
+            }
+        }
+    }
+
+    .chapter-action {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
+        transition: all 0.2s;
 
-        .step-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .workflow-step-btn {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            padding: 12px 16px;
-            background: #fafafa;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 90px;
-
-            &:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                border-color: #667eea;
-            }
-
-            .step-icon {
-                font-size: 24px;
-            }
-
-            .step-label {
-                font-size: 11px;
-                font-weight: 600;
-                color: #333;
-                text-align: center;
-            }
-
-            .step-count {
-                font-size: 10px;
-                color: #999;
-            }
-
-            .step-status-icon {
-                position: absolute;
-                top: 4px;
-                right: 4px;
-                font-size: 12px;
-            }
-
-            .ai-badge {
-                position: absolute;
-                top: 4px;
-                left: 4px;
-                font-size: 8px;
-                padding: 2px 4px;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                border-radius: 3px;
-                font-weight: 700;
-            }
-
-            .quick-action {
-                margin-top: 4px;
-                font-size: 9px;
-                padding: 3px 8px;
-                background: #2196F3;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: all 0.2s;
-
-                &:hover {
-                    background: #1976D2;
-                }
-            }
-
-            // Status styles
-            &.status-empty {
-                opacity: 0.5;
-                background: #f5f5f5;
-                border-color: #e0e0e0;
-            }
-
-            &.status-partial {
-                background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
-                border-color: #FFB300;
-            }
-
-            &.status-ready {
-                background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
-                border-color: #4CAF50;
-            }
-
-            &.status-needs-update {
-                background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
-                border-color: #FF9800;
-            }
-        }
-
-        .step-arrow {
-            font-size: 18px;
-            color: #ccc;
-            font-weight: bold;
+        &:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
         }
     }
 
-    .global-actions {
+    .chapter-done {
+        color: #4CAF50;
+        font-weight: 700;
+        width: 24px;
         text-align: center;
-        padding-top: 12px;
-        border-top: 1px solid #f0f0f0;
-
-        .run-all-btn {
-            padding: 10px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-
-            &:hover:not(:disabled) {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-            }
-
-            &:disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-                background: #ccc;
-            }
-        }
     }
 }
 
-.suggestions {
+// Footer suggestion
+.workflow-footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
     display: flex;
-    align-items: start;
-    gap: 8px;
-    padding: 10px;
-    background: #fffbf0;
-    border-radius: 8px;
-    border: 1px solid #ffe082;
-    margin-top: 12px;
+    align-items: center;
+    gap: 10px;
 
-    .suggestions-icon {
-        font-size: 16px;
-        flex-shrink: 0;
+    .suggestion-icon {
+        font-size: 1.2rem;
     }
 
-    .suggestions-text {
-        font-size: 11px;
+    .suggestion-text {
+        font-size: 0.9rem;
         color: #666;
-        line-height: 1.5;
+        font-style: italic;
     }
 }
 
-// Responsive
-@media (max-width: 1024px) {
-    .workflow-dropdown {
-        min-width: 90vw;
-        left: 5vw;
-        transform: none;
-    }
-
-    .workflow-steps-horizontal .steps-flow {
-        .workflow-step-btn {
-            min-width: 70px;
-            padding: 8px 10px;
-
-            .step-icon {
-                font-size: 20px;
-            }
-
-            .step-label {
-                font-size: 10px;
-            }
-        }
-    }
-}
-/* Color-Blind Mode (Deuteranomaly) Support */
+/* Color-Blind Mode (Deuteranomaly) Support for Workflow Tracker */
 :host-context(body.protanopia-mode) {
-    // 1. Die kompakte Bar und Prozentanzeige
     .workflow-bar {
-        .progress-percent {
-            color: #2196F3; // Blau statt Grün
-        }
-        .progress-icon.status-ready {
-            filter: drop-shadow(0 0 3px rgba(33, 150, 243, 0.8));
-        }
-    }
 
-    // 2. Der Header im Dropdown (Progress Bar)
-    .workflow-header {
-        .phase-percentage {
-            color: #2196F3;
-        }
-        .progress-bar .progress-fill {
-            background: linear-gradient(90deg, #2196F3, #64B5F6); // Blau-Gradient
-            
-            &.complete {
-                background: linear-gradient(90deg, #0D47A1, #2196F3);
+        // Status dots use high-contrast colors
+        .status-dot {
+            &.active {
+                // Use bright blue instead of green for active state
+                filter: none;
+                opacity: 1;
             }
         }
     }
 
-    // 3. Die einzelnen Step-Buttons
-    .workflow-steps-horizontal .steps-flow {
-        .workflow-step-btn {
-            // Status: Ready (vorher Grün) -> Jetzt Blau
-            &.status-ready {
-                background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
-                border-color: #2196F3;
-            }
+    .story-action-btn {
+        // Change green to dark blue in color-blind mode
+        background: linear-gradient(135deg, #0D47A1, #1565C0) !important;
 
-            // Status: Partial (vorher Gelb) -> Jetzt kräftiges Orange/Ocker
-            &.status-partial {
-                background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
-                border-color: #E65100;
-            }
-
-            // Der "Run-Action" Button innerhalb des Steps
-            .quick-action {
-                background: #E65100; // Kontrastreiches Orange
-                &:hover { background: #BF360C; }
-            }
-
-            // Hover-Effekt allgemein
-            &:hover {
-                border-color: #2196F3;
-            }
+        &:hover {
+            box-shadow: 0 2px 8px rgba(13, 71, 161, 0.4) !important;
         }
     }
 
-    // 4. Der große "Run All" Button unten
-    .global-actions .run-all-btn {
-        background: linear-gradient(135deg, #0D47A1 0%, #2196F3 100%);
-        &:hover:not(:disabled) {
-            box-shadow: 0 6px 20px rgba(13, 71, 161, 0.4);
+    .feature-action {
+        // Lightning button: purple gradient to blue gradient
+        background: linear-gradient(135deg, #0D47A1, #1976D2) !important;
+
+        &:hover {
+            box-shadow: 0 2px 8px rgba(13, 71, 161, 0.4) !important;
+        }
+    }
+
+    .chapter-action {
+        // Per-chapter lightning buttons
+        background: linear-gradient(135deg, #0D47A1, #1976D2) !important;
+
+        &:hover {
+            box-shadow: 0 2px 6px rgba(13, 71, 161, 0.4) !important;
+        }
+    }
+
+    .chapter-fill {
+        &.complete {
+            // Complete chapters: dark blue instead of green
+            background: #0D47A1 !important;
+        }
+
+        &.partial {
+            // Partial progress: orange stays distinguishable
+            background: #e65100 !important;
+        }
+    }
+
+    .chapter-done {
+        // Checkmark color
+        color: #0D47A1 !important;
+    }
+
+    .feature-item {
+        &.status-ready {
+            // Ready state background: light blue instead of light green
+            background: rgba(13, 71, 161, 0.1) !important;
+        }
+
+        &.status-partial {
+            // Partial state: orange
+            background: rgba(230, 81, 0, 0.1) !important;
         }
     }
 }

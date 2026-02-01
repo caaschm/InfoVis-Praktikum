@@ -1,43 +1,69 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map } from 'rxjs';
 import { DocumentService } from './document.service';
-import { DocumentDetail } from '../models/document.model';
+import { DocumentDetail, Chapter, Sentence } from '../models/document.model';
+
+// ========== Types ==========
 
 export interface WorkflowStep {
     id: string;
     icon: string;
     label: string;
     count?: number;
-    status: 'empty' | 'partial' | 'ready' | 'needs-update';
-    statusIcon?: string;
+    total?: number;
+    status: 'empty' | 'partial' | 'ready';
+    statusText?: string;
     aiGenerated?: boolean;
     action?: string;
-    actionCallback?: () => void;
-    navigateTo?: string; // Tab to navigate to
+    navigateTo?: string;
+    tooltip?: string;
+}
+
+export interface ChapterProgress {
+    chapterId: string;
+    chapterTitle: string;
+    sentenceCount: number;
+    emojiCount: number;
+    percentage: number;
+}
+
+export interface StorySection {
+    chapters: number;
+    sentences: number;
+    isReady: boolean;
+}
+
+export interface UnderstandSection {
+    emojis: WorkflowStep;
+    characters: WorkflowStep;
+    sentiment: WorkflowStep;
+    chapterProgress: ChapterProgress[];
+}
+
+export interface CraftSection {
+    storyArc: WorkflowStep;
+    mood: WorkflowStep;
 }
 
 export interface WorkflowState {
-    steps: WorkflowStep[];
-    completionPercentage: number;
-    currentPhase: string;
-    suggestions: string[];
+    story: StorySection;
+    understand: UnderstandSection;
+    craft: CraftSection;
+    overallProgress: number;
+    nextSuggestion: string;
 }
+
+// ========== Service ==========
 
 @Injectable({
     providedIn: 'root'
 })
 export class WorkflowTrackerService {
-    private workflowState$ = new BehaviorSubject<WorkflowState>({
-        steps: [],
-        completionPercentage: 0,
-        currentPhase: 'Getting Started',
-        suggestions: []
-    });
+    private workflowState$ = new BehaviorSubject<WorkflowState>(this.getEmptyState());
 
     public workflow$ = this.workflowState$.asObservable();
 
     constructor(private documentService: DocumentService) {
-        // Update workflow state whenever document changes
         this.documentService.currentDocument$.pipe(
             map(document => this.calculateWorkflowState(document))
         ).subscribe(state => {
@@ -45,137 +71,247 @@ export class WorkflowTrackerService {
         });
     }
 
+    private getEmptyState(): WorkflowState {
+        return {
+            story: { chapters: 0, sentences: 0, isReady: false },
+            understand: {
+                emojis: { id: 'emojis', icon: '😀', label: 'Emojis', status: 'empty', navigateTo: 'emojis' },
+                characters: { id: 'characters', icon: '🎭', label: 'Characters', status: 'empty', navigateTo: 'characters' },
+                sentiment: { id: 'sentiment', icon: '💭', label: 'Sentiment', status: 'empty', navigateTo: 'characters' },
+                chapterProgress: []
+            },
+            craft: {
+                storyArc: { id: 'story-arc', icon: '📈', label: 'Story Arc', status: 'empty', navigateTo: 'graph' },
+                mood: { id: 'mood', icon: '🕸️', label: 'Mood', status: 'empty', navigateTo: 'analysis' }
+            },
+            overallProgress: 0,
+            nextSuggestion: 'Start by writing or pasting your story'
+        };
+    }
+
     private calculateWorkflowState(document: DocumentDetail | null): WorkflowState {
-        const steps: WorkflowStep[] = [];
-        const sentences = document?.sentences || [];
+        if (!document) return this.getEmptyState();
+
+        const sentences = document.sentences || [];
+        const chapters = document.chapters || [];
+        const characters = document.characters || [];
+
         const totalSentences = sentences.length;
-        const taggedSentences = sentences.filter(s => s.emojis && s.emojis.length > 0).length;
+        const totalChapters = chapters.length || 1;
+        const characterCount = characters.length;
 
-        // Step 1: Text
-        steps.push({
-            id: 'text',
-            icon: '📝',
-            label: 'Text',
-            count: totalSentences,
-            status: totalSentences === 0 ? 'empty' : totalSentences < 10 ? 'partial' : 'ready',
-            statusIcon: totalSentences >= 10 ? '✓' : undefined,
-            navigateTo: 'ai'
-        });
+        // Calculate per-chapter progress
+        const chapterProgress = this.calculateChapterProgress(chapters, sentences);
+        const chaptersWithEmojis = chapterProgress.filter(cp => cp.percentage === 100).length;
+        const totalTagged = sentences.filter(s => s.emojis?.length > 0).length;
 
-        // Step 2: Emojis (matches tab-strip icon 😀)
-        const emojiStatus = taggedSentences === 0 ? 'empty' :
-            taggedSentences < totalSentences * 0.5 ? 'partial' : 'ready';
-        steps.push({
+        // ===== STORY SECTION =====
+        const story: StorySection = {
+            chapters: totalChapters,
+            sentences: totalSentences,
+            isReady: totalSentences >= 5
+        };
+
+        // ===== UNDERSTAND SECTION =====
+
+        // Emojis - per chapter
+        const emojis: WorkflowStep = {
             id: 'emojis',
             icon: '😀',
-            label: 'Emojis',
-            count: taggedSentences,
-            status: emojiStatus,
-            statusIcon: taggedSentences === totalSentences ? '✓' : undefined,
+            label: 'Emoji Creation',
+            count: chaptersWithEmojis,
+            total: totalChapters,
+            status: totalTagged === 0 ? 'empty' : chaptersWithEmojis === totalChapters ? 'ready' : 'partial',
+            statusText: totalTagged === 0 ? 'Not started' : `${chaptersWithEmojis}/${totalChapters} chapters tagged`,
             aiGenerated: true,
-            action: taggedSentences === 0 && totalSentences > 0 ? 'Generate All' : undefined,
-            navigateTo: 'emojis'
-        });
+            action: totalSentences > 0 ? 'generateEmojis' : undefined,
+            navigateTo: 'ai',
+            tooltip: 'Visualize content with emojis per sentence'
+        };
 
-        // Step 3: Characters (matches tab-strip icon 🎭)
-        const characterCount = 0; // TODO: Get from character service
-        steps.push({
+        // Characters
+        const charactersStep: WorkflowStep = {
             id: 'characters',
             icon: '🎭',
             label: 'Characters',
             count: characterCount,
             status: characterCount === 0 ? 'empty' : 'ready',
-            statusIcon: characterCount > 0 ? '✓' : undefined,
-            aiGenerated: true,
-            navigateTo: 'characters'
-        });
+            statusText: characterCount === 0 ? 'None defined' : `${characterCount} found`,
+            navigateTo: 'emojis',
+            tooltip: 'Track who appears in your story'
+        };
 
-        // Step 4: Sentiment Analysis - Spider Chart with drama, mystery, humor, conflict (matches tab-strip icon 🕸️)
-        steps.push({
+        // Character Sentiment - works with or without pre-defined characters
+        const sentiment: WorkflowStep = {
             id: 'sentiment',
-            icon: '🕸️',
+            icon: '💭',
             label: 'Sentiment',
-            status: characterCount === 0 ? 'empty' : 'needs-update',
-            statusIcon: '⚠️',
+            status: totalSentences < 5 ? 'empty' : 'ready',
+            statusText: totalSentences < 5 ? 'Need more text' : 'Available',
             aiGenerated: true,
-            action: characterCount > 0 ? 'Analyze' : undefined,
-            navigateTo: 'analysis'
-        });
+            action: totalSentences >= 5 ? 'Analyze' : undefined,
+            navigateTo: 'characters',
+            tooltip: characterCount > 0
+                ? 'See how characters are portrayed'
+                : 'AI will discover characters automatically'
+        };
 
-        // Step 5: Story Arc (matches tab-strip icon �)
-        const storyArcReady = taggedSentences >= 10;
-        steps.push({
+        const understand: UnderstandSection = {
+            emojis,
+            characters: charactersStep,
+            sentiment,
+            chapterProgress
+        };
+
+        // ===== CRAFT SECTION =====
+
+        // Story Arc - only needs text
+        const storyArc: WorkflowStep = {
             id: 'story-arc',
             icon: '📈',
             label: 'Story Arc',
-            status: storyArcReady ? 'ready' : taggedSentences > 0 ? 'partial' : 'empty',
-            statusIcon: storyArcReady ? '✓' : undefined,
-            navigateTo: 'graph'
-        });
+            status: totalSentences < 5 ? 'empty' : 'ready',
+            statusText: totalSentences < 5 ? 'Need more text' : 'Available',
+            aiGenerated: true,
+            action: totalSentences >= 5 ? 'View' : undefined,
+            navigateTo: 'storyarc',
+            tooltip: 'Analyze narrative tension across your story'
+        };
 
-        // Note: Removed Tension step - now using 5-step workflow
+        // Mood / Spider Chart - only needs text
+        const mood: WorkflowStep = {
+            id: 'mood',
+            icon: '🕸️',
+            label: 'Mood',
+            status: totalSentences < 3 ? 'empty' : 'ready',
+            statusText: totalSentences < 3 ? 'Need more text' : 'Available',
+            aiGenerated: true,
+            action: totalSentences >= 3 ? 'Analyze' : undefined,
+            navigateTo: 'analysis',
+            tooltip: 'Balance drama, humor, conflict, mystery'
+        };
 
-        // Calculate completion percentage
-        const completedSteps = steps.filter(s => s.status === 'ready').length;
-        const completionPercentage = Math.round((completedSteps / steps.length) * 100);
+        const craft: CraftSection = {
+            storyArc,
+            mood
+        };
 
-        // Determine current phase
-        let currentPhase = 'Getting Started';
-        if (totalSentences === 0) {
-            currentPhase = 'Start Writing';
-        } else if (taggedSentences < totalSentences * 0.5) {
-            currentPhase = 'Adding Emojis';
-        } else if (characterCount === 0) {
-            currentPhase = 'Building Characters';
-        } else if (storyArcReady) {
-            currentPhase = 'Analyzing Story';
-        }
+        // ===== OVERALL PROGRESS =====
+        const overallProgress = this.calculateOverallProgress(story, understand, craft);
 
-        // Generate suggestions
-        const suggestions = this.generateSuggestions(steps, totalSentences, taggedSentences, characterCount);
+        // ===== NEXT SUGGESTION =====
+        const nextSuggestion = this.getNextSuggestion(
+            totalSentences, totalTagged, characterCount, chaptersWithEmojis, totalChapters, chapterProgress
+        );
 
         return {
-            steps,
-            completionPercentage,
-            currentPhase,
-            suggestions
+            story,
+            understand,
+            craft,
+            overallProgress,
+            nextSuggestion
         };
     }
 
-    private generateSuggestions(steps: WorkflowStep[], totalSentences: number, taggedSentences: number, characterCount: number): string[] {
-        const suggestions: string[] = [];
+    private calculateChapterProgress(chapters: Chapter[], sentences: Sentence[]): ChapterProgress[] {
+        if (chapters.length === 0) {
+            const emojiCount = sentences.filter(s => s.emojis?.length > 0).length;
+            return [{
+                chapterId: 'all',
+                chapterTitle: 'All Content',
+                sentenceCount: sentences.length,
+                emojiCount,
+                percentage: sentences.length > 0 ? Math.round((emojiCount / sentences.length) * 100) : 0
+            }];
+        }
 
+        return chapters.map(chapter => {
+            const chapterSentences = sentences.filter(s => s.chapterId === chapter.id);
+            const emojiCount = chapterSentences.filter(s => s.emojis?.length > 0).length;
+            const sentenceCount = chapterSentences.length;
+
+            return {
+                chapterId: chapter.id,
+                chapterTitle: chapter.title || `Chapter ${chapter.index + 1}`,
+                sentenceCount,
+                emojiCount,
+                percentage: sentenceCount > 0 ? Math.round((emojiCount / sentenceCount) * 100) : 0
+            };
+        });
+    }
+
+    private calculateOverallProgress(story: StorySection, understand: UnderstandSection, craft: CraftSection): number {
+        let progress = 0;
+
+        // Story foundation (20%)
+        if (story.isReady) progress += 20;
+
+        // Understand section (50%)
+        if (understand.emojis.status === 'ready') progress += 20;
+        else if (understand.emojis.status === 'partial') progress += 10;
+
+        if (understand.characters.status === 'ready') progress += 15;
+        if (understand.sentiment.status === 'ready') progress += 15;
+
+        // Craft section (30%)
+        if (craft.storyArc.status === 'ready') progress += 15;
+        if (craft.mood.status === 'ready') progress += 15;
+
+        return Math.min(100, progress);
+    }
+
+    private getNextSuggestion(
+        totalSentences: number,
+        totalTagged: number,
+        characterCount: number,
+        chaptersWithEmojis: number,
+        totalChapters: number,
+        chapterProgress: ChapterProgress[]
+    ): string {
         if (totalSentences === 0) {
-            suggestions.push('Start by writing or pasting your story text');
-        } else if (totalSentences < 10) {
-            suggestions.push('Add more sentences to unlock analysis features');
+            return 'Start by writing or pasting your story';
         }
 
-        if (totalSentences > 0 && taggedSentences === 0) {
-            suggestions.push('Generate emojis to visualize your story flow');
-        } else if (taggedSentences > 0 && taggedSentences < totalSentences * 0.3) {
-            suggestions.push(`Tag ${totalSentences - taggedSentences} more sentences to see full story arc`);
+        if (totalSentences < 5) {
+            return 'Add a few more sentences to unlock analysis';
         }
 
-        if (taggedSentences >= 10 && characterCount === 0) {
-            suggestions.push('Create characters to track sentiment and emotional arcs');
+        // Priority 1: Generate emojis for chapters that need them
+        const needsEmojis = chapterProgress.find(cp => cp.sentenceCount > 0 && cp.percentage < 100);
+        if (needsEmojis && totalTagged === 0) {
+            return 'Click "Emoji Creation" to start tagging your sentences';
         }
 
-        if (taggedSentences >= 20) {
-            suggestions.push('Run story analysis to see narrative structure');
+        if (needsEmojis && chaptersWithEmojis < totalChapters) {
+            return `Generate emojis for "${needsEmojis.chapterTitle}"`;
         }
 
-        return suggestions.slice(0, 2); // Show max 2 suggestions
+        // Priority 2: Define characters after emojis are done
+        if (characterCount === 0 && totalTagged > 0) {
+            return 'Click "Characters" to define who appears in your story';
+        }
+
+        // Priority 3: Explore sentiment analysis
+        if (characterCount > 0 && totalSentences >= 5) {
+            return 'Check "Sentiment" to see character emotional journeys';
+        }
+
+        // Priority 4: Story arc analysis
+        if (totalSentences >= 10 && chaptersWithEmojis === totalChapters) {
+            return 'View "Story Arc" to analyze narrative structure';
+        }
+
+        // Priority 5: Mood analysis
+        if (totalSentences >= 8) {
+            return 'Explore "Mood" to balance drama, humor, and conflict';
+        }
+
+        return 'Great progress! Keep exploring the analysis tools';
     }
 
-    public navigateToStep(stepId: string): void {
-        // This will be handled by the component that subscribes to this service
-        // Emit navigation event or use router
-        console.log('Navigate to step:', stepId);
-    }
-
-    public executeStepAction(stepId: string): void {
-        // Trigger AI generation or analysis based on step
-        console.log('Execute action for step:', stepId);
+    public refreshState(): void {
+        const doc = this.documentService.getCurrentDocument();
+        const state = this.calculateWorkflowState(doc);
+        this.workflowState$.next(state);
     }
 }

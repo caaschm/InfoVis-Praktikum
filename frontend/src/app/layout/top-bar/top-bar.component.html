@@ -10,7 +10,7 @@
         <!-- Workflow Tracker -->
         <div class="workflow-tracker-container">
             <app-workflow-tracker (navigateToTab)="onWorkflowNavigate($event)"
-                (executeAction)="onWorkflowAction($event)">
+                (executeAction)="onWorkflowAction($event)" (triggerEffect)="onWorkflowEffect($event)">
             </app-workflow-tracker>
         </div>
 

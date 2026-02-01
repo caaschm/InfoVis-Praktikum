@@ -53,6 +53,70 @@ interface Beat {
 })
 
 export class SidebarComponent implements OnInit, OnDestroy {
+  /**
+   * Suggest characters for the current document using AI service.
+   * This is called from the workflow tracker.
+   */
+  suggestCharacters(): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc) return;
+    // For demo: suggest for all sentences (could be improved to use selection)
+    doc.sentences.forEach(sentence => {
+      this.aiService.suggestCharacters({
+        documentId: doc.id,
+        sentenceId: sentence.id,
+        text: sentence.text,
+        characters: doc.characters || []
+      }).subscribe({
+        next: (response) => {
+          // Optionally handle response, e.g., update UI or notify user
+          // For now, just log
+          console.log('Suggested characters for sentence', sentence.id, response);
+        },
+        error: (err) => {
+          console.error('Error suggesting characters:', err);
+        }
+      });
+    });
+  }
+
+  /**
+   * Generate emojis for all sentences in a specific chapter.
+   * This is called from the workflow tracker per chapter.
+   */
+  generateEmojisForChapter(chapterId: string): void {
+    const doc = this.documentService.getCurrentDocument();
+    if (!doc || !doc.sentences) return;
+    const sentencesToProcess = doc.sentences.filter(s => s.chapterId === chapterId);
+    if (sentencesToProcess.length === 0) return;
+    this.isGenerating = true;
+    let processedCount = 0;
+    const totalSentences = sentencesToProcess.length;
+    sentencesToProcess.forEach((sentence, index) => {
+      this.aiService.generateEmojisFromText({
+        documentId: doc.id,
+        sentenceId: sentence.id,
+        text: sentence.text
+      }).subscribe({
+        next: (response) => {
+          const updatedDoc = this.documentService.getCurrentDocument();
+          if (updatedDoc) {
+            const updatedSentence = updatedDoc.sentences.find(s => s.id === sentence.id);
+            if (updatedSentence) {
+              this.documentService.updateSentenceEmojis(sentence.id, response.emojis);
+            }
+          }
+          processedCount++;
+          if (processedCount === totalSentences) this.isGenerating = false;
+        },
+        error: (err) => {
+          console.error(`Error generating emojis for sentence ${index + 1}:`, err);
+          processedCount++;
+          if (processedCount === totalSentences) this.isGenerating = false;
+        }
+      });
+    });
+  }
   private _activeTab: 'emojis' | 'graph' | 'characters' | 'analysis' | 'ai' | 'toc' | 'storyarc' = 'ai';
 
   // ===== INTENT PANEL STATE =====
@@ -365,7 +429,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
               } else {
                 // If current selection is invalid, reset to 'all'
                 if (this.selectedSentimentChapterId !== 'all' &&
-                    !this.chapters.find(c => c.id === this.selectedSentimentChapterId)) {
+                  !this.chapters.find(c => c.id === this.selectedSentimentChapterId)) {
                   this.selectedSentimentChapterId = 'all';
                 }
               }
@@ -1852,8 +1916,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const filteredSentences = this.selectedSentimentChapterId === 'all'
       ? [...doc.sentences].sort((a, b) => a.index - b.index)
       : [...doc.sentences]
-          .filter(s => s.chapterId === this.selectedSentimentChapterId)
-          .sort((a, b) => a.index - b.index);
+        .filter(s => s.chapterId === this.selectedSentimentChapterId)
+        .sort((a, b) => a.index - b.index);
 
     let sentence: Sentence | null = null;
 
@@ -1884,8 +1948,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
           const distance = Math.abs(sentencePosition - targetPosition);
 
           const textMatches = s.text.trim() === mentionText ||
-                             s.text.includes(mentionText) ||
-                             mentionText.includes(s.text.trim());
+            s.text.includes(mentionText) ||
+            mentionText.includes(s.text.trim());
 
           if (textMatches && distance < closestDistance) {
             closestDistance = distance;
@@ -1902,8 +1966,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
         sentence = filteredSentences.find(s => {
           const sText = s.text.trim();
           return sText === mentionText ||
-                 sText.includes(mentionText) ||
-                 mentionText.includes(sText);
+            sText.includes(mentionText) ||
+            mentionText.includes(sText);
         }) || null;
       }
     }

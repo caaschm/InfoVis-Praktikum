@@ -16,7 +16,7 @@
         background: white;
         border-bottom: 1px solid #f0f0f0;
         flex-shrink: 0; // Don't shrink
-        z-index: 100;
+        z-index: 1; // Lowered to avoid overlaying workflow bar
 
         @media (max-width: 768px) {
             padding: 1rem 0; // Slightly raised on mobile too
