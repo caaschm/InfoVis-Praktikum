@@ -7,7 +7,8 @@
                     <select [(ngModel)]="selectedChapterId" (change)="selectChapter(selectedChapterId)"
                         class="chapter-select">
                         <option [ngValue]="null">All Chapters</option>
-                        <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{ getChapterDisplayTitle(chapter)
+                        <option *ngFor="let chapter of chapters" [ngValue]="chapter.id">{{
+                            getChapterDisplayTitle(chapter)
                             }}</option>
                     </select>
                 </div>
@@ -149,61 +150,60 @@
                                     (blur)="saveChapterTitle(chapter)" class="chapter-title-input" autofocus>
                             </div>
 
-                            <!-- Chapter Sentences -->
-                            <div class="chapter-sentences">
-                                <ng-container
-                                    *ngFor="let sentence of getChapterSentences(chapter.id); trackBy: trackBySentenceId; let isLast = last">
-                                    <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
-                                        [class.ai-generated]="shouldHighlightAi(sentence)"
-                                        [ngClass]="getAiCategoryClass(sentence)"
-                                        [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
-                                        (click)="onSentenceClick(sentence)"
-                                        (mouseenter)="onSentenceMouseEnter(sentence)"
-                                        (mouseleave)="onSentenceMouseLeave()">
+                            <!-- Chapter Sentences and Placeholder Wrapper -->
+                            <div class="sentences-render-container" style="position: relative;">
+                                <div class="chapter-sentences" contenteditable="true"
+                                    (input)="onChapterContentInput($event, chapter.id)"
+                                    (blur)="onChapterContentBlur($event, chapter.id)" style="outline: none;">
+                                    <ng-container
+                                        *ngFor="let sentence of getChapterSentences(chapter.id); trackBy: trackBySentenceId; let isLast = last">
+                                        <span class="sentence-inline" [class.selected]="isSelected(sentence.id)"
+                                            [class.ai-generated]="shouldHighlightAi(sentence)"
+                                            [ngClass]="getAiCategoryClass(sentence)"
+                                            [class.non-ai]="showAiHighlight && !shouldHighlightAi(sentence)"
+                                            (click)="onSentenceClick(sentence)"
+                                            (mouseenter)="onSentenceMouseEnter(sentence)"
+                                            (mouseleave)="onSentenceMouseLeave()">
 
-
-
-                                        <!-- Editable text with inline highlighting -->
-                                        <span class="sentence-text"
-                                            [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
-                                            [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
-                                            contenteditable="true"
-                                            (input)="onSentenceInput(sentence, $any($event.target).innerText)"
-                                            (blur)="onSentenceBlur(sentence, $any($event.target).innerText)"
-                                            (focus)="onSentenceFocus(sentence, $event)"
-                                            (keyup)="onSentenceKeyUp(sentence, $event)"
-                                            [attr.data-sentence-id]="sentence.id">
-                                            <ng-container
-                                                *ngIf="hoveredEmoji && highlightedSentenceId !== sentence.id && sentence.text && sentence.text.trim().length > 0; else plainText">
-                                                <ng-container *ngFor="let segment of getHighlightedSegments(sentence)">
-                                                    <span *ngIf="segment.isHighlighted" class="word-highlight"
-                                                        [style.background-color]="highlightColor + '60'">{{ segment.text
-                                                        }}</span>
-                                                    <ng-container *ngIf="!segment.isHighlighted">{{ segment.text
-                                                        }}</ng-container>
+                                            <!-- Editable text with inline highlighting -->
+                                            <span class="sentence-text"
+                                                [class.sentence-sentiment-highlight]="highlightedSentenceId === sentence.id"
+                                                [style.background-color]="highlightedSentenceId === sentence.id ? sentenceHighlightColor + '40' : 'transparent'"
+                                                [attr.data-sentence-id]="sentence.id">
+                                                <ng-container
+                                                    *ngIf="hoveredEmoji && highlightedSentenceId !== sentence.id && sentence.text && sentence.text.trim().length > 0; else plainText">
+                                                    <ng-container
+                                                        *ngFor="let segment of getHighlightedSegments(sentence)">
+                                                        <span *ngIf="segment.isHighlighted" class="word-highlight"
+                                                            [style.background-color]="highlightColor + '60'">{{
+                                                            segment.text
+                                                            }}</span>
+                                                        <ng-container *ngIf="!segment.isHighlighted">{{ segment.text
+                                                            }}</ng-container>
+                                                    </ng-container>
                                                 </ng-container>
-                                            </ng-container>
-                                            <ng-template #plainText>{{ sentence.text }}</ng-template>
+                                                <ng-template #plainText>{{ sentence.text }}</ng-template>
+                                            </span>
+
+                                            <span class="emoji-tooltip" *ngIf="shouldShowEmojiTooltip(sentence)"
+                                                contenteditable="false">{{
+                                                sentence.emojis.join(' ') || '' }}</span>
+
+                                            <!-- Delete button for AI sentences -->
+                                            <span class="delete-ai-btn"
+                                                *ngIf="showAiHighlight && isAiGenerated(sentence)"
+                                                (click)="deleteAiSentence(sentence, $event)" title="Delete sentence"
+                                                contenteditable="false">&times;</span>
+
+                                            <span *ngIf="!isLast">&nbsp;</span>
                                         </span>
-
-                                        <span class="emoji-tooltip" *ngIf="shouldShowEmojiTooltip(sentence)">{{
-                                            sentence.emojis.join(' ') || '' }}</span>
-
-                                        <!-- Delete button for AI sentences -->
-                                        <span class="delete-ai-btn" *ngIf="showAiHighlight && isAiGenerated(sentence)"
-                                            (click)="deleteAiSentence(sentence, $event)"
-                                            title="Delete sentence">&times;</span>
-
-                                        <span *ngIf="!isLast">&nbsp;</span>
-                                    </span>
-                                </ng-container>
+                                    </ng-container>
+                                </div>
 
                                 <!-- Placeholder for empty chapter -->
                                 <div *ngIf="getChapterSentences(chapter.id).length === 0" class="chapter-placeholder"
-                                    [attr.data-chapter-placeholder]="chapter.id" contenteditable="true"
-                                    (click)="onPlaceholderClick(chapter.id)"
-                                    (input)="onPlaceholderInput($event, chapter.id)"
-                                    (blur)="onPlaceholderBlur($event, chapter.id)">
+                                    [attr.data-chapter-placeholder]="chapter.id"
+                                    (click)="onPlaceholderClick(chapter.id)">
                                     Start typing here...
                                 </div>
                             </div>
