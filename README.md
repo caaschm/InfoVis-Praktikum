@@ -6,7 +6,7 @@ A collaborative creative writing tool that helps authors visualize story emotion
 
 ## 🚀 Quick Start
 
-### 1. Get Your Free API Key
+### 1. Get Your (Free) API Key
 
 1. Visit [OpenRouter](https://openrouter.ai/keys)
 2. Sign up for a free account
