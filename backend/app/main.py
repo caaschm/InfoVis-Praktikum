@@ -19,16 +19,32 @@ app = FastAPI(
 )
 
 # Configure CORS to allow Angular dev server
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+origins = [
+    "http://localhost:4200",
+    "https://plottery.netlify.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4200",  # Angular dev server
-        "http://127.0.0.1:4200",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+""" # Configure CORS to allow Angular dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+@@ -28,7 +45,7 @@
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+)"""
 
 # Include routers
 app.include_router(documents.router)
