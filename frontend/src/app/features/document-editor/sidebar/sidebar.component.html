@@ -191,7 +191,7 @@
 
     <!-- Characters Tab -->
     <div class="tab-content" *ngSwitchCase="'characters'">
-        <h3>Character Sentiment</h3>
+        <h3 class="section-title">Character Sentiment</h3>
 
         <div class="chapter-analysis-selector">
             <label>Analyzing:</label>
@@ -232,7 +232,7 @@
                     <div *ngFor="let mention of character.mentions; let i = index"
                          class="timeline-point"
                          [ngClass]="getSentimentClass(mention.sentiment)"
-                         [style.left.%]="mention.position * 100"
+                         [style.left.%]="getTimelinePosition(mention)"
                          [title]="getSentimentTooltip(mention)"
                          (click)="onSentimentPointClick(character, mention); $event.stopPropagation()"
                          style="cursor: pointer;">
