@@ -1,7 +1,4 @@
-// This file can be replaced during build by using the `fileReplacements` array.
-// `ng build` replaces `environment.ts` with `environment.prod.ts`.
-
 export const environment = {
-    production: false,
-    apiUrl: 'http://localhost:8000'
+  production: true,
+  apiUrl: 'https://infovis-praktikum-mzs2.onrender.com'
 };
