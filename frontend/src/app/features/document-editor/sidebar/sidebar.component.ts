@@ -1798,8 +1798,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    const width = 100;
     const height = 40;
+    // Map position [0,1] to x [12,88] – gleicher Abstand links/rechts wie timeline-points
+    const getX = (p: number) => 12 + p * 76;
 
     // Map sentiment to Y position (positive = higher, negative = lower, neutral = middle)
     const getYForSentiment = (sentiment: string): number => {
@@ -1810,12 +1811,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     // Start path at first mention
     const firstMention = sortedMentions[0];
-    let path = `M ${firstMention.position * width} ${getYForSentiment(firstMention.sentiment)}`;
+    let path = `M ${getX(firstMention.position)} ${getYForSentiment(firstMention.sentiment)}`;
 
     // Connect to subsequent mentions
     for (let i = 1; i < sortedMentions.length; i++) {
       const mention = sortedMentions[i];
-      const x = mention.position * width;
+      const x = getX(mention.position);
       const y = getYForSentiment(mention.sentiment);
       path += ` L ${x} ${y}`;
     }
@@ -1828,6 +1829,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
    */
   getSentimentClass(sentiment: string): string {
     return sentiment.toLowerCase(); // 'positive', 'neutral', or 'negative'
+  }
+
+  /**
+   * Map position [0,1] to left percentage [12,88] – Punkte (16px + 3px Border + Shadow)
+   * bleiben sicher innerhalb des Farbverlaufs, gleicher Abstand links/rechts.
+   */
+  getTimelinePosition(mention: CharacterSentimentMention): number {
+    const p = mention.position ?? 0;
+    return 12 + p * 76; // 0 → 12%, 1 → 88%
   }
 
   /**

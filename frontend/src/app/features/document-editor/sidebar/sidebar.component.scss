@@ -48,6 +48,28 @@
             font-weight: 600;
         }
 
+        h3.section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #111827;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 2px solid #e5e7eb;
+            position: relative;
+
+            &::after {
+                content: '';
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                width: 48px;
+                height: 2px;
+                background: linear-gradient(90deg, #667eea, #764ba2);
+                border-radius: 0 1px 0 0;
+            }
+        }
+
         h4 {
             margin: 0 0 1rem 0;
             color: #374151;
@@ -561,7 +583,7 @@
             .character-card {
                 background: #f9fafb;
                 border-radius: 12px;
-                padding: 1.25rem;
+                padding: 1rem 1.25rem;
                 border: 1px solid #e5e7eb;
                 transition: all 0.2s ease;
 
@@ -579,12 +601,12 @@
                 .character-header {
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
+                    gap: 0.75rem;
                     margin-bottom: 1rem;
 
                     .character-avatar {
-                        width: 48px;
-                        height: 48px;
+                        width: 44px;
+                        height: 44px;
                         border-radius: 50%;
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         display: flex;
@@ -618,6 +640,7 @@
                     background: linear-gradient(90deg, #fee2e2 0%, #fef3c7 50%, #d1fae5 100%);
                     border-radius: 8px;
                     margin-bottom: 1rem;
+                    overflow: hidden; // Punkte nur innerhalb des Farbverlaufs
 
                     &::before {
                         content: '';
@@ -1058,20 +1081,23 @@
             margin-bottom: 2rem;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
             background: #f3f4f6;
             padding: 0.75rem 1rem;
             border-radius: 8px;
+            min-width: 0; // Allow flex children to shrink and prevent clipping
 
             label {
                 font-weight: 600;
                 color: #4b5563;
                 font-size: 0.9rem;
+                flex-shrink: 0;
             }
 
             select {
                 flex: 1;
-                padding: 0.5rem;
+                min-width: 0; // Prevent overflow/clipping in flex layout
+                padding: 0.5rem 0.75rem;
                 border: 1px solid #d1d5db;
                 border-radius: 6px;
                 background: white;
@@ -1079,6 +1105,7 @@
                 color: #374151;
                 outline: none;
                 cursor: pointer;
+                max-width: 100%;
 
                 &:hover {
                     border-color: #9ca3af;
