@@ -11,6 +11,7 @@ from app.database import init_db
 from app.routers import documents, sentences, ai, characters, chapters
 from app.schemas import HealthResponse
 
+
 # Create FastAPI app
 app = FastAPI(
     title="Plottery API",
@@ -18,7 +19,23 @@ app = FastAPI(
     version="2.0.0"  # Major version bump - consolidated emoji system
 )
 
-# Configure CORS to allow Angular dev server
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+origins = [
+    "http://localhost:4200",
+    "https://plottery.netlify.app",  # später ersetzen
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+""" # Configure CORS to allow Angular dev server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -28,7 +45,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
+)"""
 
 # Include routers
 app.include_router(documents.router)
