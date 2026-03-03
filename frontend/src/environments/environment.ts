@@ -3,5 +3,6 @@
 
 export const environment = {
     production: false,
-    apiUrl: 'http://localhost:8000'
+    apiURL: 'https://infovis-praktikum.onrender.com'
+    //apiUrl: 'http://localhost:8000'
 };
