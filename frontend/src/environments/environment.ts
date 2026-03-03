@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://infovis-praktikum-mzs2.onrender.com'
+  apiUrl: 'https://infovis-praktikum.onrender.com'
 };
